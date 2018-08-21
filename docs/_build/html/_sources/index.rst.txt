@@ -10,6 +10,8 @@ Welcome to mre's documentation!
    :maxdepth: 2
    :caption: Contents:
 .. autofunction:: proposal_function_definition.mr_estimator
+.. automodule:: mre
+   :members:
 
 
 Indices and tables
