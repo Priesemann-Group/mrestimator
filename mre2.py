@@ -287,7 +287,7 @@ def mr_estimation(prep):
 
 
 def test_from_import_1():
-    path_data = "/home/pspitzner/owncloud/mpi/jonas/141024/session01/data_neo_mua.pickled"
+    path_data = "/home/pspitzner/owncloud/mpi/jonas/141024/session02/data_neo_mua.pickled"
     file = neo.io.PickleIO(path_data)
     block = file.read_block()
 
@@ -399,7 +399,7 @@ def test_from_import_1():
         ax2.legend(loc='upper right')
 
         plt.tight_layout()
-        plt.savefig('/home/pspitzner/owncloud/mpi/temp/plot_{}_{}.svg'.format(1, channel))
+        plt.savefig('/home/pspitzner/owncloud/mpi/temp/plot_{}_{}.svg'.format(2, channel))
         plt.close()
         # plt.show()
 
@@ -422,7 +422,7 @@ def test_bp_1():
     sep = []
     sepf = []
     for t in range(0, trial_count):
-        temp = simulate_branching(length=sim_length, m=0.98, activity=100-np.random.random()*10)
+        temp = simulate_branching(length=sim_length, m=0.98, activity=100-np.random.random()*50)
         A_t.append(temp)
         sep.append(get_slopes(temp, max_slopes=k_max,
                                  substract_mean=True))
@@ -514,7 +514,7 @@ def test_bp_1():
 
 if __name__ == "__main__":
     # print(input_handler(['/Users/paul/mpi/ec013.527/ec013.527.res.1']))
-    test_from_import_1()
-    # test_bp_1()
+    # test_from_import_1()
+    test_bp_1()
     # break
 
