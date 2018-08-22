@@ -1,4 +1,9 @@
 import numpy as np
+import os
+import matplotlib
+if os.environ.get('DISPLAY','') == '':
+    print('No display found. Using non-interactive Agg backend for plotting')
+    matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from collections import namedtuple
 import scipy
@@ -10,23 +15,21 @@ def input_handler(items):
     """
     Helper function that attempts to detect provided input and convert it to the
     format used by the toolbox. Ideally, you provide the native format, a numpy
-    ndarray of :code:`shape(total_trials, total_channels, data_length)`.
+    ndarray of :code:`shape(total_trials, data_length)`.
 
-    All trials and channels should have the same data length, otherwise they
-    will be padded.
+    All trials should have the same data length, otherwise they will be padded.
 
-    Whenever possible, the toolbox uses 3d ndarrays for providing and returning
+    Whenever possible, the toolbox uses 2d ndarrays for providing and returning
     data to/from functions. This allows to consistently
-    access trials, channels, data via the first, second and third index,
-    respectively.
+    access trials and data via the first and second index, respectively.
 
     Parameters
     ----------
-    items : list, string or ndarray
-        two sets of measurements.  Both arrays should have the same length.
-        If only x is given (and y=None), then it must be a two-dimensional
-        array where one dimension has length 2.  The two sets of measurements
-        are then found by splitting the array along the length-2 dimension.
+    items : ndarray, string or list
+        Ideally, provide the native format `ndarray`.
+        If a `string` is provided, it is assumed to be the path to
+        file(s) that are then imported as pickl are plain text.
+        Alternatively, you can provide a `list` of data or strings.
 
     Returns
     -------
@@ -38,13 +41,21 @@ def input_handler(items):
     .. code-block:: python
 
         import numpy as np
+        import matplotlib.pyplot as plt
         import mre
 
-        raw = np.ndarray(shape=(2,1,1000))
-        raw[0,0,:] = mre.simulate_branching(length=1000)
-        raw[1,0,:] = mre.simulate_branching(length=1000)
+        # branching process with 3 trials, 10000 measurement points
+        raw = mre.simulate_branching(numtrials=3, length=10000)
+        print(raw.shape)
 
+        # the bp returns data already in the right format
         prepared = mre.input_handler(raw)
+        print(prepared.shape)
+
+        # plot the first two trials
+        plt.plot(prepared[0])     # first trial
+        plt.plot(prepared[1])     # first trial
+        plt.show()
     ..
     """
 
@@ -59,7 +70,7 @@ def input_handler(items):
         if items.dtype.kind == 'i' \
                 or items.dtype.kind == 'f' \
                 or items.dtype.kind == 'u':
-            items = [items]
+            # items = [items]
             situation = 0
         elif items.dtype.kind == 'S':
             situation = 1
@@ -106,7 +117,7 @@ def input_handler(items):
         raise Exception('Unknown situation!')
 
 
-def simulate_branching(length=10000, m=0.9, activity=100):
+def simulate_branching(length=10000, m=0.9, activity=100, numtrials=1):
     """
     Simulates a branching process with Poisson input.
 
@@ -124,31 +135,32 @@ def simulate_branching(length=10000, m=0.9, activity=100):
 
     Returns
     -------
-    timeseries : array
-        Time series containging :code:`length` entries of activity.
+    timeseries : ndarray
+        ndarray with :code:`numtrials` time series,
+        each containging :code:`length` entries of activity.
     """
 
+    A_t = np.ndarray(shape=(numtrials, length), dtype=int)
     h = activity * (1 - m)
-
-    A_t = np.zeros(length, dtype=int)
-    A_t[0] = np.random.poisson(lam=activity)
 
     print('Generating branching process with {} '.format(length),
           'time steps, m = {} '.format(m),
           'and drive rate h = {}'.format(h))
 
-    for idx in range(1, length):
-        if not idx % 1000:
-            print('{} loops completed'.format(idx))
-        tmp = 0
-        tmp += np.random.poisson(lam=h)
-        if m > 0:
-            #for idx2 in range(A_t[idx - 1]):
-            tmp += np.random.poisson(lam=m, size=A_t[idx - 1]).sum()
+    for trial in range(0, numtrials):
+        if not trial == 0: print('Starting trial ', trial)
+        A_t[trial, 0] = np.random.poisson(lam=activity)
 
-        A_t[idx] = tmp
+        for idx in range(1, length):
+            if not idx % 1000: print('  {} loops completed'.format(idx))
+            tmp = 0
+            tmp += np.random.poisson(lam=h)
+            if m > 0:
+                tmp += np.random.poisson(lam=m, size=A_t[trial, idx - 1]).sum()
 
-    print('Branching process created with mean activity At = {}'
-          .format(A_t.mean()))
+            A_t[trial, idx] = tmp
+
+        print('Branching process created with mean activity At = {}'
+              .format(A_t[trial].mean()))
 
     return A_t
