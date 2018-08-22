@@ -187,7 +187,7 @@ exponential_with_offset: [m, A, O], complex: […..]</li>
 <code class="descclassname">mre.</code><code class="descname">input_handler</code><span class="sig-paren">(</span><em>items</em><span class="sig-paren">)</span><a class="headerlink" href="#mre.input_handler" title="Permalink to this definition">¶</a></dt>
 <dd><p>Helper function that attempts to detect provided input and convert it to the
 format used by the toolbox. Ideally, you provide the native format, a numpy
-ndarray of <code class="code docutils literal notranslate"><span class="pre">shape(total_trials,</span> <span class="pre">data_length)</span></code>.</p>
+ndarray of <code class="code docutils literal notranslate"><span class="pre">shape(numtrials,</span> <span class="pre">datalength)</span></code>.</p>
 <p>All trials should have the same data length, otherwise they will be padded.</p>
 <p>Whenever possible, the toolbox uses 2d ndarrays for providing and returning
 data to/from functions. This allows to consistently
@@ -198,12 +198,13 @@ access trials and data via the first and second index, respectively.</p>
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>items</strong> (<em>ndarray</em><em>, </em><em>string</em><em> or </em><em>list</em>) – Ideally, provide the native format <cite>ndarray</cite>.
 If a <cite>string</cite> is provided, it is assumed to be the path to
-file(s) that are then imported as pickl are plain text.
+file(s) that are then imported or pickle are plain text.
+Wildcards should work.
 Alternatively, you can provide a <cite>list</cite> of data or strings.</td>
 </tr>
-<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><strong>preparedsource</strong> – the ndarray has three dimensions: trial, channel and data</td>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><strong>preparedsource</strong> – the <cite>ndarray</cite> has two dimensions: trial and data</td>
 </tr>
-<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">ndarray[trial, channel, data]</td>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body">ndarray[trial, data]</td>
 </tr>
 </tbody>
 </table>
@@ -222,7 +223,7 @@ Alternatively, you can provide a <cite>list</cite> of data or strings.</td>
 
 <span class="c1"># plot the first two trials</span>
 <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">prepared</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>     <span class="c1"># first trial</span>
-<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">prepared</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>     <span class="c1"># first trial</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">prepared</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>     <span class="c1"># second trial</span>
 <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
 </pre></div>
 </div>
@@ -241,11 +242,14 @@ Alternatively, you can provide a <cite>list</cite> of data or strings.</td>
 generated time series.</li>
 <li><strong>m</strong> (<em>float</em><em>, </em><em>optional</em>) – Branching parameter.</li>
 <li><strong>activity</strong> (<em>float</em><em>, </em><em>optional</em>) – Mean activity of the process.</li>
+<li><strong>numtrials</strong> (<em>int</em><em>, </em><em>optional</em>) – Generate more than one trial.</li>
 </ul>
 </td>
 </tr>
 <tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first"><strong>timeseries</strong> – ndarray with <code class="code docutils literal notranslate"><span class="pre">numtrials</span></code> time series,
-each containging <code class="code docutils literal notranslate"><span class="pre">length</span></code> entries of activity.</p>
+each containging <code class="code docutils literal notranslate"><span class="pre">length</span></code> entries of activity.
+If no arguments are provided, one trial is created with
+10000 measurements.</p>
 </td>
 </tr>
 <tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">ndarray</p>

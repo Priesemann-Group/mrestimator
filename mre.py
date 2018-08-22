@@ -15,7 +15,7 @@ def input_handler(items):
     """
     Helper function that attempts to detect provided input and convert it to the
     format used by the toolbox. Ideally, you provide the native format, a numpy
-    ndarray of :code:`shape(total_trials, data_length)`.
+    ndarray of :code:`shape(numtrials, datalength)`.
 
     All trials should have the same data length, otherwise they will be padded.
 
@@ -28,13 +28,14 @@ def input_handler(items):
     items : ndarray, string or list
         Ideally, provide the native format `ndarray`.
         If a `string` is provided, it is assumed to be the path to
-        file(s) that are then imported as pickl are plain text.
+        file(s) that are then imported or pickle are plain text.
+        Wildcards should work.
         Alternatively, you can provide a `list` of data or strings.
 
     Returns
     -------
-    preparedsource : ndarray[trial, channel, data]
-        the ndarray has three dimensions: trial, channel and data
+    preparedsource : ndarray[trial, data]
+        the `ndarray` has two dimensions: trial and data
 
     Example
     -------
@@ -54,7 +55,7 @@ def input_handler(items):
 
         # plot the first two trials
         plt.plot(prepared[0])     # first trial
-        plt.plot(prepared[1])     # first trial
+        plt.plot(prepared[1])     # second trial
         plt.show()
     ..
     """
@@ -133,11 +134,16 @@ def simulate_branching(length=10000, m=0.9, activity=100, numtrials=1):
     activity : float, optional
         Mean activity of the process.
 
+    numtrials : int, optional
+        Generate more than one trial.
+
     Returns
     -------
     timeseries : ndarray
         ndarray with :code:`numtrials` time series,
         each containging :code:`length` entries of activity.
+        If no arguments are provided, one trial is created with
+        10000 measurements.
     """
 
     A_t = np.ndarray(shape=(numtrials, length), dtype=int)
