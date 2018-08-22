@@ -1,4 +1,9 @@
 import numpy as np
+import os
+import matplotlib
+if os.environ.get('DISPLAY','') == '':
+    print('No display found. Using non-interactive Agg backend for plotting')
+    matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from collections import namedtuple
 import scipy
@@ -190,6 +195,61 @@ def get_slopes_concat(ts_list,
                        r_values, p_values, std_errs,
                        data_length, mean_activity)
 
+def get_slopes_vjonas(ts_list,
+                      max_slopes=400,
+                      min_slopes=10,
+                      substract_mean=False,
+                      ignore_negative_slopes=False):
+
+    print('vjones')
+    mean_activity = 0
+    data_length = 0
+    for i in ts_list:
+        mean_activity += np.sum(i)
+        data_length += len(i)
+    mean_activity=mean_activity/data_length
+
+    varxk0 = np.var(np.concatenate(ts_list, axis=0).flatten())
+    print("varxk0: ", varxk0)
+
+    steps = np.arange(min_slopes, max_slopes)
+    slopes = np.zeros(len(steps))
+    intercepts = np.zeros(len(steps))
+    r_values = np.zeros(len(steps))
+    p_values = np.zeros(len(steps))
+    std_errs = np.zeros(len(steps))
+
+    for idx, step in enumerate(steps):
+        # print('k=', step)
+        nom = 0
+        for time_series in ts_list:
+            mx = np.mean(time_series[0:-step])
+            my = np.mean(time_series[step:  ])
+            nom += np.mean( (time_series[0:-step] - mx) *
+                            (time_series[step:  ] - my) )
+        nom /= len(ts_list)
+        jslope = nom/varxk0
+        # print('nom: ', nom)
+        # print('varxk0: ', varxk0)
+        # print('slope: ', jslope)
+        slopes[idx] = jslope
+        intercepts[idx] = 0.1
+        r_values[idx] = 0.1
+        p_values[idx] = 0.1
+        std_errs[idx] = 0.1
+
+    if ignore_negative_slopes:
+        slopes = np.ma.masked_less_equal(slopes, 0.0)
+        steps = np.ma.masked_where(np.ma.getmask(slopes), steps)
+        std_errs = np.ma.masked_where(np.ma.getmask(slopes), std_errs)
+        # steps = steps[slopes > 0]
+        # std_errs = std_errs[slopes > 0]
+        # slopes = slopes[slopes > 0]
+
+    return SlopeResult(steps, slopes, intercepts,
+                       r_values, p_values, std_errs,
+                       data_length, mean_activity)
+
 
 def get_scatter_points(time_series,
                        step=10,
@@ -278,7 +338,7 @@ def mr_estimation(prep):
     return_dict = dict()
 
     return_dict['branchingratio'] = p_opt[1]
-    return_dict['autocorrelationtime'] = - 1.0 / np.log(p_opt[1])
+    return_dict['autocorrelationtime'] = 0 if p_opt[1] == 1.0 else - 1.0 / np.log(p_opt[1])
     return_dict['naiveratio'] = prep.slopes[0]
     return_dict['fitfunc'] = fitfunc
     return_dict['popt'] = p_opt
@@ -287,7 +347,7 @@ def mr_estimation(prep):
 
 
 def test_from_import_1():
-    path_data = "/home/pspitzner/owncloud/mpi/jonas/141024/session02/data_neo_mua.pickled"
+    path_data = "/home/pspitzner/owncloud/mpi/jonas/141024/session01/data_neo_mua.pickled"
     file = neo.io.PickleIO(path_data)
     block = file.read_block()
 
@@ -321,12 +381,11 @@ def test_from_import_1():
             # print("t append: ", time.time()-timer)
 
 
-            # timer = time.time()
             res = get_slopes(hist, max_slopes=k_max, ignore_negative_slopes=False)
-            # print("t rjk: ", time.time()-timer)
             slopes[idx] = res.slopes
             stderrs[idx] = res.stderrs
             acts[idx] = res.meanactivity
+
             # print(res.meanactivity)
             # print(res.slopes.min())
             # print(slopes[idx].min())
@@ -344,22 +403,35 @@ def test_from_import_1():
             #       fiterrs[idx])
 
         print("t separate: ", time.time()-timer)
+        timer = time.time()
 
         # plt.errorbar(range(1,len(r_k)+1), r_k, yerr=fiterrs, fmt='o')
         # plt.show()
 
 
-        timer = time.time()
 
         # print(input_handler(trials))
+
+
+
+
+
+        resj = get_slopes_vjonas(trials, max_slopes=k_max,
+                                ignore_negative_slopes=False)
+
+        print("t vj: ", time.time()-timer)
+        timer = time.time()
 
         res = get_slopes_concat(trials, max_slopes=k_max,
                                 ignore_negative_slopes=False)
 
-
         print("t concat: ", time.time()-timer)
+        timer = time.time()
 
         res_sep = SlopeResult(res.steps, r_k,0,0,0,np.asarray(jackerrs),0,0)
+
+        mr_resj = mr_estimation(resj)
+        print(mr_resj)
 
         mr_resc = mr_estimation(res)
         print(mr_resc)
@@ -385,21 +457,28 @@ def test_from_import_1():
                      label='conc', color='red')
         ax2.errorbar(res.steps, r_k, jackerrs,
                      label='sep', color='blue')
+        ax2.plot(    res.steps, resj.slopes,
+                     label='sep', color='green')
         solc=[]
         sols=[]
+        solj=[]
         for i in res.steps:
             solc.append(func(i, mr_resc['popt'][0], mr_resc['popt'][1], mr_resc['popt'][2]))
             sols.append(func(i, mr_ress['popt'][0], mr_ress['popt'][1], mr_ress['popt'][2]))
+            solj.append(func(i, mr_resj['popt'][0], mr_resj['popt'][1], mr_resj['popt'][2]))
         ax2.plot(res.steps, solc, color='red',
                      label=func(0, mr_resc['popt'][0], mr_resc['popt'][1], mr_resc['popt'][2],
                      string=True))
         ax2.plot(res.steps, sols, color='blue',
                      label=func(0, mr_ress['popt'][0], mr_ress['popt'][1], mr_ress['popt'][2],
                      string=True))
+        ax2.plot(res.steps, solj, color='green',
+                     label=func(0, mr_resj['popt'][0], mr_resj['popt'][1], mr_resj['popt'][2],
+                     string=True))
         ax2.legend(loc='upper right')
 
         plt.tight_layout()
-        plt.savefig('/home/pspitzner/owncloud/mpi/temp/plot_{}_{}.svg'.format(2, channel))
+        plt.savefig('/home/pspitzner/owncloud/mpi/temp/plot_{}_{}.svg'.format(1, channel))
         plt.close()
         # plt.show()
 
@@ -422,7 +501,7 @@ def test_bp_1():
     sep = []
     sepf = []
     for t in range(0, trial_count):
-        temp = simulate_branching(length=sim_length, m=0.98, activity=100-np.random.random()*50)
+        temp = simulate_branching(length=sim_length, m=0.98, activity=100-np.random.random()*10)
         A_t.append(temp)
         sep.append(get_slopes(temp, max_slopes=k_max,
                                  substract_mean=True))
