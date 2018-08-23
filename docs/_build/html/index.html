@@ -187,18 +187,18 @@ exponential_with_offset: [m, A, O], complex: […..]</li>
 <code class="descclassname">mre.</code><code class="descname">input_handler</code><span class="sig-paren">(</span><em>items</em><span class="sig-paren">)</span><a class="headerlink" href="#mre.input_handler" title="Permalink to this definition">¶</a></dt>
 <dd><p>Helper function that attempts to detect provided input and convert it to the
 format used by the toolbox. Ideally, you provide the native format, a numpy
-ndarray of <code class="code docutils literal notranslate"><span class="pre">shape(numtrials,</span> <span class="pre">datalength)</span></code>.</p>
+<cite>ndarray</cite> of <code class="code docutils literal notranslate"><span class="pre">shape(numtrials,</span> <span class="pre">datalength)</span></code>.</p>
 <p>All trials should have the same data length, otherwise they will be padded.</p>
-<p>Whenever possible, the toolbox uses 2d ndarrays for providing and returning
-data to/from functions. This allows to consistently
+<p>Whenever possible, the toolbox uses two dimensional <cite>ndarrays</cite> for
+providing and returning data to/from functions. This allows to consistently
 access trials and data via the first and second index, respectively.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>items</strong> (<em>ndarray</em><em>, </em><em>string</em><em> or </em><em>list</em>) – Ideally, provide the native format <cite>ndarray</cite>.
-If a <cite>string</cite> is provided, it is assumed to be the path to
-file(s) that are then imported or pickle are plain text.
+A <cite>string</cite> is assumed to be the path to
+file(s) that are then imported as pickle or plain text.
 Wildcards should work.
 Alternatively, you can provide a <cite>list</cite> of data or strings.</td>
 </tr>

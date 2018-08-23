@@ -1,7 +1,7 @@
 import numpy as np
 import os
 import matplotlib
-if os.environ.get('DISPLAY','') == '':
+if os.environ.get('DISPLAY', '') == '':
     print('No display found. Using non-interactive Agg backend for plotting')
     matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -170,3 +170,101 @@ def simulate_branching(length=10000, m=0.9, activity=100, numtrials=1):
               .format(A_t[trial].mean()))
 
     return A_t
+
+
+def correlation_coefficients(data,
+                             minslope=1,
+                             maxslope=1000,
+                             method='trialseparated'):
+
+    dim = -1
+    try:
+        dim = len(data.shape)
+        if dim == 1:
+            print('Warning: you should provide an ndarray of' \
+                  'shape(numtrials, datalength).\n' \
+                  '         Assuming one trial and reshaping your input.')
+            data.reshape(1, len(data))
+        elif dim >= 3:
+            print('Exception: Provided ndarray is of dim {}.\n'.format(dim),
+                  '          Please provide a two dimensional ndarray.')
+            exit()
+    except Exception as e:
+        print('Exception: {}.\n'.format(e),
+              '          Please provide a two dimensional ndarray.')
+        exit()
+
+
+    fulres = namedtuple('coefficientResult',
+                        ('coefficients', 'steps',
+                         'offsets', 'stderrs',
+                         'meanactivity',
+                         'samples'))
+
+    sepres = namedtuple('separateResult',
+                        ('coefficients',
+                         'offsets', 'stderrs',
+                         'trialactivies'))
+
+    fulres.steps = np.arange(minslope, maxslope)
+    numsteps     = len(fulres.steps)
+    numtrials    = data.shape[0]
+    datalength   = data.shape[1]
+
+    print('Calculating coefficients using "{}" method:\n'.format(method),
+          ' {} trials, length {}'.format(numtrials, datalength))
+
+
+    if method == 'trialseparated':
+        sepres.coefficients = np.zeros(shape=(numtrials, numsteps), dtype=float)
+        sepres.offsets      = np.zeros(shape=(numtrials, numsteps), dtype=float)
+        sepres.stderrs      = np.zeros(shape=(numtrials, numsteps), dtype=float)
+        sepres.trialactivies = np.zeros(numtrials)
+
+        for tdx, trial in enumerate(data):
+            sepres.trialactivies[tdx] = np.mean(trial)
+            print('    Trial {}/{} with'.format(tdx+1, numtrials),
+                  'mean activity {0:.2f}'.format(sepres.trialactivies[tdx]))
+
+            for idx, step in enumerate(fulres.steps):
+                # todo change this to use complete trial mean
+                lr = scipy.stats.linregress(trial[0:-step],
+                                                trial[step:  ])
+                sepres.coefficients[tdx, idx] = lr.slope
+                sepres.offsets[tdx, idx]      = lr.intercept
+                sepres.stderrs[tdx, idx]      = lr.stderr
+
+        print('  Estimating errors from seperate trials')
+        fulres.coefficients = np.mean(sepres.coefficients, axis=0)
+        fulres.offsets      = np.mean(sepres.offsets, axis=0)
+        fulres.stderrs      = np.sqrt(np.var(sepres.coefficients, axis=0,
+                                             ddof=1))
+        fulres.meanactivity = np.mean(data.flatten())
+        fulres.samples      = sepres
+
+    elif method == 'stationarymean':
+        sepres.coefficients = None
+        sepres.offsets      = None
+        sepres.stderrs      = None
+        sepres.trialactivies = np.mean(data, axis=1)
+
+        fulres.coefficients = np.zeros(numsteps, dtype=float)
+        fulres.offsets      = np.zeros(numsteps, dtype=float)
+        fulres.stderrs      = np.zeros(numsteps, dtype=float)
+
+        for idx, step in enumerate(fulres.steps):
+            if not idx%100: print('  {}/{} steps'.format(idx+1, numsteps))
+            x = np.empty(0)
+            y = np.empty(0)
+            for tdx, trial in enumerate(data):
+                m = sepres.trialactivies[tdx]
+                x = np.concatenate((x, trial[0:-step]-m))
+                y = np.concatenate((y, trial[step:  ]-m))
+            lr = scipy.stats.linregress(x, y)
+            fulres.coefficients[idx] = lr.slope
+            fulres.offsets[idx]      = lr.intercept
+            fulres.stderrs[idx]      = lr.stderr
+
+        fulres.samples = sepres
+
+    return fulres
