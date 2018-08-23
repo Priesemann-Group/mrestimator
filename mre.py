@@ -173,18 +173,115 @@ def simulate_branching(length=10000, m=0.9, activity=100, numtrials=1):
 
 
 def correlation_coefficients(data,
-                             minslope=1,
-                             maxslope=1000,
-                             method='trialseparated'):
+                             minstep=1,
+                             maxstep=1000,
+                             method='trialseparated',
+                             bootstrap=True):
+    """
+    Calculates the coefficients of correlation :math:`r_k`.
+
+    Parameters
+    ----------
+    data : ndarray
+        Input data, containing the time series of activity in the trial
+        structure. If a one dimensional array is provieded instead, we assume
+        a single trial and reshape the input.
+
+    minstep : int, optional
+        The smallest autocorellation step :math:`k` to use.
+
+    maxstep : int, optional
+        The largest autocorellation step :math:`k` to use. All :math:`k` values
+        between `minstep` and `maxstep` are processed (stride 1).
+
+    method : str, optional
+        The estimation method to use, either `'trialseparated'` or
+        `'stationarymean'`. The default, `'trialseparated'` calculates
+        the :math:`r_k` for each trial separately and averaged
+        over. Each trials contribution is weighted with its variance.
+        `'stationarymean'` assumes the mean activity and its variance to be
+        constant across all trials.
+
+    bootstrap : bool, optional
+        Only considered if using the `'stationarymean'` method.
+        Enable bootstrapping to generate multiple (resampled)
+        series of trials from the provided one. This allows to approximate the
+        returned error statistically, (as opposed to the fit errors).
+
+    Returns
+    -------
+
+    coefficientResult : namedtuple
+        The output is grouped into a `namedtuple` and can be accessed using
+        the following attributes:
+
+    coefficients : array
+        Contains the coefficients :math:`r_k`, has length ``maxstep - minstep``.
+
+    steps : array
+        Array of the :math:`k` values matching `coefficients`.
+
+    offsets : array
+        Offsets obtained from the linear regression.
+
+    stderrs : array
+        Standard errors of the :math:`r_k`.
+
+    meanactivity : float
+        Global mean activity over all trials.
+
+    samples : namedtuple
+        Contains the information of the seperate (or resampled) trials.
+
+    samples.coefficients : ndarray
+        Coefficients of each seperate trial (or sample). Access via
+        ``samples.coefficients[trial, step]``
+
+    samples.trialactivies : array
+        Individual activites of each trial
+
+    Example
+    -------
+    .. code-block:: python
+
+        import numpy as np
+        import matplotlib.pyplot as plt
+        import mre
+
+        # branching process with 15 trials
+        bp = mre.simulate_branching(numtrials=15)
+
+        # the bp returns data already in the right format
+        rk = mre.correlation_coefficients(bp)
+
+        # seperate trials, swap indices to comply with the pyplot layout
+        plt.plot(rk.steps, np.transpose(rk.samples.coefficients),
+                 color='C0', alpha=0.1)
+
+        # estimated coefficients
+        plt.plot(rk.steps, rk.coefficients,
+                 color='C0', label='estimated r_k')
+
+        plt.xlabel(r'$k$')
+        plt.ylabel(r'$r_k$')
+        plt.legend(loc='upper right')
+        plt.show()
+    ..
+
+
+    Todo:
+        * For module TODOs
+        * You have to also use ``sphinx.ext.todo`` extension
+    """
 
     dim = -1
     try:
         dim = len(data.shape)
         if dim == 1:
-            print('Warning: you should provide an ndarray of' \
+            print('Warning: you should provide an ndarray of ' \
                   'shape(numtrials, datalength).\n' \
-                  '         Assuming one trial and reshaping your input.')
-            data.reshape(1, len(data))
+                  '         Continuing with one trial, reshaping your input.')
+            data = np.reshape(data, (1, len(data)))
         elif dim >= 3:
             print('Exception: Provided ndarray is of dim {}.\n'.format(dim),
                   '          Please provide a two dimensional ndarray.')
@@ -206,7 +303,8 @@ def correlation_coefficients(data,
                          'offsets', 'stderrs',
                          'trialactivies'))
 
-    fulres.steps = np.arange(minslope, maxslope)
+    fulres.meanactivity = np.mean(data.flatten())
+    fulres.steps = np.arange(minstep, maxstep)
     numsteps     = len(fulres.steps)
     numtrials    = data.shape[0]
     datalength   = data.shape[1]
@@ -234,13 +332,20 @@ def correlation_coefficients(data,
                 sepres.offsets[tdx, idx]      = lr.intercept
                 sepres.stderrs[tdx, idx]      = lr.stderr
 
-        print('  Estimating errors from seperate trials')
         fulres.coefficients = np.mean(sepres.coefficients, axis=0)
         fulres.offsets      = np.mean(sepres.offsets, axis=0)
-        fulres.stderrs      = np.sqrt(np.var(sepres.coefficients, axis=0,
-                                             ddof=1))
-        fulres.meanactivity = np.mean(data.flatten())
         fulres.samples      = sepres
+        if numtrials == 1:
+            fulres.stderrs  = np.copy(sepres.stderrs[0])
+            print('  Only one trial given, using errors from fit.')
+        else:
+            fulres.stderrs  = np.sqrt(np.var(sepres.coefficients, axis=0,
+                                             ddof=1))
+            print('  Estimated errors from seperate trials.')
+            if numtrials < 10:
+                print('  Only {} trials given,'.format(numtrials),
+                      'consider using the fit errors instead.')
+
 
     elif method == 'stationarymean':
         sepres.coefficients = None
@@ -268,3 +373,4 @@ def correlation_coefficients(data,
         fulres.samples = sepres
 
     return fulres
+

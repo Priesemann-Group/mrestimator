@@ -183,6 +183,86 @@ exponential_with_offset: [m, A, O], complex: […..]</li>
 </dd></dl>
 
 <span class="target" id="module-mre"></span><dl class="function">
+<dt id="mre.correlation_coefficients">
+<code class="descclassname">mre.</code><code class="descname">correlation_coefficients</code><span class="sig-paren">(</span><em>data</em>, <em>minstep=1</em>, <em>maxstep=1000</em>, <em>method='trialseparated'</em>, <em>bootstrap=True</em><span class="sig-paren">)</span><a class="headerlink" href="#mre.correlation_coefficients" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calculates the coefficients of correlation <span class="math notranslate nohighlight">\(r_k\)</span>.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>data</strong> (<em>ndarray</em>) – Input data, containing the time series of activity in the trial
+structure. If a one dimensional array is provieded instead, we assume
+a single trial and reshape the input.</li>
+<li><strong>minstep</strong> (<em>int</em><em>, </em><em>optional</em>) – The smallest autocorellation step <span class="math notranslate nohighlight">\(k\)</span> to use.</li>
+<li><strong>maxstep</strong> (<em>int</em><em>, </em><em>optional</em>) – The largest autocorellation step <span class="math notranslate nohighlight">\(k\)</span> to use. All <span class="math notranslate nohighlight">\(k\)</span> values
+between <cite>minstep</cite> and <cite>maxstep</cite> are processed (stride 1).</li>
+<li><strong>method</strong> (<em>str</em><em>, </em><em>optional</em>) – The estimation method to use, either <cite>‘trialseparated’</cite> or
+<cite>‘stationarymean’</cite>. The default, <cite>‘trialseparated’</cite> calculates
+the <span class="math notranslate nohighlight">\(r_k\)</span> for each trial separately and averaged
+over. Each trials contribution is weighted with its variance.
+<cite>‘stationarymean’</cite> assumes the mean activity and its variance to be
+constant across all trials.</li>
+<li><strong>bootstrap</strong> (<em>bool</em><em>, </em><em>optional</em>) – Only considered if using the <cite>‘stationarymean’</cite> method.
+Enable bootstrapping to generate multiple (resampled)
+series of trials from the provided one. This allows to approximate the
+returned error statistically, (as opposed to the fit errors).</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last"><ul class="simple">
+<li><strong>coefficientResult</strong> (<em>namedtuple</em>) – The output is grouped into a <cite>namedtuple</cite> and can be accessed using
+the following attributes:</li>
+<li><strong>coefficients</strong> (<em>array</em>) – Contains the coefficients <span class="math notranslate nohighlight">\(r_k\)</span>, has length <code class="docutils literal notranslate"><span class="pre">maxstep</span> <span class="pre">-</span> <span class="pre">minstep</span></code>.</li>
+<li><strong>steps</strong> (<em>array</em>) – Array of the <span class="math notranslate nohighlight">\(k\)</span> values matching <cite>coefficients</cite>.</li>
+<li><strong>offsets</strong> (<em>array</em>) – Offsets obtained from the linear regression.</li>
+<li><strong>stderrs</strong> (<em>array</em>) – Standard errors of the <span class="math notranslate nohighlight">\(r_k\)</span>.</li>
+<li><strong>meanactivity</strong> (<em>float</em>) – Global mean activity over all trials.</li>
+<li><strong>samples</strong> (<em>namedtuple</em>) – Contains the information of the seperate (or resampled) trials.</li>
+<li><strong>samples.coefficients</strong> (<em>ndarray</em>) – Coefficients of each seperate trial (or sample). Access via
+<code class="docutils literal notranslate"><span class="pre">samples.coefficients[trial,</span> <span class="pre">step]</span></code></li>
+<li><strong>samples.trialactivies</strong> (<em>array</em>) – Individual activites of each trial</li>
+</ul>
+</p>
+</td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Example</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="kn">as</span> <span class="nn">plt</span>
+<span class="kn">import</span> <span class="nn">mre</span>
+
+<span class="c1"># branching process with 15 trials</span>
+<span class="n">bp</span> <span class="o">=</span> <span class="n">mre</span><span class="o">.</span><span class="n">simulate_branching</span><span class="p">(</span><span class="n">numtrials</span><span class="o">=</span><span class="mi">15</span><span class="p">)</span>
+
+<span class="c1"># the bp returns data already in the right format</span>
+<span class="n">rk</span> <span class="o">=</span> <span class="n">mre</span><span class="o">.</span><span class="n">correlation_coefficients</span><span class="p">(</span><span class="n">bp</span><span class="p">)</span>
+
+<span class="c1"># seperate trials, swap indices to comply with the pyplot layout</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">rk</span><span class="o">.</span><span class="n">steps</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="n">rk</span><span class="o">.</span><span class="n">samples</span><span class="o">.</span><span class="n">coefficients</span><span class="p">),</span>
+         <span class="n">color</span><span class="o">=</span><span class="s1">&#39;C0&#39;</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span>
+
+<span class="c1"># estimated coefficients</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">rk</span><span class="o">.</span><span class="n">steps</span><span class="p">,</span> <span class="n">rk</span><span class="o">.</span><span class="n">coefficients</span><span class="p">,</span>
+         <span class="n">color</span><span class="o">=</span><span class="s1">&#39;C0&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;estimated r_k&#39;</span><span class="p">)</span>
+
+<span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;$k$&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;$r_k$&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">loc</span><span class="o">=</span><span class="s1">&#39;upper right&#39;</span><span class="p">)</span>
+<span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</pre></div>
+</div>
+<div class="admonition-todo admonition" id="index-0">
+<p class="first admonition-title">Todo</p>
+<ul class="last simple">
+<li>For module TODOs</li>
+<li>You have to also use <code class="docutils literal notranslate"><span class="pre">sphinx.ext.todo</span></code> extension</li>
+</ul>
+</div>
+</dd></dl>
+
+<dl class="function">
 <dt id="mre.input_handler">
 <code class="descclassname">mre.</code><code class="descname">input_handler</code><span class="sig-paren">(</span><em>items</em><span class="sig-paren">)</span><a class="headerlink" href="#mre.input_handler" title="Permalink to this definition">¶</a></dt>
 <dd><p>Helper function that attempts to detect provided input and convert it to the
