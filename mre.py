@@ -15,20 +15,20 @@ def input_handler(items):
     """
     Helper function that attempts to detect provided input and convert it to the
     format used by the toolbox. Ideally, you provide the native format, a numpy
-    ndarray of :code:`shape(numtrials, datalength)`.
+    `ndarray` of :code:`shape(numtrials, datalength)`.
 
     All trials should have the same data length, otherwise they will be padded.
 
-    Whenever possible, the toolbox uses 2d ndarrays for providing and returning
-    data to/from functions. This allows to consistently
+    Whenever possible, the toolbox uses two dimensional `ndarrays` for
+    providing and returning data to/from functions. This allows to consistently
     access trials and data via the first and second index, respectively.
 
     Parameters
     ----------
     items : ndarray, string or list
         Ideally, provide the native format `ndarray`.
-        If a `string` is provided, it is assumed to be the path to
-        file(s) that are then imported or pickle are plain text.
+        A `string` is assumed to be the path to
+        file(s) that are then imported as pickle or plain text.
         Wildcards should work.
         Alternatively, you can provide a `list` of data or strings.
 

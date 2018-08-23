@@ -1,6 +1,7 @@
 pages:
   stage: deploy
   script:
+    - make html
     - mkdir .public
     - cp -r docs/_build/html/* .public
     - mv .public public
@@ -8,5 +9,5 @@ pages:
     paths:
       - public
   only:
-    - proposal_definitions
     - master
+    - proposal_definitions
