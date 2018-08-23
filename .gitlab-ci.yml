@@ -1,7 +1,9 @@
 pages:
   stage: deploy
   script:
-    - make html
+    - apk --no-cache add py2-pip python-dev
+    - pip install sphinx
+    - apk --no-cache add make
     - mkdir .public
     - cp -r docs/_build/html/* .public
     - mv .public public
