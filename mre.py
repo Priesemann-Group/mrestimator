@@ -118,7 +118,11 @@ def input_handler(items):
         raise Exception('Unknown situation!')
 
 
-def simulate_branching(length=10000, m=0.9, activity=100, numtrials=1):
+def simulate_branching(length=10000,
+                       m=0.9,
+                       activity=100,
+                       numtrials=1,
+                       subp=1):
     """
     Simulates a branching process with Poisson input.
 
@@ -137,6 +141,9 @@ def simulate_branching(length=10000, m=0.9, activity=100, numtrials=1):
     numtrials : int, optional
         Generate more than one trial.
 
+    subp : float, optional
+        Subsample the activity to the specified probability.
+
     Returns
     -------
     timeseries : ndarray
@@ -144,33 +151,52 @@ def simulate_branching(length=10000, m=0.9, activity=100, numtrials=1):
         each containging :code:`length` entries of activity.
         If no arguments are provided, one trial is created with
         10000 measurements.
+
     """
 
     A_t = np.ndarray(shape=(numtrials, length), dtype=int)
     h = activity * (1 - m)
 
-    print('Generating branching process with {} '.format(length),
-          'time steps, m = {} '.format(m),
-          'and drive rate h = {}'.format(h))
+    print('Generating branching process with {}'.format(length),
+          'time steps, m={}'.format(m),
+          'and drive rate h={0:.2f}'.format(h))
+
+    if subp <= 0 or subp > 1:
+        raise Exception('Subsampling probability should be between 0 and 1')
+    if subp != 1:
+        print('Applying subsampling to proabability {} probability'
+              .format(subp))
+        a_t = np.copy(A_t)
 
     for trial in range(0, numtrials):
-        if not trial == 0: print('Starting trial ', trial)
+        # if not trial == 0: print('Starting trial ', trial)
         A_t[trial, 0] = np.random.poisson(lam=activity)
 
         for idx in range(1, length):
-            if not idx % 1000: print('  {} loops completed'.format(idx))
             tmp = 0
             tmp += np.random.poisson(lam=h)
             if m > 0:
-                tmp += np.random.poisson(lam=m, size=A_t[trial, idx - 1]).sum()
-
+                tmp += np.random.poisson(lam=m*A_t[trial, idx - 1])
             A_t[trial, idx] = tmp
 
-        print('Branching process created with mean activity At = {}'
-              .format(A_t[trial].mean()))
+            # binomial subsampling
+            if subp != 1:
+                a_t[trial, idx] = scipy.stats.binom.rvs(tmp, subp)
 
-    return A_t
+        print('Branching process created with mean activity At={}'
+              .format(A_t[trial].mean()),
+              'subsampled to at={}'
+              .format(a_t[trial].mean()) if subp != 1 else '')
 
+    if subp < 1: return a_t
+    else: return A_t
+
+
+CoefficientResult = namedtuple('CoefficientResult',
+                               ['coefficients', 'steps',
+                                'offsets', 'stderrs',
+                                'trialactivies',
+                                'samples'])
 
 def correlation_coefficients(data,
                              minstep=1,
@@ -210,13 +236,14 @@ def correlation_coefficients(data,
 
     Returns
     -------
-
-    coefficientResult : namedtuple
+    CoefficientResult : namedtuple
         The output is grouped into a `namedtuple` and can be accessed using
         the following attributes:
 
     coefficients : array
-        Contains the coefficients :math:`r_k`, has length ``maxstep - minstep``.
+        Contains the coefficients :math:`r_k`, has length
+        ``maxstep - minstep + 1``. Access via
+        ``coefficients[step]``
 
     steps : array
         Array of the :math:`k` values matching `coefficients`.
@@ -224,18 +251,21 @@ def correlation_coefficients(data,
     stderrs : array
         Standard errors of the :math:`r_k`.
 
-    meanactivity : float
-        Global mean activity over all trials.
+    trialactivities : array
+        Mean activity of each trial in the provided data.
+        To get the global mean activity, use ``np.mean(trialactivities)``.
 
     samples : namedtuple
-        Contains the information of the seperate (or resampled) trials.
+        Contains the information on the separate (or resampled) trials,
+        again as CoefficientResult.
 
     samples.coefficients : ndarray
-        Coefficients of each seperate trial (or sample). Access via
+        Coefficients of each separate trial (or sample). Access via
         ``samples.coefficients[trial, step]``
 
     samples.trialactivies : array
-        Individual activites of each trial
+        Individual activites of each trial. If ``bootsrap`` was enabled, this
+        containts the activities of the resampled data (not the original ones).
 
     Example
     -------
@@ -251,7 +281,7 @@ def correlation_coefficients(data,
         # the bp returns data already in the right format
         rk = mre.correlation_coefficients(bp)
 
-        # seperate trials, swap indices to comply with the pyplot layout
+        # separate trials, swap indices to comply with the pyplot layout
         plt.plot(rk.steps, np.transpose(rk.samples.coefficients),
                  color='C0', alpha=0.1)
 
@@ -265,10 +295,6 @@ def correlation_coefficients(data,
         plt.show()
     ..
 
-
-    Todo:
-        * For module TODOs
-        * You have to also use ``sphinx.ext.todo`` extension
     """
 
     dim = -1
@@ -288,40 +314,29 @@ def correlation_coefficients(data,
               '          Please provide a two dimensional ndarray.')
         exit()
 
-
-    fulres = namedtuple('coefficientResult',
-                        ('coefficients', 'steps',
-                         'offsets', 'stderrs',
-                         'meanactivity',
-                         'samples'))
-
-    sepres = namedtuple('separateResult',
-                        ('coefficients',
-                         'offsets', 'stderrs',
-                         'trialactivies'))
-
-    fulres.meanactivity = np.mean(data.flatten())
-    fulres.steps = np.arange(minstep, maxstep)
-    numsteps     = len(fulres.steps)
+    steps        = np.arange(minstep, maxstep+1)
+    numsteps     = len(steps)
     numtrials    = data.shape[0]
     datalength   = data.shape[1]
 
     print('Calculating coefficients using "{}" method:\n'.format(method),
           ' {} trials, length {}'.format(numtrials, datalength))
 
+    sepres = CoefficientResult(
+        coefficients  = np.zeros(shape=(numtrials, numsteps), dtype=float),
+        offsets       = np.zeros(shape=(numtrials, numsteps), dtype=float),
+        stderrs       = np.zeros(shape=(numtrials, numsteps), dtype=float),
+        steps         = steps,
+        trialactivies = np.mean(data, axis=1),
+        samples = None)
 
     if method == 'trialseparated':
-        sepres.coefficients = np.zeros(shape=(numtrials, numsteps), dtype=float)
-        sepres.offsets      = np.zeros(shape=(numtrials, numsteps), dtype=float)
-        sepres.stderrs      = np.zeros(shape=(numtrials, numsteps), dtype=float)
-        sepres.trialactivies = np.zeros(numtrials)
-
         for tdx, trial in enumerate(data):
             sepres.trialactivies[tdx] = np.mean(trial)
             print('    Trial {}/{} with'.format(tdx+1, numtrials),
                   'mean activity {0:.2f}'.format(sepres.trialactivies[tdx]))
 
-            for idx, step in enumerate(fulres.steps):
+            for idx, step in enumerate(steps):
                 # todo change this to use complete trial mean
                 lr = scipy.stats.linregress(trial[0:-step],
                                                 trial[step:  ])
@@ -329,32 +344,31 @@ def correlation_coefficients(data,
                 sepres.offsets[tdx, idx]      = lr.intercept
                 sepres.stderrs[tdx, idx]      = lr.stderr
 
-        fulres.coefficients = np.mean(sepres.coefficients, axis=0)
-        fulres.offsets      = np.mean(sepres.offsets, axis=0)
-        fulres.samples      = sepres
         if numtrials == 1:
-            fulres.stderrs  = np.copy(sepres.stderrs[0])
+            stderrs  = np.copy(sepres.stderrs[0])
             print('  Only one trial given, using errors from fit.')
         else:
-            fulres.stderrs  = np.sqrt(np.var(sepres.coefficients, axis=0,
+            stderrs  = np.sqrt(np.var(sepres.coefficients, axis=0,
                                              ddof=1))
-            print('  Estimated errors from seperate trials.')
+            print('  Estimated errors from separate trials.')
             if numtrials < 10:
                 print('  Only {} trials given,'.format(numtrials),
                       'consider using the fit errors instead.')
 
+        fulres = CoefficientResult(
+            steps         = steps,
+            coefficients  = np.mean(sepres.coefficients, axis=0),
+            offsets       = np.mean(sepres.offsets, axis=0),
+            stderrs       = stderrs,
+            trialactivies = np.mean(data, axis=1),
+            samples       = sepres)
 
     elif method == 'stationarymean':
-        sepres.coefficients = None
-        sepres.offsets      = None
-        sepres.stderrs      = None
-        sepres.trialactivies = np.mean(data, axis=1)
+        coefficients = np.zeros(numsteps, dtype=float)
+        offsets      = np.zeros(numsteps, dtype=float)
+        stderrs      = np.zeros(numsteps, dtype=float)
 
-        fulres.coefficients = np.zeros(numsteps, dtype=float)
-        fulres.offsets      = np.zeros(numsteps, dtype=float)
-        fulres.stderrs      = np.zeros(numsteps, dtype=float)
-
-        for idx, step in enumerate(fulres.steps):
+        for idx, step in enumerate(steps):
             if not idx%100: print('  {}/{} steps'.format(idx+1, numsteps))
             x = np.empty(0)
             y = np.empty(0)
@@ -363,11 +377,119 @@ def correlation_coefficients(data,
                 x = np.concatenate((x, trial[0:-step]-m))
                 y = np.concatenate((y, trial[step:  ]-m))
             lr = scipy.stats.linregress(x, y)
-            fulres.coefficients[idx] = lr.slope
-            fulres.offsets[idx]      = lr.intercept
-            fulres.stderrs[idx]      = lr.stderr
+            coefficients[idx] = lr.slope
+            offsets[idx]      = lr.intercept
+            stderrs[idx]      = lr.stderr
 
-        fulres.samples = sepres
+        fulres = CoefficientResult(
+            steps         = steps,
+            coefficients  = coefficients,
+            offsets       = offsets,
+            stderrs       = stderrs,
+            trialactivies = np.mean(data, axis=1),
+            samples       = sepres)
 
     return fulres
 
+
+# ------------------------------------------------------------------ #
+# fit function definitions for the correlation fit
+# ------------------------------------------------------------------ #
+
+def f_exponential(k, tau, b):
+    """b e^{-k/tau}"""
+    return b*np.exp(-k/tau)
+
+def f_exponential_offset(k, tau, b, c):
+    """b e^{-k/tau} + c"""
+    return b*np.exp(-k/tau)+c
+
+
+CorrelationResult = namedtuple('CorrelationResult',
+                               ['tau', 'mre', 'fitfunc',
+                                'popt', 'pcov'])
+
+def correlation_fit(data,
+                    method='exponential'):
+    """
+    Estimate the Multistep Regression Estimator by fitting the provided
+    correlation coefficients :math:`r_k`.
+
+    Example
+    -------
+    .. code-block:: python
+
+        import numpy as np
+        import matplotlib.pyplot as plt
+        import mre
+
+        bpsub = mre.simulate_branching(numtrials=15, subp=0.1)
+        bpful = mre.simulate_branching(numtrials=15)
+
+        rkful = mre.correlation_coefficients(bpful)
+        rksub = mre.correlation_coefficients(bpsub)
+
+        print(mre.correlation_fit(rkful)._asdict())
+        print(mre.correlation_fit(rksub)._asdict())
+    ..
+    """
+
+    mnaive = 'not calculated in your step range'
+    if isinstance(data, CoefficientResult):
+        print('Coefficients given in default format.')
+        coefficients = data.coefficients
+        steps        = data.steps
+        stderrs      = data.stderrs
+        if steps[0] == 1: mnaive = coefficients[0]
+    else:
+        raise Exception('Coefficients have no known format.')
+
+
+    if method == 'exponential':
+        fitfunc  = f_exponential
+        fitguess = [1, 1]
+
+    elif method == 'exponentialoffset':
+        fitfunc  = f_exponential_offset
+        fitguess = [1, 1, 0]
+
+    popt, pcov = scipy.optimize.curve_fit(
+        fitfunc, steps, coefficients,
+        p0 = fitguess, maxfev = 100000, sigma = stderrs)
+
+
+    deltat = 1
+    fulres = CorrelationResult(
+        tau = popt[0],
+        mre = np.exp(-deltat/popt[0]),
+        fitfunc = fitfunc.__doc__,
+        popt = popt,
+        pcov = pcov)
+
+    return fulres
+
+
+if __name__ == "__main__":
+
+    rk = correlation_coefficients(
+        simulate_branching(numtrials=5, m=0.95),
+        minstep=1, method='trialseparated')
+
+    rksub = correlation_coefficients(
+        simulate_branching(numtrials=5, m=0.95, subp=0.01),
+        minstep=1, method='trialseparated')
+
+    print(rk.trialactivies)
+    print(rk.samples.trialactivies)
+
+    print(rksub.trialactivies)
+    print(rksub.samples.trialactivies)
+
+    # plt.plot(rk.coefficients)
+    # plt.plot(rksub.coefficients)
+    # plt.show()
+
+    foo = correlation_fit(rk, method='exponential')
+    bar = correlation_fit(rksub, method='exponentialoffset')
+    print(foo._asdict())
+    print(bar._asdict())

@@ -9,9 +9,9 @@ Welcome to mre's documentation!
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
-.. autofunction:: proposal_function_definition.mr_estimator
 .. automodule:: mre
    :members:
+.. autofunction:: proposal_function_definition.mr_estimator
 
 
 Indices and tables
