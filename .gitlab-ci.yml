@@ -1,18 +1,19 @@
+image: alpine
+
 pages:
-  image: docker:latest
   stage: deploy
   script:
-    - apk --no-cache add py2-pip python-dev
-    - pip install sphinx
-    - pip install sphinx_rtd_theme
-    - apk --no-cache add make
-    - make html
-    - mkdir .public
-    - cp -r docs/_build/html/* .public
-    - mv .public public
+  - apk --no-cache add py2-pip python-dev
+  - pip install sphinx
+  - pip install sphinx_rtd_theme
+  - apk --no-cache add make
+  - make html
+  - mkdir .public
+  - cp -r docs/_build/html/* .public
+  - mv .public public
   artifacts:
     paths:
-      - public
+    - public
   only:
-    - master
-    - proposal_definitions
+  - master
+  - proposal_definitions
