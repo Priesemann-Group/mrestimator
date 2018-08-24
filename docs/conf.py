@@ -48,6 +48,15 @@ extensions = [
 ]
 
 
+# Mock imports
+autodoc_mock_imports = [
+    'numpy',
+    'matplotlib',
+    'matplotlib.pyplot',
+    'scipy',
+    'neo'
+]
+
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
 
