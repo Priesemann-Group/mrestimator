@@ -9,9 +9,10 @@ Welcome to mre's documentation!
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
-.. autofunction:: proposal_function_definition.mr_estimator
 .. automodule:: mre
    :members:
+   :exclude-members: CoefficientResult, CorrelationResult, f_exponential, f_exponential_offset
+.. autofunction:: proposal_function_definition.mr_estimator
 
 
 Indices and tables
