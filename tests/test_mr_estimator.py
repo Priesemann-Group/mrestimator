@@ -159,7 +159,7 @@ class TestCorrCoeff(unittest.TestCase):
             corr_arr = calc_corr_arr_stationary(activity_mat, k_arr)
             mre_res = mre.correlation_coefficients(activity_mat,
                              minstep=k_arr[0],
-                             maxstep=k_arr[-1]+1,
+                             maxstep=k_arr[-1],
                              method='stationarymean',
                              bootstrap=False)
             #plt.plot(mre_res.coefficients)
@@ -174,7 +174,7 @@ class TestCorrCoeff(unittest.TestCase):
             corr_arr = calc_corr_mat_separate(activity_mat, k_arr)
             mre_res = mre.correlation_coefficients(activity_mat,
                              minstep=k_arr[0],
-                             maxstep=k_arr[-1]+1,
+                             maxstep=k_arr[-1],
                              method='trialseparated',
                              bootstrap=False)
             #plt.plot(mre_res.coefficients)

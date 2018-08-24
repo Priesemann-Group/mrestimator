@@ -22,7 +22,7 @@ def trial_iterator_type2(block):
     for i, segment in enumerate(block.segments):
         segment.index = i
         if segment.annotations["trial_type"] == 2 and len(segment.analogsignals) == 1:
-            yield segment, segment.analogsignals[0] 
+            yield segment, segment.analogsignals[0]
 
 def get_min_len_trial(trials_iterator):
     min_len_trial = 1e42
