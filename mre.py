@@ -221,9 +221,6 @@ def correlation_coefficients(data,
     steps : array
         Array of the :math:`k` values matching `coefficients`.
 
-    offsets : array
-        Offsets obtained from the linear regression.
-
     stderrs : array
         Standard errors of the :math:`r_k`.
 
