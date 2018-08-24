@@ -396,13 +396,21 @@ def correlation_coefficients(data,
 # fit function definitions for the correlation fit
 # ------------------------------------------------------------------ #
 
-def f_exponential(k, tau, b):
-    """b e^{-k/tau}"""
-    return b*np.exp(-k/tau)
+def f_exponential(k, tau, A):
+    """A e^(-k/tau)"""
+    return A*np.exp(-k/tau)
 
-def f_exponential_offset(k, tau, b, c):
-    """b e^{-k/tau} + c"""
-    return b*np.exp(-k/tau)+c
+def f_exponential_offset(k, tau, A, O):
+    """A e^(-k/tau) + O"""
+    return A*np.exp(-k/tau)+O
+
+def f_complex(k, tau, A, O, tauosc, B, gamma, nu, taugauss, C):
+    """A e^(-k/tau) + B e^-(k/tauosc)^gamma cos(2 pi nu k) \
+    + C e^-(k/taugauss)^2 + O"""
+    return A*np.exp(-(k/tau)) \
+        + B*np.exp(-(k/tauosc)**gamma)*np.cos(2*np.pi*nu*k) \
+        + C*np.exp(-(k/taugauss)**2) \
+        + O #*np.ones_like(k)
 
 
 CorrelationResult = namedtuple('CorrelationResult',
