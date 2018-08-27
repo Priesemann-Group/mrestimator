@@ -11,7 +11,7 @@ Welcome to mre's documentation!
    :caption: Contents:
 .. automodule:: mre
    :members:
-   :exclude-members: CoefficientResult, CorrelationResult, f_exponential, f_exponential_offset
+   :exclude-members: CoefficientResult, CorrelationResult, f_exponential, f_exponential_offset, f_complex
 .. autofunction:: proposal_function_definition.mr_estimator
 
 
