@@ -10,6 +10,8 @@ import scipy
 import neo
 import time
 import glob
+import inspect
+
 
 def input_handler(items):
     """
@@ -17,6 +19,7 @@ def input_handler(items):
     format used by the toolbox. Ideally, you provide the native format, a numpy
     `ndarray` of :code:`shape(numtrials, datalength)`.
 
+    *Not implemented yet*:
     All trials should have the same data length, otherwise they will be padded.
 
     Whenever possible, the toolbox uses two dimensional `ndarrays` for
@@ -58,6 +61,19 @@ def input_handler(items):
         plt.plot(prepared[1])     # second trial
         plt.show()
     ..
+
+    To load a single timeseries from the harddrive
+
+    .. code-block:: python
+
+        import numpy as np
+        import matplotlib.pyplot as plt
+        import mre
+
+        prepared = mre.input_handler('/path/to/yourfiles/trial_1.csv')
+        print(prepared.shape)
+    ..
+
     """
 
 
@@ -402,23 +418,82 @@ def f_exponential(k, tau, A):
 
 def f_exponential_offset(k, tau, A, O):
     """A e^(-k/tau) + O"""
-    return A*np.exp(-k/tau)+O
+    return A*np.exp(-k/tau)+O*np.ones_like(k)
 
-def f_complex(k, tau, A, O, tauosc, B, gamma, nu, taugauss, C):
-    """A e^(-k/tau) + B e^-(k/tauosc)^gamma cos(2 pi nu k) \
-    + C e^-(k/taugauss)^2 + O"""
+def f_complex(k, tau, A, O, tosc, B, gam, nu, tgs, C):
+    """A e^(-k/tau) + B e^-(k/tosc)^gam cos(2 pi nu k) """ \
+    """+ C e^-(k/tgs)^2 + O"""
     return A*np.exp(-(k/tau)) \
-        + B*np.exp(-(k/tauosc)**gamma)*np.cos(2*np.pi*nu*k) \
-        + C*np.exp(-(k/taugauss)**2) \
-        + O #*np.ones_like(k)
+        + B*np.exp(-(k/tosc)**gam)*np.cos(2*np.pi*nu*k) \
+        + C*np.exp(-(k/tgs)**2) \
+        + O*np.ones_like(k)
+
+def default_fitpars(fitfunc):
+    if fitfunc == f_exponential:
+        return np.array([20, 1])
+    elif fitfunc == f_exponential_offset:
+        return np.array([20, 1, 0])
+    elif fitfunc == f_complex:
+        return np.array(
+            #  tau     A       O    tosc      B    gam      nu  tgs      C
+            [(  10,  0.1  ,  0    ,  300,  0.03 ,  1.0, 1./200,  10,  0.03 ),
+             ( 400,  0.1  ,  0    ,  200,  0.03 ,  2.5, 1./250,  25,  0.03 ),
+             (  20,  0.1  ,  0.03 ,  100,  0.03 ,  1.5, 1./50 ,  10,  0.03 ),
+             ( 300,  0.1  ,  0.03 ,  100,  0.03 ,  1.5, 1./50 ,  10,  0.03 ),
+             (  20,  0.03 ,  0.01 ,  100,  0.03 ,  1.0, 1./150,   5,  0.03 ),
+             (  20,  0.03 ,  0.01 ,  100,  0.03 ,  1.0, 1./150,   5,  0.03 ),
+             (  10,  0.05 ,  0.03 ,  300,  0.03 ,  1.5, 1./100,   5,  0.1  ),
+             ( 300,  0.05 ,  0.03 ,  300,  0.03 ,  1.5, 1./100,  10,  0.1  ),
+             (  56,  0.029,  0.010,  116,  0.010,  2.0, 1./466,   5,  0.03 ),
+             (  56,  0.029,  0.010,  116,  0.010,  2.0, 1./466,   5,  0.03 ),
+             (  56,  0.029,  0.010,  116,  0.010,  2.0, 1./466,   5,  0.03 ),
+             (  19,  0.078,  0.044,  107,  0.017,  1.0, 1./478,   5,  0.1  ),
+             (  19,  0.078,  0.044,  107,  0.017,  1.0, 1./478,   5,  0.1  ),
+             (  10,  0.029,  0.045,  300,  0.067,  2.0, 1./127,  10,  0.03 ),
+             ( 210,  0.029,  0.012,  50 ,  0.03 ,  1.0, 1./150,  10,  0.1  ),
+             ( 210,  0.029,  0.012,  50 ,  0.03 ,  1.0, 1./150,  10,  0.1  ),
+             ( 210,  0.029,  0.012,  50 ,  0.03 ,  1.0, 1./150,  10,  0.03 ),
+             ( 210,  0.029,  0.012,  50 ,  0.03 ,  1.0, 1./150,  10,  0.03 ),
+             ( 310,  0.029,  0.002,  50 ,  0.08 ,  1.0, 1./34 ,   5,  0.03 ),
+             ( 310,  0.029,  0.002,  50 ,  0.08 ,  1.0, 1./34 ,   5,  0.03 ),
+             ( 310,  0.029,  0.002,  50 ,  0.08 ,  1.0, 1./64 ,   5,  0.03 ),
+             ( 310,  0.029,  0.002,  50 ,  0.08 ,  1.0, 1./64 ,   5,  0.03 )])
+    else:
+        print('Requesting default arguments for unknown fitfunction.')
+        return None
+
+def default_fitbnds(fitfunc):
+    if fitfunc == f_exponential:
+        return None
+    elif fitfunc == f_exponential_offset:
+        return None
+    elif fitfunc == f_complex:
+        pars = np.array(
+            [(       5,      5000),     # tau
+             (       0,         1),     # A
+             (      -1,         1),     # O
+             (       5,      5000),     # tosc
+             (      -5,         5),     # B
+             (   1./3.,         3),     # gamma
+             (2./1000., 50./1000.),     # nu
+             (       0,        30),     # tgs
+             (      -5,         5)])    # C
+        return np.transpose(pars)       # scipy curve-fit wants this layout
+    else:
+        print('Requesting default bounds for unknown fitfunction.')
+        return None
+
+
 
 
 CorrelationResult = namedtuple('CorrelationResult',
                                ['tau', 'mre', 'fitfunc',
-                                'popt', 'pcov'])
+                                'popt', 'pcov', 'ssres'])
 
 def correlation_fit(data,
-                    method='exponential'):
+                    fitfunc=f_exponential,
+                    fitpars=None,
+                    fitbnds=None):
     """
     Estimate the Multistep Regression Estimator by fitting the provided
     correlation coefficients :math:`r_k`.
@@ -442,62 +517,106 @@ def correlation_fit(data,
     ..
     """
 
+    print('Correlation Fit to calculte the MR Estimator...')
     mnaive = 'not calculated in your step range'
     if isinstance(data, CoefficientResult):
-        print('Coefficients given in default format.')
+        print('  Coefficients given in default format')
         coefficients = data.coefficients
         steps        = data.steps
         stderrs      = data.stderrs
         if steps[0] == 1: mnaive = coefficients[0]
     else:
-        raise Exception('Coefficients have no known format.')
+        try:
+            print('  Guessing provided format:')
+            data = np.asarray(data)
+            if len(data.shape) == 1:
+                print('    1d array, assuming this to be ' \
+                      'coefficients with minstep=1')
+                coefficients = data
+                steps        = np.arange(1, len(coefficients)+1)
+                stderrs      = np.ones(len(coefficients))
+                mnaive       = coefficients[0]
+            elif len(data.shape) == 2:
+                if data.shape[0] > data.shape[1]: data = np.transpose(data)
+                if data.shape[0] == 1:
+                    print('    nested 1d array, assuming this to be ' \
+                          'coefficients with minstep=1')
+                    coefficients = data[0]
+                    steps        = np.arange(1, len(coefficients))
+                    stderrs      = np.ones(len(coefficients))
+                    mnaive       = coefficients[0]
+                elif data.shape[0] == 2:
+                    print('    2d array, assuming this to be ' \
+                          'steps and coefficients')
+                    steps        = data[0]
+                    coefficients = data[1]
+                    stderrs      = np.ones(len(coefficients))
+                    if steps[0] == 1: mnaive = coefficients[0]
+                elif data.shape[0] >= 3:
+                    print('    2d array, assuming this to be ' \
+                          'steps, coefficients, stderrs')
+                    steps        = data[0]
+                    coefficients = data[1]
+                    stderrs      = np.ones(len(coefficients))
+                    if steps[0] == 1: mnaive = coefficients[0]
+                    if data.shape > 3: print('    Ignoring further rows')
+        except Exception as e:
+            raise Exception('{} Provided data has no known format'.foramt(e))
 
 
-    if method == 'exponential':
-        fitfunc  = f_exponential
-        fitguess = [1, 1]
+    if fitfunc not in [f_exponential, f_exponential_offset, f_complex]:
+        print('  Custom fitfunction specified {}'. format(fitfunc))
 
-    elif method == 'exponentialoffset':
-        fitfunc  = f_exponential_offset
-        fitguess = [1, 1, 0]
+    if fitpars is None: fitpars = default_fitpars(fitfunc)
+    if fitbnds is None: fitbnds = default_fitbnds(fitfunc)
 
-    popt, pcov = scipy.optimize.curve_fit(
-        fitfunc, steps, coefficients,
-        p0 = fitguess, maxfev = 100000, sigma = stderrs)
+    # make this more robust
+    if (len(fitpars.shape)<2): fitpars = fitpars.reshape(1, len(fitpars))
+
+    if (fitpars.shape[0]>1):
+        print('  Repeating fit with {} sets of initial parameters:'
+              .format(fitpars.shape[0]))
+
+    ssresmin = np.inf
+    # fitpars: 2d ndarray
+    # fitbnds: matching scipy.curve_fit: [lowerbndslist, upperbndslist]
+    for idx, pars in enumerate(fitpars):
+        if fitbnds is None:
+            bnds = np.array([-np.inf, np.inf])
+            print('   Fit without bounds to {}:'.format(fitfunc.__doc__))
+            ic = list(inspect.signature(fitfunc).parameters)[1:]
+            ic = ('{} = {:.3f}'.format(a, b) for a, b in zip(ic, pars))
+            print('     Starting parameters:', ', '.join(ic))
+        else:
+            bnds = fitbnds
+            print('   Bounded fit to {}'.format(fitfunc.__doc__))
+            ic = list(inspect.signature(fitfunc).parameters)[1:]
+            ic = ('{0:>5} = {1:8.3f} in ({2:9.4f}, {3:9.4f})'.format(a, b, c, d) \
+                for a, b, c, d in zip(ic, pars, fitbnds[0, :], fitbnds[1, :]))
+            print('     Starting parameters:\n     ', '\n      '.join(ic))
+
+        popt, pcov = scipy.optimize.curve_fit(
+            fitfunc, steps, coefficients,
+            p0 = pars, bounds=bnds, maxfev = 100000, sigma = stderrs)
+
+        residuals = coefficients - fitfunc(steps, *popt)
+        ssres = np.sum(residuals**2)
+        if ssres < ssresmin:
+            ssresmin = ssres
+            fulpopt  = popt
+            fulpcov  = pcov
 
 
     deltat = 1
     fulres = CorrelationResult(
-        tau = popt[0],
-        mre = np.exp(-deltat/popt[0]),
+        tau     = fulpopt[0],
+        mre     = np.exp(-deltat/fulpopt[0]),
         fitfunc = fitfunc.__doc__,
-        popt = popt,
-        pcov = pcov)
+        popt    = fulpopt,
+        pcov    = fulpcov,
+        ssres   = ssresmin)
 
     return fulres
 
 
-if __name__ == "__main__":
 
-    rk = correlation_coefficients(
-        simulate_branching(numtrials=5, m=0.95),
-        minstep=1, method='trialseparated')
-
-    rksub = correlation_coefficients(
-        simulate_branching(numtrials=5, m=0.95, subp=0.01),
-        minstep=1, method='trialseparated')
-
-    print(rk.trialactivies)
-    print(rk.samples.trialactivies)
-
-    print(rksub.trialactivies)
-    print(rksub.samples.trialactivies)
-
-    # plt.plot(rk.coefficients)
-    # plt.plot(rksub.coefficients)
-    # plt.show()
-
-    foo = correlation_fit(rk, method='exponential')
-    bar = correlation_fit(rksub, method='exponentialoffset')
-    print(foo._asdict())
-    print(bar._asdict())
