@@ -335,7 +335,7 @@ def correlation_coefficients(data,
     numtrials    = data.shape[0]
     datalength   = data.shape[1]
 
-    print('Calculating coefficients using "{}" method:\n'.format(method),
+    print('correlation_coefficients() using "{}" method:\n'.format(method),
           ' {} trials, length {}'.format(numtrials, datalength))
 
     sepres = CoefficientResult(
@@ -368,7 +368,7 @@ def correlation_coefficients(data,
                                              ddof=1))
             print('  Estimated errors from separate trials.')
             if numtrials < 10:
-                print('  Only {} trials given,'.format(numtrials),
+                print('    Only {} trials given,'.format(numtrials),
                       'consider using the fit errors instead.')
 
         fulres = CoefficientResult(
@@ -517,8 +517,20 @@ def correlation_fit(data,
     ..
     """
 
-    print('Correlation Fit to calculte the MR Estimator...')
+    # ------------------------------------------------------------------ #
+    # checking arguments to offer some more convenience
+    # ------------------------------------------------------------------ #
+
+    print('correlation_fit() calcultes the MR Estimator')
     mnaive = 'not calculated in your step range'
+
+    if fitfunc in ['f_exponential', 'exponential']:
+        fitfunc = f_exponential
+    elif fitfunc in ['f_exponential_offset', 'exponentialoffset']:
+        fitfunc = f_exponential_offset
+    elif fitfunc in ['f_complex', 'complex']:
+        fitfunc = f_complex
+
     if isinstance(data, CoefficientResult):
         print('  Coefficients given in default format')
         coefficients = data.coefficients
@@ -577,23 +589,32 @@ def correlation_fit(data,
         print('  Repeating fit with {} sets of initial parameters:'
               .format(fitpars.shape[0]))
 
+    # ------------------------------------------------------------------ #
+    # fit with compatible arguments via scipy.curve_fit
+    # ------------------------------------------------------------------ #
+
     ssresmin = np.inf
     # fitpars: 2d ndarray
     # fitbnds: matching scipy.curve_fit: [lowerbndslist, upperbndslist]
     for idx, pars in enumerate(fitpars):
         if fitbnds is None:
             bnds = np.array([-np.inf, np.inf])
-            print('   Fit without bounds to {}:'.format(fitfunc.__doc__))
+            outof = '{}/{} '.format(idx+1, len(fitpars)) \
+                if len(fitpars)!=1 else ''
+            print('    {}Unbound fit to {}:'.format(outof, fitfunc.__doc__))
             ic = list(inspect.signature(fitfunc).parameters)[1:]
             ic = ('{} = {:.3f}'.format(a, b) for a, b in zip(ic, pars))
-            print('     Starting parameters:', ', '.join(ic))
+            print('      Starting parameters:', ', '.join(ic))
         else:
             bnds = fitbnds
-            print('   Bounded fit to {}'.format(fitfunc.__doc__))
+            outof = '{}/{} '.format(idx+1, len(fitpars)) \
+                if len(fitpars)!=1 else ''
+            print('    {}Bounded fit to {}'.format(outof, fitfunc.__doc__))
             ic = list(inspect.signature(fitfunc).parameters)[1:]
-            ic = ('{0:>5} = {1:8.3f} in ({2:9.4f}, {3:9.4f})'.format(a, b, c, d) \
+            ic = ('{0:>5} = {1:8.3f} in ({2:9.4f}, {3:9.4f})' \
+                .format(a, b, c, d) \
                 for a, b, c, d in zip(ic, pars, fitbnds[0, :], fitbnds[1, :]))
-            print('     Starting parameters:\n     ', '\n      '.join(ic))
+            print('      Starting parameters:\n     ', '\n      '.join(ic))
 
         popt, pcov = scipy.optimize.curve_fit(
             fitfunc, steps, coefficients,
@@ -606,7 +627,6 @@ def correlation_fit(data,
             fulpopt  = popt
             fulpcov  = pcov
 
-
     deltat = 1
     fulres = CorrelationResult(
         tau     = fulpopt[0],
@@ -615,6 +635,9 @@ def correlation_fit(data,
         popt    = fulpopt,
         pcov    = fulpcov,
         ssres   = ssresmin)
+
+    print('  Finished fitting, mre = {:.5f}, tau = {:.5f}, ssres = {:.5f}' \
+          .format(fulres.mre, fulres.tau, fulres.ssres))
 
     return fulres
 
