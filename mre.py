@@ -77,36 +77,56 @@ def input_handler(items):
     """
 
 
-    inv_str = '\nInvalid input, please provide one of the following:\n' \
-              '- path to pickle or plain file,' \
-              ' wildcards should work "/path/to/filepattern*"\n' \
-              '- numpy array or list containing spike data or filenames\n'
+    inv_str = '\n  Invalid input, please provide one of the following:\n' \
+              '    - path to pickle or plain file,' \
+              '     wildcards should work "/path/to/filepattern*"\n' \
+              '    - numpy array or list containing spike data or filenames\n'
 
     situation = -1
     if isinstance(items, np.ndarray):
-        if items.dtype.kind == 'i' \
-                or items.dtype.kind == 'f' \
-                or items.dtype.kind == 'u':
-            # items = [items]
+        if items.dtype.kind in ['i', 'f', 'u']:
+            print('input_handler() detected ndarray of numbers')
             situation = 0
         elif items.dtype.kind == 'S':
+            print('input_handler() detected ndarray of strings')
             situation = 1
             temp = set()
             for item in items: temp.update(glob.glob(item))
+            if len(items) != len(temp):
+                print('  {} duplicate files were excluded' \
+                    .format(len(items)-len(temp)))
             items = temp
         else:
-            raise Exception('Numpy.ndarray is neither data nor file path.\n',
+            raise Exception('  Numpy.ndarray is neither data nor file path.\n',
                             inv_str)
     elif isinstance(items, list):
         if all(isinstance(item, str) for item in items):
+            print('input_handler() detected list of strings')
+            try:
+                print('  parsing to numpy ndarray as float')
+                items = np.asarray(items, dtype=float)
+                situation = 0
+            except Exception as e:
+                print('  {}, parsing as file path'.format(e))
             situation = 1
             temp = set()
             for item in items: temp.update(glob.glob(item))
+            if len(items) != len(temp):
+                print('  {} duplicate files were excluded' \
+                    .format(len(items)-len(temp)))
             items = temp
         elif all(isinstance(item, np.ndarray) for item in items):
+            print('input_handler() detected list of ndarrays')
             situation = 0
         else:
-            raise Exception(inv_str)
+            try:
+                print('input_handler() detected list\n',\
+                      ' parsing to numpy ndarray as float')
+                situation = 0
+                items = np.asarray(items, dtype=float)
+            except Exception as e:
+                print('  {}\n'.format(e), inv_str)
+                exit()
     elif isinstance(items, str):
         # items = [items]
         items = glob.glob(items)
@@ -115,8 +135,10 @@ def input_handler(items):
     else:
         raise Exception(inv_str)
 
+
     if situation == 0:
-        return np.stack(items, axis=0)
+        retdata = np.stack((items), axis=0)
+        if len(retdata.shape) == 1: retdata = retdata.reshape((1, len(retdata)))
     elif situation == 1:
         data = []
         for idx, item in enumerate(items):
@@ -127,12 +149,26 @@ def input_handler(items):
             except Exception as e:
                 print('{}, loading as text'.format(e))
                 result = np.loadtxt(item)
-            data.append(result)
-        # print(data)
-        return np.stack(data, axis=0)
+                data.append(result)
+        # for now truncate. todo: add padding and check for linear increase to
+        # detect spiketimes
+        minlen = min(len(l) for l in data)
+        retdata = np.ndarray(shape=(len(data), minlen), dtype=float)
+        for idx, dat in enumerate(data):
+            retdata[idx] = dat[:minlen]
+        # retdata = np.stack(data, axis=0)
     else:
-        raise Exception('Unknown situation!')
+        raise Exception('  Unknown situation!\n', inv_str)
 
+    # final check
+    if len(retdata.shape) == 2:
+        print('  Returning ndarray with {} trial(s) and {} datapoints'\
+              .format(retdata.shape[0], retdata.shape[1]))
+        return retdata
+    else:
+        print('  Warning: Guessed data type incorrectly to shape {},' \
+            ' please try something else'.format(retdata.shape))
+        return retdata
 
 def simulate_branching(length=10000,
                        m=0.9,
@@ -178,9 +214,9 @@ def simulate_branching(length=10000,
           'and drive rate h={0:.2f}'.format(h))
 
     if subp <= 0 or subp > 1:
-        raise Exception('Subsampling probability should be between 0 and 1')
+        raise Exception('  Subsampling probability should be between 0 and 1')
     if subp != 1:
-        print('Applying subsampling to proabability {} probability'
+        print('  Applying subsampling to proabability {} probability'
               .format(subp))
         a_t = np.copy(A_t)
 
@@ -199,7 +235,7 @@ def simulate_branching(length=10000,
             if subp != 1:
                 a_t[trial, idx] = scipy.stats.binom.rvs(tmp, subp)
 
-        print('Branching process created with mean activity At={}'
+        print('  Branching process created with mean activity At={}'
               .format(A_t[trial].mean()),
               'subsampled to at={}'
               .format(a_t[trial].mean()) if subp != 1 else '')
@@ -207,6 +243,10 @@ def simulate_branching(length=10000,
     if subp < 1: return a_t
     else: return A_t
 
+
+# ------------------------------------------------------------------ #
+# correlation_coefficients to calculate r_k
+# ------------------------------------------------------------------ #
 
 CoefficientResult = namedtuple('CoefficientResult',
                                ['coefficients', 'steps',
@@ -313,30 +353,45 @@ def correlation_coefficients(data,
 
     """
 
+    # ------------------------------------------------------------------ #
+    # checking arguments to offer some more convenience
+    # ------------------------------------------------------------------ #
+
+    print('correlation_coefficients() using "{}" method:'.format(method))
+
     dim = -1
     try:
         dim = len(data.shape)
         if dim == 1:
-            print('Warning: you should provide an ndarray of ' \
+            print('  Warning: You should provide an ndarray of ' \
                   'shape(numtrials, datalength).\n' \
-                  '         Continuing with one trial, reshaping your input.')
+                  '           Continuing with one trial, reshaping your input.')
             data = np.reshape(data, (1, len(data)))
         elif dim >= 3:
-            print('Exception: Provided ndarray is of dim {}.\n'.format(dim),
-                  '          Please provide a two dimensional ndarray.')
+            print('  Exception: Provided ndarray is of dim {}.\n'.format(dim),
+                  '            Please provide a two dimensional ndarray.')
             exit()
     except Exception as e:
-        print('Exception: {}.\n'.format(e),
-              '          Please provide a two dimensional ndarray.')
+        print('  Exception: {}.\n'.format(e),
+              '            Please provide a two dimensional ndarray.')
         exit()
+
+    if minstep > maxstep:
+        print('  Warning: minstep > maxstep, setting minstep=1')
+        minstep = 1
+
+    if maxstep > data.shape[1]:
+        maxstep = data.shape[1]-2
+        print('  Warning: maxstep is larger than your data, adjusting to {}' \
+              .format(maxstep))
 
     steps        = np.arange(minstep, maxstep+1)
     numsteps     = len(steps)
     numtrials    = data.shape[0]
     datalength   = data.shape[1]
 
-    print('correlation_coefficients() using "{}" method:\n'.format(method),
-          ' {} trials, length {}'.format(numtrials, datalength))
+
+    print('  {} trials, length {}'.format(numtrials, datalength))
 
     sepres = CoefficientResult(
         coefficients  = np.zeros(shape=(numtrials, numsteps), dtype=float),
@@ -369,7 +424,9 @@ def correlation_coefficients(data,
             print('  Estimated errors from separate trials.')
             if numtrials < 10:
                 print('    Only {} trials given,'.format(numtrials),
-                      'consider using the fit errors instead.')
+                      'consider using the fit errors instead.\n' \
+                      '    They are accessible for each trial via ' \
+                      '.samples.stderrs[trial, step]')
 
         fulres = CoefficientResult(
             steps         = steps,
@@ -409,7 +466,7 @@ def correlation_coefficients(data,
 
 
 # ------------------------------------------------------------------ #
-# fit function definitions for the correlation fit
+# function definitions, starting values and bounds for correlation_fit
 # ------------------------------------------------------------------ #
 
 def f_exponential(k, tau, A):
@@ -484,7 +541,9 @@ def default_fitbnds(fitfunc):
         return None
 
 
-
+# ------------------------------------------------------------------ #
+# correlation_fit and its return type definition
+# ------------------------------------------------------------------ #
 
 CorrelationResult = namedtuple('CorrelationResult',
                                ['tau', 'mre', 'fitfunc',
@@ -521,7 +580,7 @@ def correlation_fit(data,
     # checking arguments to offer some more convenience
     # ------------------------------------------------------------------ #
 
-    print('correlation_fit() calcultes the MR Estimator')
+    print('correlation_fit() calcultes the MR Estimator:')
     mnaive = 'not calculated in your step range'
 
     if fitfunc in ['f_exponential', 'exponential']:
@@ -640,6 +699,48 @@ def correlation_fit(data,
           .format(fulres.mre, fulres.tau, fulres.ssres))
 
     return fulres
+
+
+if __name__ == "__main__":
+
+    foo = ['/Users/paul/owncloud/mpi/ec013.527/ec013.527.res.1', '/Users/paul/owncloud/mpi/ec013.527/ec013.527.res.2', '/Users/paul/owncloud/mpi/ec013.527/ec013.527.res.3']
+    # print(np.asarray(foo, dtype=float))
+
+    # base = simulate_branching()
+    # broken = base.flatten()
+    # print(broken.shape)
+    handled = input_handler(foo)
+    print(handled.shape)
+
+    correlation_coefficients(handled)
+
+    exit()
+
+    rk = correlation_coefficients(
+        simulate_branching(numtrials=1, m=0.95),
+        minstep=1, method='trialseparated')
+
+    rksub = correlation_coefficients(
+        simulate_branching(numtrials=1, m=0.95, subp=0.01),
+        minstep=1, method='trialseparated')
+
+    print(rk.trialactivies)
+    print(rk.samples.trialactivies)
+
+    print(rksub.trialactivies)
+    print(rksub.samples.trialactivies)
+
+    # plt.plot(rk.coefficients)
+    # plt.plot(rksub.coefficients)
+    # plt.show()
+
+    test = list(rksub.coefficients)
+    foo = correlation_fit(test, fitfunc=f_exponential)
+    bar = correlation_fit(test, fitfunc=f_exponential_offset)
+    foobar = correlation_fit(test, fitfunc=f_complex)
+    print(foo.mre, foo.ssres)
+    print(bar.mre, bar.ssres)
+    print(foobar.mre, foobar.ssres)
 
 
 
