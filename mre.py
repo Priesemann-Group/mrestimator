@@ -479,12 +479,28 @@ def f_exponential_offset(k, tau, A, O):
 def f_complex(k, tau, A, O, tosc, B, gam, nu, tgs, C):
     """A e^(-k/tau) + B e^-(k/tosc)^gam cos(2 pi nu k) """ \
     """+ C e^-(k/tgs)^2 + O"""
+
     return A*np.exp(-(k/tau)) \
         + B*np.exp(-(k/tosc)**gam)*np.cos(2*np.pi*nu*k) \
         + C*np.exp(-(k/tgs)**2) \
         + O*np.ones_like(k)
 
 def default_fitpars(fitfunc):
+    """
+    Called to get the default parameters of built in fitfunctions that are
+    used to initialise the fitting routine
+
+    Parameters
+    ----------
+    fitfunc : callable
+        The builtin fitfunction
+
+    Returns
+    -------
+    pars : array like
+        The default parameters of the given function, may be a 2d array for
+        multiple sets of initial conditions are useful
+    """
     if fitfunc == f_exponential:
         return np.array([20, 1])
     elif fitfunc == f_exponential_offset:
@@ -698,5 +714,3 @@ def correlation_fit(data,
           .format(fulres.mre, fulres.tau, fulres.ssres))
 
     return fulres
-
-
