@@ -685,7 +685,7 @@ def correlation_fit(data,
                 if len(fitpars)!=1 else ''
             print('    {}Bounded fit to {}'.format(outof, fitfunc.__doc__))
             ic = list(inspect.signature(fitfunc).parameters)[1:]
-            ic = ('{0:>5} = {1:8.3f} in ({2:9.4f}, {3:9.4f})' \
+            ic = ('  {0:<5} = {1:8.3f} in ({2:9.4f}, {3:9.4f})' \
                 .format(a, b, c, d) \
                 for a, b, c, d in zip(ic, pars, fitbnds[0, :], fitbnds[1, :]))
             print('      Starting parameters:\n     ', '\n      '.join(ic))
@@ -698,7 +698,8 @@ def correlation_fit(data,
             residuals = coefficients - fitfunc(steps, *popt)
             ssres = np.sum(residuals**2)
         except Exception as e:
-            print('    {e}'.format(e))
+            print('      Exception: {}\n'.format(e),
+                  '     Ignoring this fit')
             ssres = np.inf
             popt  = None
             pcov  = None
