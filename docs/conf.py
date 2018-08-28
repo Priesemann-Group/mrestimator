@@ -44,7 +44,8 @@ extensions = [
     'sphinx.ext.todo',
     'sphinx.ext.coverage',
     'sphinx.ext.mathjax',
-    'sphinx.ext.napoleon'
+    'sphinx.ext.napoleon',
+    'sphinx.ext.intersphinx'
 ]
 
 
@@ -178,6 +179,12 @@ texinfo_documents = [
 
 
 # -- Extension configuration -------------------------------------------------
+
+intersphinx_mapping = {'python': ('http://docs.python.org/3', None),
+                       'numpy': ('http://docs.scipy.org/doc/numpy', None),
+                       'scipy': ('http://docs.scipy.org/doc/scipy/reference', None),
+                       'matplotlib': ('http://matplotlib.sourceforge.net', None)
+                       }
 
 # -- Options for todo extension ----------------------------------------------
 

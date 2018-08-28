@@ -247,11 +247,71 @@ def simulate_branching(length=10000,
 # correlation_coefficients to calculate r_k
 # ------------------------------------------------------------------ #
 
-CoefficientResult = namedtuple('CoefficientResult',
-                               ['coefficients', 'steps',
-                                'offsets', 'stderrs',
-                                'trialactivies',
-                                'samples'])
+# this is equivalent to CoefficientResult = namedtuple(... but
+# we can provide documentation
+class CoefficientResult(namedtuple('CoefficientResult',
+                                   ['coefficients', 'steps',
+                                    'offsets', 'stderrs',
+                                    'trialactivies',
+                                    'samples'])):
+    """
+    `Namedtuple` returned by :func:`correlation_coefficients`
+
+    Attributes
+    ----------
+
+    coefficients : array
+        Contains the coefficients :math:`r_k`, has length
+        ``maxstep - minstep + 1``. Access via
+        ``coefficients[step]``
+
+    steps : array
+        Array of the :math:`k` values matching `coefficients`.
+
+    stderrs : array
+        Standard errors of the :math:`r_k`.
+
+    trialactivities : array
+        Mean activity of each trial in the provided data.
+        To get the global mean activity, use ``np.mean(trialactivities)``.
+
+    samples : :class:`CoefficientResult`
+        Contains the information on the separate (or resampled) trials,
+        grouped in the same.
+
+    samples.coefficients : ndarray
+        Coefficients of each separate trial (or sample). Access via
+        ``samples.coefficients[trial, step]``
+
+    samples.trialactivies : array
+        Individual activites of each trial. If ``bootsrap`` was enabled, this
+        containts the activities of the resampled data (not the original ones).
+
+
+    Example
+    -------
+
+    .. code-block:: python
+
+        import mre
+
+        bp = mre.simulate_branching(numtrials=3)
+        rk = mre.correlation_coefficients(bp)
+
+        # list available fields
+        print(rk._fields)
+
+        # print the coefficients
+        print(rk.coefficients)
+
+        # print all entries as a dict
+        print(rk._asdict())
+
+        # get this documentation
+        help(rk)
+    ..
+
+    """
 
 def correlation_coefficients(data,
                              minstep=1,
@@ -288,39 +348,13 @@ def correlation_coefficients(data,
         Enable bootstrapping to generate multiple (resampled)
         series of trials from the provided one. This allows to approximate the
         returned error statistically, (as opposed to the fit errors).
+        *Not implemented yet*
 
-    Returns
-    -------
-    CoefficientResult : namedtuple
-        The output is grouped into a `namedtuple` and can be accessed using
-        the following attributes:
 
-    coefficients : array
-        Contains the coefficients :math:`r_k`, has length
-        ``maxstep - minstep + 1``. Access via
-        ``coefficients[step]``
+    :return: The output is grouped into a `namedtuple` and can be accessed \
+        using the attributes listed for :class:`CoefficientResult`, below the \
+        example.
 
-    steps : array
-        Array of the :math:`k` values matching `coefficients`.
-
-    stderrs : array
-        Standard errors of the :math:`r_k`.
-
-    trialactivities : array
-        Mean activity of each trial in the provided data.
-        To get the global mean activity, use ``np.mean(trialactivities)``.
-
-    samples : namedtuple
-        Contains the information on the separate (or resampled) trials,
-        again as CoefficientResult.
-
-    samples.coefficients : ndarray
-        Coefficients of each separate trial (or sample). Access via
-        ``samples.coefficients[trial, step]``
-
-    samples.trialactivies : array
-        Individual activites of each trial. If ``bootsrap`` was enabled, this
-        containts the activities of the resampled data (not the original ones).
 
     Example
     -------
@@ -560,9 +594,39 @@ def default_fitbnds(fitfunc):
 # correlation_fit and its return type definition
 # ------------------------------------------------------------------ #
 
-CorrelationFitResult = namedtuple('CorrelationFitResult',
-                                  ['tau', 'mre', 'fitfunc',
-                                   'popt', 'pcov', 'ssres'])
+class CorrelationFitResult(namedtuple('CorrelationFitResult',
+                                      ['tau', 'mre', 'fitfunc',
+                                       'popt', 'pcov', 'ssres'])):
+    """
+    `Namedtuple` returned by :func:`correlation_fit`
+
+    Attributes
+    ----------
+
+    tau : float
+        The estimated autocorrelation time. (Depends on the chosen time bin
+        size `deltat`. *Not implemented yet*)
+
+    mre : float
+        The branching parameter estimated from the multistep regression.
+        (Depends on the chosen time bin size `deltat`. *Not implemented yet*)
+
+    fitfunc : str
+        Description of the used fitfunction as string.
+
+    popt : array
+        Final fitparameters obtained from the (best) underlying
+        :func:`scipy.optimize.curve_fit`.
+
+    pcov : array
+        Final covariance matrix obtained from the (best) underlying
+        :func:`scipy.optimize.curve_fit`.
+
+    ssres : float
+        Sum of the squared residuals for the fit with `popt`. This is not yet
+        normalised per degree of freedom.
+
+    """
 
 def correlation_fit(data,
                     fitfunc=f_exponential,
@@ -570,7 +634,43 @@ def correlation_fit(data,
                     fitbnds=None):
     """
     Estimate the Multistep Regression Estimator by fitting the provided
-    correlation coefficients :math:`r_k`.
+    correlation coefficients :math:`r_k`. The fit is performed using
+    :func:`scipy.optimize.curve_fit` and can optionally be provided with
+    (multiple) starting fitparameters and bounds.
+
+    Parameters
+    ----------
+    data: :class:`CoefficientResult` or array
+        Correlation coefficients to fit. Ideally, provide this as
+        :class:`CoefficientResult` as obtained from
+        :func:`correlation_coefficients`. If numpy arrays are provided,
+        the function tries to match the data.
+
+    fitfunc : callable, optional
+        The model function, f(x, …).
+        Directly passed to `curve_fit()`:
+        It must take the independent variable as
+        the first argument and the parameters to fit as separate remaining
+        arguments.
+        Default is :obj:`mre.f_exponential`.
+        Other builtin options are :obj:`mre.f_exponential_offset` and
+        :obj:`mre.f_complex`.
+
+    fitpars : array, optional
+        The starting parameters for the fit. If the provided array is two
+        dimensional, multiple fits are performed and the one with the least
+        sum of squares of residuals is returned.
+
+    fitbounds : array, optional
+        Lower and upper bounds for each parameter handed to the fitting routine.
+        Provide as numpy array of the form
+        ``[[lowpar1, lowpar2, ...], [uppar1, uppar2, ...]]``
+
+
+    :return: The output is grouped into a `namedtuple` and can be accessed \
+        using the attributes listed for :class:`CorrelationFitResult`, below \
+        the example.
+
 
     Example
     -------
@@ -580,14 +680,24 @@ def correlation_fit(data,
         import matplotlib.pyplot as plt
         import mre
 
-        bpsub = mre.simulate_branching(numtrials=15, subp=0.1)
-        bpful = mre.simulate_branching(numtrials=15)
+        bp = mre.simulate_branching(numtrials=15)
+        rk = mre.correlation_coefficients(bp)
 
-        rkful = mre.correlation_coefficients(bpful)
-        rksub = mre.correlation_coefficients(bpsub)
+        # compare the builtin fitfunctions
+        m1 = mre.correlation_fit(rk, fitfunc=mre.f_exponential)
+        m2 = mre.correlation_fit(rk, fitfunc=mre.f_exponential_offset)
+        m3 = mre.correlation_fit(rk, fitfunc=mre.f_complex)
 
-        print(mre.correlation_fit(rkful)._asdict())
-        print(mre.correlation_fit(rksub)._asdict())
+        plt.plot(rk.steps, rk.coefficients, label='data')
+        plt.plot(rk.steps, mre.f_exponential(rk.steps, *m1.popt),
+            label='exponential m={:.5f}'.format(m1.mre))
+        plt.plot(rk.steps, mre.f_exponential_offset(rk.steps, *m2.popt),
+            label='exp + offset m={:.5f}'.format(m2.mre))
+        plt.plot(rk.steps, mre.f_complex(rk.steps, *m3.popt),
+            label='complex m={:.5f}'.format(m3.mre))
+
+        plt.legend()
+        plt.show()
     ..
     """
 
