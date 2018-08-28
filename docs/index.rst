@@ -3,16 +3,22 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to mre's documentation!
-===============================
+Welcome to the Multistep Regression Estimator!
+==============================================
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Contents:
-.. automodule:: mre
-   :members:
-   :exclude-members: CoefficientResult, CorrelationResult, f_exponential, f_exponential_offset, f_complex
-.. autofunction:: proposal_function_definition.mr_estimator
+   :hidden:
+
+   self
+
+
+.. toctree::
+    :titlesonly:
+    :name: Welcome
+    :maxdepth: 4
+    :caption: Contents
+
+    rst/mre
 
 
 Indices and tables

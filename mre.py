@@ -12,7 +12,6 @@ import time
 import glob
 import inspect
 
-
 def input_handler(items):
     """
     Helper function that attempts to detect provided input and convert it to the
@@ -144,10 +143,10 @@ def input_handler(items):
         for idx, item in enumerate(items):
             try:
                 result = np.load(item)
-                print('{} loaded'.format(item))
+                print('  {} loaded'.format(item))
                 data.append(result)
             except Exception as e:
-                print('{}, loading as text'.format(e))
+                print('  {}, loading as text'.format(e))
                 result = np.loadtxt(item)
                 data.append(result)
         # for now truncate. todo: add padding and check for linear increase to
@@ -545,9 +544,9 @@ def default_fitbnds(fitfunc):
 # correlation_fit and its return type definition
 # ------------------------------------------------------------------ #
 
-CorrelationResult = namedtuple('CorrelationResult',
-                               ['tau', 'mre', 'fitfunc',
-                                'popt', 'pcov', 'ssres'])
+CorrelationFitResult = namedtuple('CorrelationFitResult',
+                                  ['tau', 'mre', 'fitfunc',
+                                   'popt', 'pcov', 'ssres'])
 
 def correlation_fit(data,
                     fitfunc=f_exponential,
@@ -687,7 +686,7 @@ def correlation_fit(data,
             fulpcov  = pcov
 
     deltat = 1
-    fulres = CorrelationResult(
+    fulres = CorrelationFitResult(
         tau     = fulpopt[0],
         mre     = np.exp(-deltat/fulpopt[0]),
         fitfunc = fitfunc.__doc__,
@@ -699,48 +698,5 @@ def correlation_fit(data,
           .format(fulres.mre, fulres.tau, fulres.ssres))
 
     return fulres
-
-
-if __name__ == "__main__":
-
-    foo = ['/Users/paul/owncloud/mpi/ec013.527/ec013.527.res.1', '/Users/paul/owncloud/mpi/ec013.527/ec013.527.res.2', '/Users/paul/owncloud/mpi/ec013.527/ec013.527.res.3']
-    # print(np.asarray(foo, dtype=float))
-
-    # base = simulate_branching()
-    # broken = base.flatten()
-    # print(broken.shape)
-    handled = input_handler(foo)
-    print(handled.shape)
-
-    correlation_coefficients(handled)
-
-    exit()
-
-    rk = correlation_coefficients(
-        simulate_branching(numtrials=1, m=0.95),
-        minstep=1, method='trialseparated')
-
-    rksub = correlation_coefficients(
-        simulate_branching(numtrials=1, m=0.95, subp=0.01),
-        minstep=1, method='trialseparated')
-
-    print(rk.trialactivies)
-    print(rk.samples.trialactivies)
-
-    print(rksub.trialactivies)
-    print(rksub.samples.trialactivies)
-
-    # plt.plot(rk.coefficients)
-    # plt.plot(rksub.coefficients)
-    # plt.show()
-
-    test = list(rksub.coefficients)
-    foo = correlation_fit(test, fitfunc=f_exponential)
-    bar = correlation_fit(test, fitfunc=f_exponential_offset)
-    foobar = correlation_fit(test, fitfunc=f_complex)
-    print(foo.mre, foo.ssres)
-    print(bar.mre, bar.ssres)
-    print(foobar.mre, foobar.ssres)
-
 
 

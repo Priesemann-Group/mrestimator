@@ -22,7 +22,7 @@ usually you can install the dependencies via pip:
 pip3 install numpy scipy matplotlib neo
 ```
 
-## Getting started
+## Installation
 
 Clone the repository via ssh. For now, this requires you to have a gwdg gitlab
 account [with ssh keys in place.](https://docs.gitlab.com/ee/ssh/)
