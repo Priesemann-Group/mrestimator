@@ -690,12 +690,19 @@ def correlation_fit(data,
                 for a, b, c, d in zip(ic, pars, fitbnds[0, :], fitbnds[1, :]))
             print('      Starting parameters:\n     ', '\n      '.join(ic))
 
-        popt, pcov = scipy.optimize.curve_fit(
-            fitfunc, steps, coefficients,
-            p0 = pars, bounds=bnds, maxfev = 100000, sigma = stderrs)
+        try:
+            popt, pcov = scipy.optimize.curve_fit(
+                fitfunc, steps, coefficients,
+                p0 = pars, bounds=bnds, maxfev = 100000, sigma = stderrs)
 
-        residuals = coefficients - fitfunc(steps, *popt)
-        ssres = np.sum(residuals**2)
+            residuals = coefficients - fitfunc(steps, *popt)
+            ssres = np.sum(residuals**2)
+        except Exception as e:
+            print('    {e}'.format(e))
+            ssres = np.inf
+            popt  = None
+            pcov  = None
+
         if ssres < ssresmin:
             ssresmin = ssres
             fulpopt  = popt
@@ -714,3 +721,4 @@ def correlation_fit(data,
           .format(fulres.mre, fulres.tau, fulres.ssres))
 
     return fulres
+
