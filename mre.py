@@ -519,7 +519,7 @@ def f_complex(k, tau, A, O, tosc, B, gam, nu, tgs, C):
         + C*np.exp(-(k/tgs)**2) \
         + O*np.ones_like(k)
 
-def default_fitpars(fitfunc):
+def default_fitpars(fitfunc, dt=1):
     """
     Called to get the default parameters of built in fitfunctions that are
     used to initialise the fitting routine
@@ -529,6 +529,9 @@ def default_fitpars(fitfunc):
     fitfunc : callable
         The builtin fitfunction
 
+    dt : number
+        The time scale, usually time bin size of your data.
+
     Returns
     -------
     pars : array like
@@ -536,11 +539,11 @@ def default_fitpars(fitfunc):
         multiple sets of initial conditions are useful
     """
     if fitfunc == f_exponential:
-        return np.array([20, 1])
+        return np.array([20/dt, 1])
     elif fitfunc == f_exponential_offset:
-        return np.array([20, 1, 0])
+        return np.array([20/dt, 1, 0])
     elif fitfunc == f_complex:
-        return np.array(
+        res = np.array(
             #  tau     A       O    tosc      B    gam      nu  tgs      C
             [(  10,  0.1  ,  0    ,  300,  0.03 ,  1.0, 1./200,  10,  0.03 ),
              ( 400,  0.1  ,  0    ,  200,  0.03 ,  2.5, 1./250,  25,  0.03 ),
@@ -564,17 +567,20 @@ def default_fitpars(fitfunc):
              ( 310,  0.029,  0.002,  50 ,  0.08 ,  1.0, 1./34 ,   5,  0.03 ),
              ( 310,  0.029,  0.002,  50 ,  0.08 ,  1.0, 1./64 ,   5,  0.03 ),
              ( 310,  0.029,  0.002,  50 ,  0.08 ,  1.0, 1./64 ,   5,  0.03 )])
+        res[:, [0, 3, 7]] /= dt    # noremalize time scale
+        res[:, 6] *= dt            # and frequency
+        return res
     else:
         print('Requesting default arguments for unknown fitfunction.')
         return None
 
-def default_fitbnds(fitfunc):
+def default_fitbnds(fitfunc, dt=1):
     if fitfunc == f_exponential:
         return None
     elif fitfunc == f_exponential_offset:
         return None
     elif fitfunc == f_complex:
-        pars = np.array(
+        res = np.array(
             [(       5,      5000),     # tau
              (       0,         1),     # A
              (      -1,         1),     # O
@@ -584,7 +590,10 @@ def default_fitbnds(fitfunc):
              (2./1000., 50./1000.),     # nu
              (       0,        30),     # tgs
              (      -5,         5)])    # C
-        return np.transpose(pars)       # scipy curve-fit wants this layout
+        res = np.transpose(res)         # scipy curve-fit wants this layout
+        res[:, [0, 3, 7]] /= dt         # noremalize time scale
+        res[:, 6] *= dt                 # and frequency
+        return res
     else:
         print('Requesting default bounds for unknown fitfunction.')
         return None
@@ -604,19 +613,22 @@ class CorrelationFitResult(namedtuple('CorrelationFitResult',
     ----------
 
     tau : float
-        The estimated autocorrelation time. (Depends on the chosen time bin
-        size `deltat`. *Not implemented yet*)
+        The estimated autocorrelation time in miliseconds.
 
     mre : float
         The branching parameter estimated from the multistep regression.
-        (Depends on the chosen time bin size `deltat`. *Not implemented yet*)
+        (Depends on the specified time bin size `dt`
+         - which should match your data. Per default ``dt=1`` and
+        `mre` is determined via the autocorrelationtime in units of bin size.)
 
     fitfunc : str
         Description of the used fitfunction as string.
 
     popt : array
         Final fitparameters obtained from the (best) underlying
-        :func:`scipy.optimize.curve_fit`.
+        :func:`scipy.optimize.curve_fit`. Beware that these are not corrected
+        for the time bin size, this needs to be done manually (for
+        time and frequency variables).
 
     pcov : array
         Final covariance matrix obtained from the (best) underlying
@@ -629,9 +641,11 @@ class CorrelationFitResult(namedtuple('CorrelationFitResult',
     """
 
 def correlation_fit(data,
+                    dt=1,
                     fitfunc=f_exponential,
                     fitpars=None,
-                    fitbnds=None):
+                    fitbnds=None,
+                    maxfev=100000):
     """
     Estimate the Multistep Regression Estimator by fitting the provided
     correlation coefficients :math:`r_k`. The fit is performed using
@@ -645,6 +659,9 @@ def correlation_fit(data,
         :class:`CoefficientResult` as obtained from
         :func:`correlation_coefficients`. If numpy arrays are provided,
         the function tries to match the data.
+
+    dt : number, optional
+        The size of the time bins of your data (in miliseconds). Default is 1.
 
     fitfunc : callable, optional
         The model function, f(x, …).
@@ -665,6 +682,9 @@ def correlation_fit(data,
         Lower and upper bounds for each parameter handed to the fitting routine.
         Provide as numpy array of the form
         ``[[lowpar1, lowpar2, ...], [uppar1, uppar2, ...]]``
+
+    maxfev : number, optional
+        Maximum iterations for the fit.
 
 
     :return: The output is grouped into a `namedtuple` and can be accessed \
@@ -763,8 +783,8 @@ def correlation_fit(data,
     if fitfunc not in [f_exponential, f_exponential_offset, f_complex]:
         print('  Custom fitfunction specified {}'. format(fitfunc))
 
-    if fitpars is None: fitpars = default_fitpars(fitfunc)
-    if fitbnds is None: fitbnds = default_fitbnds(fitfunc)
+    if fitpars is None: fitpars = default_fitpars(fitfunc, dt)
+    if fitbnds is None: fitbnds = default_fitbnds(fitfunc, dt)
 
     # make this more robust
     if (len(fitpars.shape)<2): fitpars = fitpars.reshape(1, len(fitpars))
@@ -803,7 +823,7 @@ def correlation_fit(data,
         try:
             popt, pcov = scipy.optimize.curve_fit(
                 fitfunc, steps, coefficients,
-                p0 = pars, bounds=bnds, maxfev = 100000, sigma = stderrs)
+                p0 = pars, bounds = bnds, maxfev = maxfev, sigma = stderrs)
 
             residuals = coefficients - fitfunc(steps, *popt)
             ssres = np.sum(residuals**2)
@@ -819,10 +839,9 @@ def correlation_fit(data,
             fulpopt  = popt
             fulpcov  = pcov
 
-    deltat = 1
     fulres = CorrelationFitResult(
-        tau     = fulpopt[0],
-        mre     = np.exp(-deltat/fulpopt[0]),
+        tau     = fulpopt[0]*dt,
+        mre     = np.exp(-1/fulpopt[0]),
         fitfunc = fitfunc.__doc__,
         popt    = fulpopt,
         pcov    = fulpcov,
