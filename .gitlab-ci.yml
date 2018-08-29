@@ -3,9 +3,9 @@ image: alpine
 pages:
   stage: deploy
   script:
-  - apk --no-cache add py2-pip python-dev
-  - pip install sphinx
-  - pip install sphinx_rtd_theme
+  - apk --no-cache add py3-pip python-dev
+  - pip3 install sphinx
+  - pip3 install sphinx_rtd_theme
   - apk --no-cache add make
   - make html
   - mkdir .public
