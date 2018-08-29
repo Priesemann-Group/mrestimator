@@ -1,6 +1,7 @@
 def mr_estimator(activity_matrix, k_limits, bootstrapping=False, fitting_function=None, method_slopes=None,
                  subtr_trial_avg=False, perform_statistical_tests = False, plot=None):
-    """Estimates the MR Estimator from the activity matrix
+    """This is only an outlook. Eventually, this will be the wrapper function to
+    perform the partial analysis steps that are most likekly desired with default arguments.
 
     Parameters
     ----------
