@@ -262,37 +262,38 @@ class CoefficientResult(namedtuple('CoefficientResult',
                                     'trialactivies',
                                     'samples'])):
     """
-    `Namedtuple` returned by :func:`correlation_coefficients`
+    `Namedtuple` returned by :func:`correlation_coefficients`. Attributes are
+    set `None` if the specified method or input data do not provide them.
 
     Attributes
     ----------
 
-    coefficients : array
+    coefficients : array or None
         Contains the coefficients :math:`r_k`, has length
         ``maxstep - minstep + 1``. Access via
         ``coefficients[step]``
 
-    steps : array
+    steps : array or None
         Array of the :math:`k` values matching `coefficients`.
 
-    stderrs : array
+    stderrs : array or None
         Standard errors of the :math:`r_k`.
 
-    trialactivities : array
+    trialactivities : array or None
         Mean activity of each trial in the provided data.
         To get the global mean activity, use ``np.mean(trialactivities)``.
 
-    samples : :class:`CoefficientResult`
+    samples : :class:`CoefficientResult` or None
         Contains the information on the separate (or resampled) trials,
         grouped in the same.
 
-    samples.coefficients : ndarray
-        Coefficients of each separate trial (or sample). Access via
+    samples.coefficients : ndarray or None
+        Coefficients of each separate trial (or bootstrap sample). Access via
         ``samples.coefficients[trial, step]``
 
-    samples.trialactivies : array
+    samples.trialactivies : array or None
         Individual activites of each trial. If ``bootsrap`` was enabled, this
-        containts the activities of the resampled data (not the original ones).
+        containts the activities of the resampled data.
 
 
     Example
@@ -484,6 +485,7 @@ def correlation_coefficients(data,
         # fulres.offsets are zeros
         # fulres.stderrs are zeros, will be done via bootstrapping
         # fulres.samples are completely unused
+        # unpopulated entries are assigned None
         # ------------------------------------------------------------------ #
         coefficients = np.zeros(numsteps, dtype='float64')
         offsets      = None
@@ -511,7 +513,7 @@ def correlation_coefficients(data,
             offsets       = offsets,
             stderrs       = stderrs,
             trialactivies = np.mean(data, axis=1),
-            samples       = sepres)
+            samples       = None)
 
     return fulres
 
@@ -636,7 +638,7 @@ class CorrelationFitResult(namedtuple('CorrelationFitResult',
     mre : float
         The branching parameter estimated from the multistep regression.
         (Depends on the specified time bin size `dt`
-         - which should match your data. Per default ``dt=1`` and
+        - which should match your data. Per default ``dt=1`` and
         `mre` is determined via the autocorrelationtime in units of bin size.)
 
     fitfunc : str
