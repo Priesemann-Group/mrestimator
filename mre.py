@@ -390,11 +390,11 @@ def correlation_coefficients(data,
     # checking arguments to offer some more convenience
     # ------------------------------------------------------------------ #
 
-    if method not in ['trialseparated', 'stationarymean']:
-        raise NotImplementedError('Unknown method: "{}"'.format(method))
-        return
-    else:
-        print('correlation_coefficients() using "{}" method:'.format(method))
+    # if method not in ['trialseparated', 'stationarymean']:
+        # raise NotImplementedError('Unknown method: "{}"'.format(method))
+        # return
+    # else:
+    print('correlation_coefficients() using "{}" method:'.format(method))
 
     dim = -1
     try:
@@ -506,6 +506,67 @@ def correlation_coefficients(data,
             trialactivies = np.mean(data, axis=1),
             samples       = sepres)
 
+        elif method == 'trialseparatedfit':
+        for tdx, trial in enumerate(data):
+            sepres.trialactivies[tdx] = np.mean(trial)
+            print('    Trial {}/{} with'.format(tdx+1, numtrials),
+                  'mean activity {0:.2e}'.format(sepres.trialactivies[tdx]))
+
+            for idx, k in enumerate(steps):
+                # todo change this to use complete trial mean
+                lr = scipy.stats.linregress(trial[ :-k],
+                                            trial[k:  ])
+                sepres.coefficients[tdx, idx] = lr.slope
+                sepres.offsets[tdx, idx]      = lr.intercept
+                sepres.stderrs[tdx, idx]      = lr.stderr
+
+        if numtrials == 1:
+            stderrs  = np.copy(sepres.stderrs[0])
+            print('  Only one trial given, using errors from fit.')
+        else:
+            stderrs  = np.sqrt(np.var(sepres.coefficients, axis=0,
+                                             ddof=1))
+            print('  Estimated errors from separate trials.')
+            if numtrials < 10:
+                print('    Only {} trials given,'.format(numtrials),
+                      'consider using the fit errors instead.\n' \
+                      '    They are accessible for each trial via ' \
+                      '.samples.stderrs[trial, step]')
+
+        fulres = CoefficientResult(
+            steps         = steps,
+            coefficients  = np.mean(sepres.coefficients, axis=0),
+            offsets       = np.mean(sepres.offsets, axis=0),
+            stderrs       = stderrs,
+            trialactivies = np.mean(data, axis=1),
+            samples       = sepres)
+
+
+    elif method == 'stationarymeanfit':
+        coefficients = np.zeros(numsteps, dtype='float64')
+        offsets      = np.zeros(numsteps, dtype='float64')
+        stderrs      = np.zeros(numsteps, dtype='float64')
+
+        for idx, k in enumerate(steps):
+            if not idx%100: print('  {}/{} steps'.format(idx+1, numsteps))
+            x = np.empty(0)
+            y = np.empty(0)
+            for tdx, trial in enumerate(data):
+                m = sepres.trialactivies[tdx]
+                x = np.concatenate((x, trial[ :-k]-m))
+                y = np.concatenate((y, trial[k:  ]-m))
+            lr = scipy.stats.linregress(x, y)
+            coefficients[idx] = lr.slope
+            offsets[idx]      = lr.intercept
+            stderrs[idx]      = lr.stderr
+
+        fulres = CoefficientResult(
+            steps         = steps,
+            coefficients  = coefficients,
+            offsets       = offsets,
+            stderrs       = stderrs,
+            trialactivies = np.mean(data, axis=1),
+            samples       = sepres)
 
     else:
         raise Exception('Unknown method: "{}"'.format(method))
