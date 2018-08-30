@@ -506,7 +506,7 @@ def correlation_coefficients(data,
             trialactivies = np.mean(data, axis=1),
             samples       = sepres)
 
-        elif method == 'trialseparatedfit':
+    elif method == 'trialseparatedfit':
         for tdx, trial in enumerate(data):
             sepres.trialactivies[tdx] = np.mean(trial)
             print('    Trial {}/{} with'.format(tdx+1, numtrials),
@@ -929,4 +929,9 @@ def correlation_fit(data,
           .format(fulres.mre, fulres.tau, fulres.ssres))
 
     return fulres
+
+
+if __name__ == "__main__":
+    bp = simulate_branching(numtrials=3)
+    rk = correlation_coefficients(bp, method='trialseparatedfit')
 
