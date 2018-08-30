@@ -9,11 +9,11 @@ For Details on the estimator, please see
 [J. Wilting and V. Priesemann, Nat. Commun. 9, 2325 (2018)](https://doi.org/10.1038/s41467-018-04725-4)
 
 ## Requirements
-- Python 3.5 or newer
-- numpy
-- scipy
-- matplotlib
-- neo (for importing, this will be an optional dependency at some point)
+- Python (3.5)
+- numpy (1.15.0)
+- scipy (1.1.0)
+- matplotlib (1.5.1)
+- neo (0.6.1) _for importing, this will be an optional dependency at some point_
 
 Assuming a working Python3 environment,
 usually you can install the dependencies via pip:
