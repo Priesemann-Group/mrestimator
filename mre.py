@@ -418,32 +418,86 @@ def correlation_coefficients(data,
         print('  Warning: maxstep is larger than your data, adjusting to {}' \
               .format(maxstep))
 
-    steps        = np.arange(minstep, maxstep+1)
-    numsteps     = len(steps)
-    numtrials    = data.shape[0]
-    datalength   = data.shape[1]
+    steps     = np.arange(minstep, maxstep+1)
+    numsteps  = len(steps)        # number of steps for rks
+    numtrials = data.shape[0]     # number of trials
+    numels    = data.shape[1]     # number of measurements per trial
 
-
-    print('  {} trials, length {}'.format(numtrials, datalength))
+    print('  {} trials, length {}'.format(numtrials, numels))
 
     sepres = CoefficientResult(
-        coefficients  = np.zeros(shape=(numtrials, numsteps), dtype=float),
-        offsets       = np.zeros(shape=(numtrials, numsteps), dtype=float),
-        stderrs       = np.zeros(shape=(numtrials, numsteps), dtype=float),
+        coefficients  = np.zeros(shape=(numtrials, numsteps), dtype='float64'),
+        offsets       = np.zeros(shape=(numtrials, numsteps), dtype='float64'),
+        stderrs       = np.zeros(shape=(numtrials, numsteps), dtype='float64'),
         steps         = steps,
         trialactivies = np.mean(data, axis=1),
         samples = None)
 
     if method == 'trialseparated':
+        # ------------------------------------------------------------------ #
+        # ToDo:
+        # fulres.offsets are zeros
+        # fulres.samples are mostly unused, only the coefficients are filled
+        # ------------------------------------------------------------------ #
+        trialmeans = np.mean(data, axis=1, keepdims=True)  # (numtrials, 1)
+        trialvars  = np.var(data, axis=1, ddof=1)          # (numtrials)
+
+        for idx, k in enumerate(steps):
+            sepres.coefficients[:, idx] = \
+                np.mean((data[:,  :-k] - trialmeans) * \
+                        (data[:, k:  ] - trialmeans), axis=1) \
+                * ((numels-k)/(numels-k-1)) / trialvars
+
+        fulres = CoefficientResult(
+            steps         = steps,
+            coefficients  = np.mean(sepres.coefficients, axis=0),
+            offsets       = np.mean(sepres.offsets, axis=0),
+            stderrs       = np.sqrt(np.var(sepres.coefficients, axis=0, ddof=1)),
+            trialactivies = np.mean(data, axis=1),
+            samples       = sepres)
+
+
+    elif method == 'stationarymean':
+        # ------------------------------------------------------------------ #
+        # ToDo:
+        # fulres.offsets are zeros
+        # fulres.stderrs are zeros, will be done via bootstrapping
+        # fulres.samples are completely unused
+        # ------------------------------------------------------------------ #
+        coefficients = np.zeros(numsteps, dtype='float64')
+        offsets      = np.zeros(numsteps, dtype='float64')
+        stderrs      = np.zeros(numsteps, dtype='float64')
+
+        # numbers this time, shape=(1)
+        fulmean  = np.mean(data)
+        fulvar   = np.var(data, ddof=numtrials)
+        # fulvar = np.mean((data[:]-fulmean)**2)*(numels/(numels-1))
+
+        for idx, k in enumerate(steps):
+            coefficients[idx] = \
+                np.mean((data[:,  :-k] - fulmean) * \
+                        (data[:, k:  ] - fulmean)) \
+                * ((numels-k)/(numels-k-1)) / fulvar
+
+        fulres = CoefficientResult(
+            steps         = steps,
+            coefficients  = coefficients,
+            offsets       = offsets,
+            stderrs       = stderrs,
+            trialactivies = np.mean(data, axis=1),
+            samples       = sepres)
+
+
+    elif method == 'trialseparatedfit':
         for tdx, trial in enumerate(data):
             sepres.trialactivies[tdx] = np.mean(trial)
             print('    Trial {}/{} with'.format(tdx+1, numtrials),
-                  'mean activity {0:.2f}'.format(sepres.trialactivies[tdx]))
+                  'mean activity {0:.2e}'.format(sepres.trialactivies[tdx]))
 
-            for idx, step in enumerate(steps):
+            for idx, k in enumerate(steps):
                 # todo change this to use complete trial mean
-                lr = scipy.stats.linregress(trial[0:-step],
-                                                trial[step:  ])
+                lr = scipy.stats.linregress(trial[ :-k],
+                                            trial[k:  ])
                 sepres.coefficients[tdx, idx] = lr.slope
                 sepres.offsets[tdx, idx]      = lr.intercept
                 sepres.stderrs[tdx, idx]      = lr.stderr
@@ -469,19 +523,20 @@ def correlation_coefficients(data,
             trialactivies = np.mean(data, axis=1),
             samples       = sepres)
 
-    elif method == 'stationarymean':
-        coefficients = np.zeros(numsteps, dtype=float)
-        offsets      = np.zeros(numsteps, dtype=float)
-        stderrs      = np.zeros(numsteps, dtype=float)
 
-        for idx, step in enumerate(steps):
+    elif method == 'stationarymeanfit':
+        coefficients = np.zeros(numsteps, dtype='float64')
+        offsets      = np.zeros(numsteps, dtype='float64')
+        stderrs      = np.zeros(numsteps, dtype='float64')
+
+        for idx, k in enumerate(steps):
             if not idx%100: print('  {}/{} steps'.format(idx+1, numsteps))
             x = np.empty(0)
             y = np.empty(0)
             for tdx, trial in enumerate(data):
                 m = sepres.trialactivies[tdx]
-                x = np.concatenate((x, trial[0:-step]-m))
-                y = np.concatenate((y, trial[step:  ]-m))
+                x = np.concatenate((x, trial[ :-k]-m))
+                y = np.concatenate((y, trial[k:  ]-m))
             lr = scipy.stats.linregress(x, y)
             coefficients[idx] = lr.slope
             offsets[idx]      = lr.intercept
@@ -494,6 +549,11 @@ def correlation_coefficients(data,
             stderrs       = stderrs,
             trialactivies = np.mean(data, axis=1),
             samples       = sepres)
+
+
+    else:
+        raise Exception('Unknown method: "{}"'.format(method))
+        exit()
 
     return fulres
 
@@ -775,9 +835,10 @@ def correlation_fit(data,
                     coefficients = data[1]
                     stderrs      = np.ones(len(coefficients))
                     if steps[0] == 1: mnaive = coefficients[0]
-                    if data.shape > 3: print('    Ignoring further rows')
+                    if data.shape[0] > 3: print('    Ignoring further rows')
         except Exception as e:
-            raise Exception('{} Provided data has no known format'.foramt(e))
+            print('{} Provided data has no known format'.foramt(e))
+            exit()
 
 
     if fitfunc not in [f_exponential, f_exponential_offset, f_complex]:

@@ -87,8 +87,30 @@ def fitfunction_complex(k_arr, A, tau1, exponent, freq, O, B, tau2, C, tau3):
 def fitfunction_exp_with_offset(k_arr, B, tau2, O):
     return B * np.exp(-(k_arr / tau2)) + O * np.ones_like(k_arr)
 
-def test_similarity(value1, value2, ratio_different):
+def test_similarity(value1, value2, ratio_different=1e-10):
+    print('largst difference: {:.3e}'.format(np.max(np.fabs(value1 - value2))))
     return np.all((value1 - value2)/((value1 + value2)/2)  < ratio_different)
+
+def compare_mre_methods(activity_mat):
+    print('comparing mre internally:')
+    rk1 = mre.correlation_coefficients(activity_mat, maxstep=1500,
+                                       method='trialseparated')
+    rk2 = mre.correlation_coefficients(activity_mat, maxstep=1500,
+                                       method='trialseparatedfit')
+    rk3 = mre.correlation_coefficients(activity_mat, maxstep=1500,
+                                       method='sationarymean')
+    rk4 = mre.correlation_coefficients(activity_mat, maxstep=1500,
+                                       method='sationarymeanfit')
+
+    print('\n\n\n comparison:')
+    print(rk1.coefficients[:10])
+    print(rk2.coefficients[:10])
+    print(rk3.coefficients[:10])
+    print(rk4.coefficients[:10])
+    print('\n\n\n')
+
+    test_similarity(rk1.coefficients, rk2.coefficients)
+    test_similarity(rk3.coefficients, rk4.coefficients)
 
 class TestMREstimator(unittest.TestCase):
     startvalues_compl = [(0.03, 300, 1, 1. / 200, 0, 0.1, 10, 0.03, 10),
@@ -129,8 +151,10 @@ class TestMREstimator(unittest.TestCase):
                     if fitfunc_name == "complex":
                         popt,_ = calc_popt(fitfunction_complex, k_arr, corr_arr, np.ones_like(k_arr), self.bounds_compl, self.startvalues_compl, maxfev=None,
                                   try_only_once=False)
-                        res_mre = mre.mr_estimator(activity_mat, k_arr, "stationarymean", "complexfit", bootstrapping = None)
 
+                        rk = mre.correlation_coefficients(activity_mat, method='stationarymean')
+                        res_mre = mre.correlation_fit(rk, fitfunc='complex')
+                        print('popts:', popt, res_mre.popt)
                         for i in range(len(popt)):
                             self.assertTrue(test_similarity(popt[i], res_mre.popt[i], ratio_different=1e-5))
                         #plt.plot(k_arr, corr_arr)
@@ -144,8 +168,9 @@ class TestMREstimator(unittest.TestCase):
                         #plt.plot(k_arr, corr_arr)
                         #plt.plot(k_arr, fitfunction_exp_with_offset(k_arr, *popt))
                         #plt.show()
-                        res_mre = mre.mr_estimator(activity_mat, k_arr, "stationarymean", "complexfit",
-                                                   bootstrapping=None)
+                        rk = mre.correlation_coefficients(activity_mat, method='stationarymean')
+                        res_mre = mre.correlation_fit(rk, fitfunc='exponentialoffset')
+                        print('popts:', popt, res_mre.popt)
                         for i in range(len(popt)):
                             self.assertTrue(test_similarity(popt[i], res_mre.popt[i], ratio_different=1e-5))
 
@@ -165,6 +190,9 @@ class TestCorrCoeff(unittest.TestCase):
             #plt.plot(mre_res.coefficients)
             #plt.plot(corr_arr)
             #plt.show()
+            print('stationarymean')
+            print('rks: ', mre_res.coefficients[:10])
+            print('leg: ', corr_arr[:10])
             self.assertTrue(test_similarity(mre_res.coefficients, corr_arr, ratio_different = 1e-10))
     def test_separate(self):
         for ele_num in range(0,40,10):
@@ -180,9 +208,13 @@ class TestCorrCoeff(unittest.TestCase):
             #plt.plot(mre_res.coefficients)
             #plt.plot(np.mean(corr_arr, axis=0))
             #plt.show()
+            print('trialseparated')
+            print('mre: ', mre_res.coefficients[:10])
+            print('leg: ', np.mean(corr_arr, axis=0)[:10])
             self.assertTrue(test_similarity(mre_res.samples.coefficients, corr_arr, ratio_different = 1e-10))
 
 
 
 if __name__ == "__main__":
     unittest.main()
+
