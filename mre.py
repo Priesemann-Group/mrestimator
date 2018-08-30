@@ -173,7 +173,8 @@ def simulate_branching(length=10000,
                        m=0.9,
                        activity=100,
                        numtrials=1,
-                       subp=1):
+                       subp=1,
+                       seed=None):
     """
     Simulates a branching process with Poisson input.
 
@@ -192,6 +193,11 @@ def simulate_branching(length=10000,
     numtrials : int, optional
         Generate more than one trial.
 
+    seed : int, optional
+        Initialise the random number generator with a seed. Per default it is
+        seeded randomly (hence each call to `simulate_branching()` returns
+        different results).
+
     subp : float, optional
         Subsample the activity to the specified probability.
 
@@ -204,6 +210,7 @@ def simulate_branching(length=10000,
         10000 measurements.
 
     """
+    np.random.seed(seed=seed)
 
     A_t = np.ndarray(shape=(numtrials, length), dtype=int)
     h = activity * (1 - m)
@@ -392,7 +399,6 @@ def correlation_coefficients(data,
 
     if method not in ['trialseparated', 'stationarymean']:
         raise NotImplementedError('Unknown method: "{}"'.format(method))
-        return
     else:
         print('correlation_coefficients() using "{}" method:'.format(method))
 
@@ -431,8 +437,8 @@ def correlation_coefficients(data,
 
     sepres = CoefficientResult(
         coefficients  = np.zeros(shape=(numtrials, numsteps), dtype='float64'),
-        offsets       = np.zeros(shape=(numtrials, numsteps), dtype='float64'),
-        stderrs       = np.zeros(shape=(numtrials, numsteps), dtype='float64'),
+        offsets       = None,
+        stderrs       = None,
         steps         = steps,
         trialactivies = np.mean(data, axis=1),
         samples = None)
@@ -442,6 +448,7 @@ def correlation_coefficients(data,
         # ToDo:
         # fulres.offsets are zeros
         # fulres.samples are mostly unused, only the coefficients are filled
+        # unpopulated entries are assigned None
         # ------------------------------------------------------------------ #
         trialmeans = np.mean(data, axis=1, keepdims=True)  # (numtrials, 1)
         trialvars  = np.var(data, axis=1, ddof=1)          # (numtrials)
@@ -460,12 +467,12 @@ def correlation_coefficients(data,
         if numtrials > 1:
             stderrs = np.sqrt(np.var(sepres.coefficients, axis=0, ddof=1))
         else :
-            stderrs = np.zeros(numsteps, dtype='float64')
+            stderrs = None
 
         fulres = CoefficientResult(
             steps         = steps,
             coefficients  = np.mean(sepres.coefficients, axis=0),
-            offsets       = np.mean(sepres.offsets, axis=0),
+            offsets       = None,
             stderrs       = stderrs,
             trialactivies = np.mean(data, axis=1),
             samples       = sepres)
@@ -479,8 +486,8 @@ def correlation_coefficients(data,
         # fulres.samples are completely unused
         # ------------------------------------------------------------------ #
         coefficients = np.zeros(numsteps, dtype='float64')
-        offsets      = np.zeros(numsteps, dtype='float64')
-        stderrs      = np.zeros(numsteps, dtype='float64')
+        offsets      = None
+        stderrs      = None
 
         # numbers this time, shape=(1)
         fulmean  = np.mean(data)
@@ -761,7 +768,7 @@ def correlation_fit(data,
                       'coefficients with minstep=1')
                 coefficients = data
                 steps        = np.arange(1, len(coefficients)+1)
-                stderrs      = np.ones(len(coefficients))
+                stderrs      = None
                 mnaive       = coefficients[0]
             elif len(data.shape) == 2:
                 if data.shape[0] > data.shape[1]: data = np.transpose(data)
@@ -770,26 +777,32 @@ def correlation_fit(data,
                           'coefficients with minstep=1')
                     coefficients = data[0]
                     steps        = np.arange(1, len(coefficients))
-                    stderrs      = np.ones(len(coefficients))
+                    stderrs      = None
                     mnaive       = coefficients[0]
                 elif data.shape[0] == 2:
                     print('    2d array, assuming this to be ' \
                           'steps and coefficients')
                     steps        = data[0]
                     coefficients = data[1]
-                    stderrs      = np.ones(len(coefficients))
+                    stderrs      = None
                     if steps[0] == 1: mnaive = coefficients[0]
                 elif data.shape[0] >= 3:
                     print('    2d array, assuming this to be ' \
                           'steps, coefficients, stderrs')
                     steps        = data[0]
                     coefficients = data[1]
-                    stderrs      = np.ones(len(coefficients))
+                    stderrs      = None
                     if steps[0] == 1: mnaive = coefficients[0]
                     if data.shape > 3: print('    Ignoring further rows')
         except Exception as e:
             raise Exception('{} Provided data has no known format'.foramt(e))
 
+
+    # make sure stderrs are not all equal
+    try:
+        if stderrs == stderrs[0]: stderrs = None
+    except:
+        stderrs = None
 
     if fitfunc not in [f_exponential, f_exponential_offset, f_complex]:
         print('  Custom fitfunction specified {}'. format(fitfunc))
