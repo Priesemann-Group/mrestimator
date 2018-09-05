@@ -708,7 +708,6 @@ def math_from_doc(fitfunc, maxlen=np.inf):
     #     res = res[:maxlen-3]+'...'
     return res
 
-
 # ------------------------------------------------------------------ #
 # Fitting
 # ------------------------------------------------------------------ #
@@ -843,7 +842,7 @@ def correlation_fit(
         ..
     """
     # ------------------------------------------------------------------ #
-    # Check arguments to offer some more convenience
+    # Check arguments and prepare
     # ------------------------------------------------------------------ #
 
     print('correlation_fit() calculating the MR Estimator...')
@@ -899,7 +898,7 @@ def correlation_fit(
                     if steps[0] == 1: mnaive = coefficients[0]
                     if data.shape > 3: print('\t\tIgnoring further rows')
         except Exception as e:
-            raise Exception('{} Provided data has no known format'.foramt(e))
+            raise Exception('{} Provided data has no known format'.format(e))
 
     try:
         if desc == '': desc = data.desc
@@ -922,9 +921,24 @@ def correlation_fit(
     # ToDo: make this more robust
     if (len(fitpars.shape)<2): fitpars = fitpars.reshape(1, len(fitpars))
 
+    if fitbnds is None:
+        bnds = np.array([-np.inf, np.inf])
+        print('\tUnbound fit to {}:'.format(math_from_doc(fitfunc)))
+        ic = list(inspect.signature(fitfunc).parameters)[1:]
+        ic = ('{} = {:.3f}'.format(a, b) for a, b in zip(ic, fitpars[0]))
+        print('\t\tStarting parameters:', ', '.join(ic))
+    else:
+        bnds = fitbnds
+        print('\tBounded fit to {}'.format(math_from_doc(fitfunc)))
+        ic = list(inspect.signature(fitfunc).parameters)[1:]
+        ic = ('\t{0:<6} = {1:8.3f} in ({2:9.4f}, {3:9.4f})'
+            .format(a, b, c, d) for a, b, c, d
+                in zip(ic, fitpars[0], fitbnds[0, :], fitbnds[1, :]))
+        print('\t\tFirst parameters:\n\t\t', '\n\t\t'.join(ic))
+
     if (fitpars.shape[0]>1):
-        print('\tRepeating fit with {} sets of initial parameters:'
-              .format(fitpars.shape[0]))
+        print('\t\tRepeating fit with {} sets of initial parameters:'
+            .format(fitpars.shape[0]))
 
     # ------------------------------------------------------------------ #
     # Fit via scipy.curve_fit
@@ -934,26 +948,9 @@ def correlation_fit(
     # fitpars: 2d ndarray
     # fitbnds: matching scipy.curve_fit: [lowerbndslist, upperbndslist]
     for idx, pars in enumerate(fitpars):
-        if fitbnds is None:
-            bnds = np.array([-np.inf, np.inf])
-            outof = '{}/{} '.format(idx+1, len(fitpars)) \
-                if len(fitpars)!=1 else ''
-            print('\t{}Unbound fit to {}:' \
-                .format(outof, math_from_doc(fitfunc)))
-            ic = list(inspect.signature(fitfunc).parameters)[1:]
-            ic = ('{} = {:.3f}'.format(a, b) for a, b in zip(ic, pars))
-            print('\t\tStarting parameters:', ', '.join(ic))
-        else:
-            bnds = fitbnds
-            outof = '{}/{} '.format(idx+1, len(fitpars)) \
-                if len(fitpars)!=1 else ''
-            print('\t\t{}Bounded fit to {}' \
-                .format(outof, math_from_doc(fitfunc)))
-            ic = list(inspect.signature(fitfunc).parameters)[1:]
-            ic = ('\t\t{0:<6} = {1:8.3f} in ({2:9.4f}, {3:9.4f})' \
-                .format(a, b, c, d)
-                for a, b, c, d in zip(ic, pars, fitbnds[0, :], fitbnds[1, :]))
-            # print('\t\tStarting parameters:\n\t\t', '\n\t\t'.join(ic))
+        if len(fitpars)!=1:
+            print('\r\t\t\t{}/{} fits'.format(idx+1, len(fitpars)), end='')
+            if idx == len(fitpars)-1: print('\n', end='')
 
         try:
             popt, pcov = scipy.optimize.curve_fit(
@@ -962,11 +959,14 @@ def correlation_fit(
 
             residuals = coefficients - fitfunc(steps, *popt)
             ssres = np.sum(residuals**2)
+
         except Exception as e:
-            print('\t\tException: {}\n'.format(e), '\t\tIgnoring this fit')
             ssres = np.inf
             popt  = None
             pcov  = None
+
+            if idx != len(fitpars)-1: print('\n', end='')
+            print('\t\tException: {}\n'.format(e), '\t\tIgnoring this fit')
 
         if ssres < ssresmin:
             ssresmin = ssres
@@ -983,7 +983,7 @@ def correlation_fit(
         desc    = desc)
 
     print('\tFinished fitting {}, mre = {:.5f}, tau = {:.5f}, ssres = {:.5f}'
-        .format(desc if desc != '' else math_from_doc(fitfunc),
+        .format('"'+desc+'"' if desc != '' else fitfunc.__name__,
             fulres.mre, fulres.tau, fulres.ssres))
 
     return fulres
