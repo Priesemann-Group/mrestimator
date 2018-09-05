@@ -212,7 +212,7 @@ def simulate_branching(length=10000,
     """
     np.random.seed(seed)
 
-    A_t = np.ndarray(shape=(numtrials, length), dtype=int)
+    A_t = np.zeros(shape=(numtrials, length), dtype=int)
     h = activity * (1 - m)
 
     print('Generating branching process with {}'.format(length),
@@ -260,7 +260,7 @@ class CoefficientResult(namedtuple('CoefficientResult',
                                    ['coefficients', 'steps',
                                     'offsets', 'stderrs',
                                     'trialactivies',
-                                    'samples'])):
+                                    'samples', 'desc'])):
     """
     `Namedtuple` returned by :func:`correlation_coefficients`. Attributes are
     set `None` if the specified method or input data do not provide them.
@@ -282,6 +282,11 @@ class CoefficientResult(namedtuple('CoefficientResult',
     trialactivities : array or None
         Mean activity of each trial in the provided data.
         To get the global mean activity, use ``np.mean(trialactivities)``.
+
+    desc : str
+        Description (or Name) of the data set, by default all results of
+        functions working with this set inherit its description (e.g. plot
+        legends).
 
     samples : :class:`CoefficientResult` or None
         Contains the information on the separate (or resampled) trials,
@@ -326,7 +331,8 @@ def correlation_coefficients(data,
                              maxstep=1000,
                              method='trialseparated',
                              bootstrap=True,
-                             seed=3141):
+                             seed=3141,
+                             desc=''):
     """
     Calculates the coefficients of correlation :math:`r_k`.
 
@@ -365,6 +371,10 @@ def correlation_coefficients(data,
         `correlation_coefficients()` is called to return consistent results
         when repeating the analysis on the same data. Pass `None` to change
         this behaviour. For more details, see :obj:`numpy.random.RandomState`.
+
+    desc : str, optional
+        Set the description of the :class:`CoefficientResult`. By default all results of functions working with this set inherit its description
+        (e.g. plot legends).
 
 
     :return: The output is grouped into a `namedtuple` and can be accessed \
@@ -409,6 +419,8 @@ def correlation_coefficients(data,
     if method not in ['trialseparated', 'stationarymean']:
         raise NotImplementedError('Unknown method: "{}"'.format(method))
 
+    if not isinstance(desc, str): desc = str(desc)
+
     print('correlation_coefficients() using "{}" method:'.format(method))
 
     dim = -1
@@ -437,6 +449,7 @@ def correlation_coefficients(data,
         print('  Warning: maxstep is larger than your data, adjusting to {}' \
               .format(maxstep))
 
+
     steps     = np.arange(minstep, maxstep+1)
     numsteps  = len(steps)        # number of steps for rks
     numtrials = data.shape[0]     # number of trials
@@ -458,7 +471,8 @@ def correlation_coefficients(data,
             stderrs       = None,
             steps         = steps,
             trialactivies = np.mean(data, axis=1),
-            samples = None)
+            samples       = None,
+            desc          = desc)
 
         trialmeans = np.mean(data, axis=1, keepdims=True)  # (numtrials, 1)
         trialvars  = np.var(data, axis=1, ddof=1)          # (numtrials)
@@ -485,7 +499,8 @@ def correlation_coefficients(data,
             offsets       = None,
             stderrs       = stderrs,
             trialactivies = np.mean(data, axis=1),
-            samples       = sepres)
+            samples       = sepres,
+            desc          = desc)
 
 
     elif method == 'stationarymean':
@@ -529,7 +544,8 @@ def correlation_coefficients(data,
                 stderrs       = None,
                 steps         = steps,
                 trialactivies = np.zeros(numrepls, dtype='float64'),
-                samples = None)
+                samples       = None,
+                desc          = desc)
 
             for tdx in range(numrepls):
                 print('\r  {}/{} samples'.format(tdx+1, numrepls), end="")
@@ -560,7 +576,8 @@ def correlation_coefficients(data,
             offsets       = offsets,
             stderrs       = stderrs,
             trialactivies = np.mean(data, axis=1),
-            samples       = sepres)
+            samples       = sepres,
+            desc          = desc)
 
     return fulres
 
@@ -570,20 +587,21 @@ def correlation_coefficients(data,
 # ------------------------------------------------------------------ #
 
 def f_exponential(k, tau, A):
-    """A e^(-k/tau)"""
+    """:math:`A e^{-k/\\tau}`"""
+
     return A*np.exp(-k/tau)
 
 def f_exponential_offset(k, tau, A, O):
-    """A e^(-k/tau) + O"""
+    """:math:`A e^{-k/\\tau} + O`"""
     return A*np.exp(-k/tau)+O*np.ones_like(k)
 
-def f_complex(k, tau, A, O, tosc, B, gam, nu, tgs, C):
-    """A e^(-k/tau) + B e^-(k/tosc)^gam cos(2 pi nu k) """ \
-    """+ C e^-(k/tgs)^2 + O"""
+def f_complex(k, tau, A, O, tauosc, B, gamma, nu, taugs, C):
+    """:math:`A e^{-k/\\tau} + B e^{-(k/\\tau_{osc})^\\gamma} """ \
+    """\\cos(2 \\pi \\nu k) + C e^{-(k/\\tau_{gs})^2} + O`"""
 
     return A*np.exp(-(k/tau)) \
-        + B*np.exp(-(k/tosc)**gam)*np.cos(2*np.pi*nu*k) \
-        + C*np.exp(-(k/tgs)**2) \
+        + B*np.exp(-(k/tauosc)**gamma)*np.cos(2*np.pi*nu*k) \
+        + C*np.exp(-(k/taugs)**2) \
         + O*np.ones_like(k)
 
 def default_fitpars(fitfunc, dt=1):
@@ -665,6 +683,26 @@ def default_fitbnds(fitfunc, dt=1):
         print('Requesting default bounds for unknown fitfunction.')
         return None
 
+# convert sphinx compatible math to matplotlib/tex
+def math_from_doc(fitfunc, maxlen=np.inf):
+    res = fitfunc.__doc__
+    res = res.replace(':math:', '')
+    res = res.replace('`', '$')
+    if len(res) > maxlen:
+        # res = fitfunc.__name__
+        term = res.find(" + ", 0, len(res))
+        res = res[:term+2]+' ...$'
+        # terms = []
+        # beg=0
+        # while beg != -1:
+        #     beg = res.find(" + ", beg+1, len(res))
+        #     if (beg != 0) and (beg != -1):
+        #         terms.append(beg)
+
+    # if len(res) > maxlen:
+    #     res = res[:maxlen-3]+'...'
+    return res
+
 
 # ------------------------------------------------------------------ #
 # correlation_fit and its return type definition
@@ -672,7 +710,8 @@ def default_fitbnds(fitfunc, dt=1):
 
 class CorrelationFitResult(namedtuple('CorrelationFitResult',
                                       ['tau', 'mre', 'fitfunc',
-                                       'popt', 'pcov', 'ssres'])):
+                                       'popt', 'pcov', 'ssres',
+                                       'desc'])):
     """
     `Namedtuple` returned by :func:`correlation_fit`
 
@@ -688,8 +727,10 @@ class CorrelationFitResult(namedtuple('CorrelationFitResult',
         - which should match your data. Per default ``dt=1`` and
         `mre` is determined via the autocorrelationtime in units of bin size.)
 
-    fitfunc : str
-        Description of the used fitfunction as string.
+    fitfunc : callable
+        The model function, f(x, …). This allows to fit directly with popt.
+        To get the description of the function, use ``fitfunc.__doc__``.
+        *Used to be the description as string.*
 
     popt : array
         Final fitparameters obtained from the (best) underlying
@@ -705,6 +746,10 @@ class CorrelationFitResult(namedtuple('CorrelationFitResult',
         Sum of the squared residuals for the fit with `popt`. This is not yet
         normalised per degree of freedom.
 
+    desc : str
+        Description, inherited from :class:`CoefficientResult` or set when
+        calling :func:`correlation_fit`
+
     """
 
 def correlation_fit(data,
@@ -712,7 +757,8 @@ def correlation_fit(data,
                     fitfunc=f_exponential,
                     fitpars=None,
                     fitbnds=None,
-                    maxfev=100000):
+                    maxfev=100000,
+                    desc=''):
     """
     Estimate the Multistep Regression Estimator by fitting the provided
     correlation coefficients :math:`r_k`. The fit is performed using
@@ -752,6 +798,9 @@ def correlation_fit(data,
 
     maxfev : number, optional
         Maximum iterations for the fit.
+
+    desc : str, optional
+
 
 
     :return: The output is grouped into a `namedtuple` and can be accessed \
@@ -847,6 +896,11 @@ def correlation_fit(data,
         except Exception as e:
             raise Exception('{} Provided data has no known format'.foramt(e))
 
+    try:
+        if desc == '': desc = data.desc
+        else: desc = str(desc)
+    except:
+        desc = ''
 
     # make sure stderrs are not all equal
     try:
@@ -879,7 +933,8 @@ def correlation_fit(data,
             bnds = np.array([-np.inf, np.inf])
             outof = '{}/{} '.format(idx+1, len(fitpars)) \
                 if len(fitpars)!=1 else ''
-            print('    {}Unbound fit to {}:'.format(outof, fitfunc.__doc__))
+            print('    {}Unbound fit to {}:' \
+                .format(outof, math_from_doc(fitfunc)))
             ic = list(inspect.signature(fitfunc).parameters)[1:]
             ic = ('{} = {:.3f}'.format(a, b) for a, b in zip(ic, pars))
             print('      Starting parameters:', ', '.join(ic))
@@ -887,7 +942,8 @@ def correlation_fit(data,
             bnds = fitbnds
             outof = '{}/{} '.format(idx+1, len(fitpars)) \
                 if len(fitpars)!=1 else ''
-            print('    {}Bounded fit to {}'.format(outof, fitfunc.__doc__))
+            print('    {}Bounded fit to {}' \
+                .format(outof, math_from_doc(fitfunc)))
             ic = list(inspect.signature(fitfunc).parameters)[1:]
             ic = ('  {0:<5} = {1:8.3f} in ({2:9.4f}, {3:9.4f})' \
                 .format(a, b, c, d) \
@@ -897,7 +953,7 @@ def correlation_fit(data,
         try:
             popt, pcov = scipy.optimize.curve_fit(
                 fitfunc, steps, coefficients,
-                p0 = pars, bounds = bnds, maxfev = maxfev, sigma = stderrs)
+                p0 = pars, bounds = bnds, maxfev = int(maxfev), sigma = stderrs)
 
             residuals = coefficients - fitfunc(steps, *popt)
             ssres = np.sum(residuals**2)
@@ -916,13 +972,196 @@ def correlation_fit(data,
     fulres = CorrelationFitResult(
         tau     = fulpopt[0]*dt,
         mre     = np.exp(-1/fulpopt[0]),
-        fitfunc = fitfunc.__doc__,
+        fitfunc = fitfunc,
         popt    = fulpopt,
         pcov    = fulpcov,
-        ssres   = ssresmin)
+        ssres   = ssresmin,
+        desc    = desc)
 
-    print('  Finished fitting, mre = {:.5f}, tau = {:.5f}, ssres = {:.5f}' \
-          .format(fulres.mre, fulres.tau, fulres.ssres))
+    print('  Finished fitting {}, mre = {:.5f}, tau = {:.5f}, ssres = {:.5f}' \
+        .format(desc if desc != '' else math_from_doc(fitfunc),
+        fulres.mre, fulres.tau, fulres.ssres))
 
     return fulres
+
+
+# ------------------------------------------------------------------ #
+# Output, Plotting
+# ------------------------------------------------------------------ #
+
+class OutputHandler:
+    """
+    Use this guy to handle exporting details. Documented soon.
+
+    Example
+    -------
+    .. code-block:: python
+
+        import numpy as np
+        import matplotlib.pyplot as plt
+        import mre
+
+        bp  = mre.simulate_branching(numtrials=15)
+        rk1 = mre.correlation_coefficients(bp, method='trialseparated',
+            desc='T')
+        rk2 = mre.correlation_coefficients(bp, method='stationarymean',
+            desc='S')
+
+        m1 = mre.correlation_fit(rk1)
+        m2 = mre.correlation_fit(rk2)
+
+        out = mre.OutputHandler(rk1, m1)
+        out.add_coefficients(rk2)
+        out.add_fit(m2)
+        out.save('~/test')
+    ..
+
+    """
+
+    def __init__(self, rk=None, mre=None, ax=None):
+        if isinstance(ax, matplotlib.axes.Axes): self.ax = ax
+        elif ax is None: _, self.ax = plt.subplots()
+        else: raise ValueError('ax is not a matplotlib.axes.Axes')
+
+        self.rks = []
+        self.fits = []
+        self.title = None
+        self.type = None
+        self.xdata = None
+        self.ydata = None
+        self.xlabel = None
+        self.ylabels = None
+
+        if isinstance(rk, CoefficientResult):
+            self.add_coefficients(rk)
+        if isinstance(mre, CorrelationFitResult):
+            self.add_fit(mre)
+
+    def set_xdata(self, xdata=None):
+        # this needs to be improve, for now only fits can be redrawn
+        if xdata is None: xdata = np.arange(1501)
+        if len(self.rks) == 0: self.xdata = xdata
+        else: raise NotImplementedError('Overwriting xdata when it was set ' \
+            'by add_coefficients() is not supported yet')
+
+        _, labels = self.ax.get_legend_handles_labels()
+        self.ax.clear()
+        for fdx, mre in enumerate(self.fits):
+            self.ax.plot(self.xdata, mre.fitfunc(self.xdata, *mre.popt),
+                label=labels[fdx])
+            self.ax.legend()
+            self.ax.relim()
+            self.ax.autoscale_view()
+
+    def add_coefficients(self, rk, desc=''):
+        # the description supplied here only affects the plot legend
+        if not isinstance(rk, CoefficientResult):
+            raise ValueError
+        if not (self.type is None or self.type == 'correlation'):
+            raise ValueError
+        self.type = 'correlation'
+        try:
+            if desc == '': desc = rk.desc
+            else: desc = str(desc)
+        except: desc = ''
+        if desc != '': desc += ' '
+        if len(self.rks) == 0:
+            self.set_xdata(rk.steps)
+            self.xlabel = 'steps'
+            self.ydata = np.zeros(shape=(1,len(rk.coefficients)))
+            self.ydata[0] = rk.coefficients;
+            self.ylabels = [desc+'coefficients']
+        else:
+            if not np.array_equal(self.xdata, rk.steps):
+                raise ValueError('steps of new CoefficientResult do not match')
+            self.ydata = np.vstack((self.ydata, rk.coefficients))
+            self.ylabels.append(desc+'coefficients')
+
+        if rk.stderrs is not None:
+            self.ydata = np.vstack((self.ydata, rk.stderrs))
+            self.ylabels.append(desc+'stderrs')
+
+        self.rks.append(rk)
+
+        # update plot
+        p, = self.ax.plot(rk.steps, rk.coefficients,
+            label='Data' if desc == '' else desc)
+
+        if rk.stderrs is not None:
+            err1 = rk.coefficients-rk.stderrs
+            err2 = rk.coefficients+rk.stderrs
+            self.ax.fill_between(rk.steps, err1, err2,
+                alpha = 0.2, facecolor=p.get_color(), label=desc+'Errors')
+
+        self.ax.legend()
+
+    def add_fit(self, mre, desc=''):
+        # the description supplied here only affects the plot legend
+        if not isinstance(mre, CorrelationFitResult):
+            raise ValueError
+        if not (self.type is None or self.type == 'correlation'):
+            raise ValueError
+        self.type = 'correlation'
+        if self.xdata is None:
+            self.set_xdata()
+        try:
+            if desc == '': desc = mre.desc
+            else: desc = str(desc)
+        except: desc = ''
+        if desc != '': desc += ' '
+        self.fits.append(mre)
+
+        # update plot
+        label = math_from_doc(mre.fitfunc, maxlen=20)
+        self.ax.plot(self.xdata, mre.fitfunc(self.xdata, *mre.popt),
+            label=desc+label)
+        self.ax.legend()
+
+    def save(self, fname=''):
+        self.save_plot(fname)
+        self.save_meta(fname)
+
+    def save_plot(self, fname='', ftype='pdf', ax=None):
+        ax = ax if ax is not None else self.ax
+        if not isinstance(fname, str): fname = str(fname)
+        if fname == '': fname = './mre'
+        fname = os.path.expanduser(fname)
+
+        if isinstance(ftype, str): ftype = [ftype]
+        for t in list(ftype):
+            if t == 'pdf':
+                ax.figure.savefig(fname+'.pdf')
+
+    def save_meta(self, fname=''):
+        if not isinstance(fname, str): fname = str(fname)
+        if fname == '': fname = './mre'
+        fname = os.path.expanduser(fname)
+        # fits
+        hdr = ''
+        try:
+            for fdx, fit in enumerate(self.fits):
+                if fit.desc != '': hdr += fit.desc + '\n'
+                hdr += 'function: ' + math_from_doc(fit.fitfunc) + '\n'
+                hdr += '\twith parameters:\n'
+                parname = list(inspect.signature(fit.fitfunc).parameters)[1:]
+                for pdx, par in enumerate(self.fits[fdx].popt):
+                    hdr += '\t\t{} = {}\n'.format(parname[pdx], par)
+                hdr += '\n'
+        except Exception as e: print(e)
+
+        # rks
+        labels = ''
+        dat = []
+        if len(self.rks) > 0:
+            labels += '1_'+self.xlabel
+            for ldx, label in enumerate(self.ylabels):
+                labels += '\t'+str(ldx+2)+'_'+label
+            labels = labels.replace(' ', '_')
+            dat = np.vstack((self.xdata, self.ydata))
+        np.savetxt(fname+'.tsv', dat, delimiter='\t', header=hdr+labels)
+
+def save_automatic():
+    pass
+
+
 
