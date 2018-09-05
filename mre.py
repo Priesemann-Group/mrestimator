@@ -12,70 +12,73 @@ import time
 import glob
 import inspect
 
+
+# ------------------------------------------------------------------ #
+# Input
+# ------------------------------------------------------------------ #
+
 def input_handler(items):
     """
-    Helper function that attempts to detect provided input and convert it to the
-    format used by the toolbox. Ideally, you provide the native format, a numpy
-    `ndarray` of :code:`shape(numtrials, datalength)`.
+        Helper function that attempts to detect provided input and convert it
+        to the format used by the toolbox. Ideally, you provide the native
+        format, a numpy `ndarray` of :code:`shape(numtrials, datalength)`.
 
-    *Not implemented yet*:
-    All trials should have the same data length, otherwise they will be padded.
+        *Not implemented yet*:
+        All trials should have the same data length, otherwise they will be
+        padded.
 
-    Whenever possible, the toolbox uses two dimensional `ndarrays` for
-    providing and returning data to/from functions. This allows to consistently
-    access trials and data via the first and second index, respectively.
+        Whenever possible, the toolbox uses two dimensional `ndarrays` for
+        providing and returning data to/from functions. This allows to
+        consistently access trials and data via the first and second index, respectively.
 
-    Parameters
-    ----------
-    items : ndarray, string or list
-        Ideally, provide the native format `ndarray`.
-        A `string` is assumed to be the path to
-        file(s) that are then imported as pickle or plain text.
-        Wildcards should work.
-        Alternatively, you can provide a `list` of data or strings.
+        Parameters
+        ----------
+        items : ndarray, string or list
+            Ideally, provide the native format `ndarray`.
+            A `string` is assumed to be the path to
+            file(s) that are then imported as pickle or plain text.
+            Wildcards should work.
+            Alternatively, you can provide a `list` of data or strings.
 
-    Returns
-    -------
-    preparedsource : ndarray[trial, data]
-        the `ndarray` has two dimensions: trial and data
+        Returns
+        -------
+        preparedsource : ndarray[trial, data]
+            the `ndarray` has two dimensions: trial and data
 
-    Example
-    -------
-    .. code-block:: python
+        Example
+        -------
+        .. code-block:: python
 
-        import numpy as np
-        import matplotlib.pyplot as plt
-        import mre
+            import numpy as np
+            import matplotlib.pyplot as plt
+            import mre
 
-        # branching process with 3 trials, 10000 measurement points
-        raw = mre.simulate_branching(numtrials=3, length=10000)
-        print(raw.shape)
+            # branching process with 3 trials, 10000 measurement points
+            raw = mre.simulate_branching(numtrials=3, length=10000)
+            print(raw.shape)
 
-        # the bp returns data already in the right format
-        prepared = mre.input_handler(raw)
-        print(prepared.shape)
+            # the bp returns data already in the right format
+            prepared = mre.input_handler(raw)
+            print(prepared.shape)
 
-        # plot the first two trials
-        plt.plot(prepared[0])     # first trial
-        plt.plot(prepared[1])     # second trial
-        plt.show()
-    ..
+            # plot the first two trials
+            plt.plot(prepared[0])     # first trial
+            plt.plot(prepared[1])     # second trial
+            plt.show()
+        ..
 
-    To load a single timeseries from the harddrive
+        To load a single timeseries from the harddrive
 
-    .. code-block:: python
+        .. code-block:: python
 
-        import numpy as np
-        import matplotlib.pyplot as plt
-        import mre
+            import numpy as np
+            import matplotlib.pyplot as plt
+            import mre
 
-        prepared = mre.input_handler('/path/to/yourfiles/trial_1.csv')
-        print(prepared.shape)
-    ..
-
+            prepared = mre.input_handler('/path/to/yourfiles/trial_1.csv')
+            print(prepared.shape)
+        ..
     """
-
-
     inv_str = '\n  Invalid input, please provide one of the following:\n' \
               '    - path to pickle or plain file,' \
               '     wildcards should work "/path/to/filepattern*"\n' \
@@ -169,46 +172,46 @@ def input_handler(items):
             ' please try something else'.format(retdata.shape))
         return retdata
 
-def simulate_branching(length=10000,
-                       m=0.9,
-                       activity=100,
-                       numtrials=1,
-                       subp=1,
-                       seed=None):
+def simulate_branching(
+    length=10000,
+    m=0.9,
+    activity=100,
+    numtrials=1,
+    subp=1,
+    seed=None):
     """
-    Simulates a branching process with Poisson input.
+        Simulates a branching process with Poisson input.
 
-    Parameters
-    ----------
-    length : int, optional
-        Number of steps for the process, thereby sets the total length of the
-        generated time series.
+        Parameters
+        ----------
+        length : int, optional
+            Number of steps for the process, thereby sets the total length of
+            the generated time series.
 
-    m : float, optional
-        Branching parameter.
+        m : float, optional
+            Branching parameter.
 
-    activity : float, optional
-        Mean activity of the process.
+        activity : float, optional
+            Mean activity of the process.
 
-    numtrials : int, optional
-        Generate more than one trial.
+        numtrials : int, optional
+            Generate more than one trial.
 
-    seed : int, optional
-        Initialise the random number generator with a seed. Per default it is
-        seeded randomly (hence each call to `simulate_branching()` returns
-        different results).
+        seed : int, optional
+            Initialise the random number generator with a seed. Per default it
+            is seeded randomly (hence each call to `simulate_branching()`
+            returns different results).
 
-    subp : float, optional
-        Subsample the activity to the specified probability.
+        subp : float, optional
+            Subsample the activity to the specified probability.
 
-    Returns
-    -------
-    timeseries : ndarray
-        ndarray with :code:`numtrials` time series,
-        each containging :code:`length` entries of activity.
-        If no arguments are provided, one trial is created with
-        10000 measurements.
-
+        Returns
+        -------
+        timeseries : ndarray
+            ndarray with :code:`numtrials` time series,
+            each containging :code:`length` entries of activity.
+            If no arguments are provided, one trial is created with
+            10000 measurements.
     """
     np.random.seed(seed)
 
@@ -249,171 +252,172 @@ def simulate_branching(length=10000,
     if subp < 1: return a_t
     else: return A_t
 
-
 # ------------------------------------------------------------------ #
-# correlation_coefficients to calculate r_k
+# Coefficients
 # ------------------------------------------------------------------ #
 
 # this is equivalent to CoefficientResult = namedtuple(... but
 # we can provide documentation
-class CoefficientResult(namedtuple('CoefficientResult',
-                                   ['coefficients', 'steps',
-                                    'offsets', 'stderrs',
-                                    'trialactivies',
-                                    'samples', 'desc'])):
+class CoefficientResult(namedtuple('CoefficientResult', [
+    'coefficients', 'steps',
+    'offsets', 'stderrs',
+    'trialactivies', 'samples',
+    'desc'])):
     """
-    `Namedtuple` returned by :func:`correlation_coefficients`. Attributes are
-    set `None` if the specified method or input data do not provide them.
+        `Namedtuple` returned by :func:`correlation_coefficients`. Attributes
+        are set `None` if the specified method or input data do not provide
+        them.
 
-    Attributes
-    ----------
+        Attributes
+        ----------
 
-    coefficients : array or None
-        Contains the coefficients :math:`r_k`, has length
-        ``maxstep - minstep + 1``. Access via
-        ``coefficients[step]``
+        coefficients : array or None
+            Contains the coefficients :math:`r_k`, has length
+            ``maxstep - minstep + 1``. Access via
+            ``coefficients[step]``
 
-    steps : array or None
-        Array of the :math:`k` values matching `coefficients`.
+        steps : array or None
+            Array of the :math:`k` values matching `coefficients`.
 
-    stderrs : array or None
-        Standard errors of the :math:`r_k`.
+        stderrs : array or None
+            Standard errors of the :math:`r_k`.
 
-    trialactivities : array or None
-        Mean activity of each trial in the provided data.
-        To get the global mean activity, use ``np.mean(trialactivities)``.
+        trialactivities : array or None
+            Mean activity of each trial in the provided data.
+            To get the global mean activity, use ``np.mean(trialactivities)``.
 
-    desc : str
-        Description (or Name) of the data set, by default all results of
-        functions working with this set inherit its description (e.g. plot
-        legends).
+        desc : str
+            Description (or Name) of the data set, by default all results of
+            functions working with this set inherit its description (e.g. plot
+            legends).
 
-    samples : :class:`CoefficientResult` or None
-        Contains the information on the separate (or resampled) trials,
-        grouped in the same.
+        samples : :class:`CoefficientResult` or None
+            Contains the information on the separate (or resampled) trials,
+            grouped in the same.
 
-    samples.coefficients : ndarray or None
-        Coefficients of each separate trial (or bootstrap sample). Access via
-        ``samples.coefficients[trial, step]``
+        samples.coefficients : ndarray or None
+            Coefficients of each separate trial (or bootstrap sample). Access
+            via ``samples.coefficients[trial, step]``
 
-    samples.trialactivies : array or None
-        Individual activites of each trial. If ``bootsrap`` was enabled, this
-        containts the activities of the resampled data.
+        samples.trialactivies : array or None
+            Individual activites of each trial. If ``bootsrap`` was enabled,
+            this containts the activities of the resampled data.
 
 
-    Example
-    -------
+        Example
+        -------
 
-    .. code-block:: python
+        .. code-block:: python
 
-        import mre
+            import mre
 
-        bp = mre.simulate_branching(numtrials=3)
-        rk = mre.correlation_coefficients(bp)
+            bp = mre.simulate_branching(numtrials=3)
+            rk = mre.correlation_coefficients(bp)
 
-        # list available fields
-        print(rk._fields)
+            # list available fields
+            print(rk._fields)
 
-        # print the coefficients
-        print(rk.coefficients)
+            # print the coefficients
+            print(rk.coefficients)
 
-        # print all entries as a dict
-        print(rk._asdict())
+            # print all entries as a dict
+            print(rk._asdict())
 
-        # get this documentation
-        help(rk)
-    ..
-
+            # get this documentation
+            help(rk)
+        ..
     """
 
-def correlation_coefficients(data,
-                             minstep=1,
-                             maxstep=1000,
-                             method='trialseparated',
-                             bootstrap=True,
-                             seed=3141,
-                             desc=''):
+def correlation_coefficients(
+    data,
+    minstep=1,
+    maxstep=1000,
+    method='trialseparated',
+    bootstrap=True,
+    seed=3141,
+    desc=''):
     """
-    Calculates the coefficients of correlation :math:`r_k`.
+        Calculates the coefficients of correlation :math:`r_k`.
 
-    Parameters
-    ----------
-    data : ndarray
-        Input data, containing the time series of activity in the trial
-        structure. If a one dimensional array is provieded instead, we assume
-        a single trial and reshape the input.
+        Parameters
+        ----------
+        data : ndarray
+            Input data, containing the time series of activity in the trial
+            structure. If a one dimensional array is provieded instead, we
+            assume a single trial and reshape the input.
 
-    minstep : int, optional
-        The smallest autocorellation step :math:`k` to use.
+        minstep : int, optional
+            The smallest autocorellation step :math:`k` to use.
 
-    maxstep : int, optional
-        The largest autocorellation step :math:`k` to use. All :math:`k` values
-        between `minstep` and `maxstep` are processed (stride 1).
+        maxstep : int, optional
+            The largest autocorellation step :math:`k` to use. All :math:`k`
+            values between `minstep` and `maxstep` are processed (stride 1).
 
-    method : str, optional
-        The estimation method to use, either `'trialseparated'` or
-        `'stationarymean'`. The default, `'trialseparated'` calculates
-        the :math:`r_k` for each trial separately and averaged
-        over. Each trials contribution is weighted with its variance.
-        `'stationarymean'` assumes the mean activity and its variance to be
-        constant across all trials.
+        method : str, optional
+            The estimation method to use, either `'trialseparated'` or
+            `'stationarymean'`. The default, `'trialseparated'` calculates
+            the :math:`r_k` for each trial separately and averaged
+            over. Each trials contribution is weighted with its variance.
+            `'stationarymean'` assumes the mean activity and its variance to be
+            constant across all trials.
 
-    bootstrap : bool, optional
-        Only considered if using the `'stationarymean'` method.
-        Enable bootstrapping to generate multiple (resampled)
-        series of trials from the provided one. This allows to approximate the
-        returned error statistically, (as opposed to the fit errors).
-        *Not implemented yet*
+        bootstrap : bool, optional
+            Only considered if using the `'stationarymean'` method.
+            Enable bootstrapping to generate multiple (resampled)
+            series of trials from the provided one. This allows to approximate
+            the returned error statistically, (as opposed to the fit errors).
+            *Not implemented yet*
 
-    seed : int or None, optional
-        If ``bootstrap=True``, a custom seed can be specified for the
-        resampling. Per default, it is set to the *same* value every time
-        `correlation_coefficients()` is called to return consistent results
-        when repeating the analysis on the same data. Pass `None` to change
-        this behaviour. For more details, see :obj:`numpy.random.RandomState`.
+        seed : int or None, optional
+            If ``bootstrap=True``, a custom seed can be specified for the
+            resampling. Per default, it is set to the *same* value every time
+            `correlation_coefficients()` is called to return consistent results
+            when repeating the analysis on the same data. Pass `None` to change
+            this behaviour. For more details, see
+            :obj:`numpy.random.RandomState`.
 
-    desc : str, optional
-        Set the description of the :class:`CoefficientResult`. By default all results of functions working with this set inherit its description
-        (e.g. plot legends).
-
-
-    :return: The output is grouped into a `namedtuple` and can be accessed \
-        using the attributes listed for :class:`CoefficientResult`, below the \
-        example.
+        desc : str, optional
+            Set the description of the :class:`CoefficientResult`. By default
+            all results of functions working with this set inherit its
+            description (e.g. plot legends).
 
 
-    Example
-    -------
-    .. code-block:: python
+        :return: The output is grouped into a `namedtuple` and can be accessed
+            using the attributes listed for :class:`CoefficientResult`, below
+            the example.
 
-        import numpy as np
-        import matplotlib.pyplot as plt
-        import mre
 
-        # branching process with 15 trials
-        bp = mre.simulate_branching(numtrials=15)
+        Example
+        -------
+        .. code-block:: python
 
-        # the bp returns data already in the right format
-        rk = mre.correlation_coefficients(bp)
+            import numpy as np
+            import matplotlib.pyplot as plt
+            import mre
 
-        # separate trials, swap indices to comply with the pyplot layout
-        plt.plot(rk.steps, np.transpose(rk.samples.coefficients),
-                 color='C0', alpha=0.1)
+            # branching process with 15 trials
+            bp = mre.simulate_branching(numtrials=15)
 
-        # estimated coefficients
-        plt.plot(rk.steps, rk.coefficients,
-                 color='C0', label='estimated r_k')
+            # the bp returns data already in the right format
+            rk = mre.correlation_coefficients(bp)
 
-        plt.xlabel(r'$k$')
-        plt.ylabel(r'$r_k$')
-        plt.legend(loc='upper right')
-        plt.show()
-    ..
+            # separate trials, swap indices to comply with the pyplot layout
+            plt.plot(rk.steps, np.transpose(rk.samples.coefficients),
+                     color='C0', alpha=0.1)
 
+            # estimated coefficients
+            plt.plot(rk.steps, rk.coefficients,
+                     color='C0', label='estimated r_k')
+
+            plt.xlabel(r'$k$')
+            plt.ylabel(r'$r_k$')
+            plt.legend(loc='upper right')
+            plt.show()
+        ..
     """
 
     # ------------------------------------------------------------------ #
-    # checking arguments to offer some more convenience
+    # Check arguments to offer some more convenience
     # ------------------------------------------------------------------ #
 
     if method not in ['trialseparated', 'stationarymean']:
@@ -449,6 +453,9 @@ def correlation_coefficients(data,
         print('  Warning: maxstep is larger than your data, adjusting to {}' \
               .format(maxstep))
 
+    # ------------------------------------------------------------------ #
+    # Continue with trusted arguments
+    # ------------------------------------------------------------------ #
 
     steps     = np.arange(minstep, maxstep+1)
     numsteps  = len(steps)        # number of steps for rks
@@ -501,7 +508,6 @@ def correlation_coefficients(data,
             trialactivies = np.mean(data, axis=1),
             samples       = sepres,
             desc          = desc)
-
 
     elif method == 'stationarymean':
         # ------------------------------------------------------------------ #
@@ -567,7 +573,7 @@ def correlation_coefficients(data,
 
             if numrepls > 1:
                 stderrs = np.sqrt(np.var(sepres.coefficients, axis=0, ddof=1))
-            else :
+            else:
                 stderrs = None
 
         fulres = CoefficientResult(
@@ -581,9 +587,8 @@ def correlation_coefficients(data,
 
     return fulres
 
-
 # ------------------------------------------------------------------ #
-# function definitions, starting values and bounds for correlation_fit
+# Fitting, Helper
 # ------------------------------------------------------------------ #
 
 def f_exponential(k, tau, A):
@@ -606,52 +611,52 @@ def f_complex(k, tau, A, O, tauosc, B, gamma, nu, taugs, C):
 
 def default_fitpars(fitfunc, dt=1):
     """
-    Called to get the default parameters of built in fitfunctions that are
-    used to initialise the fitting routine
+        Called to get the default parameters of built in fitfunctions that are
+        used to initialise the fitting routine
 
-    Parameters
-    ----------
-    fitfunc : callable
-        The builtin fitfunction
+        Parameters
+        ----------
+        fitfunc : callable
+            The builtin fitfunction
 
-    dt : number
-        The time scale, usually time bin size of your data.
+        dt : number
+            The time scale, usually time bin size of your data.
 
-    Returns
-    -------
-    pars : array like
-        The default parameters of the given function, may be a 2d array for
-        multiple sets of initial conditions are useful
+        Returns
+        -------
+        pars : array like
+            The default parameters of the given function, may be a 2d array for
+            multiple sets of initial conditions are useful
     """
     if fitfunc == f_exponential:
         return np.array([20/dt, 1])
     elif fitfunc == f_exponential_offset:
         return np.array([20/dt, 1, 0])
     elif fitfunc == f_complex:
-        res = np.array(
-            #  tau     A       O    tosc      B    gam      nu  tgs      C
-            [(  10,  0.1  ,  0    ,  300,  0.03 ,  1.0, 1./200,  10,  0.03 ),
-             ( 400,  0.1  ,  0    ,  200,  0.03 ,  2.5, 1./250,  25,  0.03 ),
-             (  20,  0.1  ,  0.03 ,  100,  0.03 ,  1.5, 1./50 ,  10,  0.03 ),
-             ( 300,  0.1  ,  0.03 ,  100,  0.03 ,  1.5, 1./50 ,  10,  0.03 ),
-             (  20,  0.03 ,  0.01 ,  100,  0.03 ,  1.0, 1./150,   5,  0.03 ),
-             (  20,  0.03 ,  0.01 ,  100,  0.03 ,  1.0, 1./150,   5,  0.03 ),
-             (  10,  0.05 ,  0.03 ,  300,  0.03 ,  1.5, 1./100,   5,  0.1  ),
-             ( 300,  0.05 ,  0.03 ,  300,  0.03 ,  1.5, 1./100,  10,  0.1  ),
-             (  56,  0.029,  0.010,  116,  0.010,  2.0, 1./466,   5,  0.03 ),
-             (  56,  0.029,  0.010,  116,  0.010,  2.0, 1./466,   5,  0.03 ),
-             (  56,  0.029,  0.010,  116,  0.010,  2.0, 1./466,   5,  0.03 ),
-             (  19,  0.078,  0.044,  107,  0.017,  1.0, 1./478,   5,  0.1  ),
-             (  19,  0.078,  0.044,  107,  0.017,  1.0, 1./478,   5,  0.1  ),
-             (  10,  0.029,  0.045,  300,  0.067,  2.0, 1./127,  10,  0.03 ),
-             ( 210,  0.029,  0.012,  50 ,  0.03 ,  1.0, 1./150,  10,  0.1  ),
-             ( 210,  0.029,  0.012,  50 ,  0.03 ,  1.0, 1./150,  10,  0.1  ),
-             ( 210,  0.029,  0.012,  50 ,  0.03 ,  1.0, 1./150,  10,  0.03 ),
-             ( 210,  0.029,  0.012,  50 ,  0.03 ,  1.0, 1./150,  10,  0.03 ),
-             ( 310,  0.029,  0.002,  50 ,  0.08 ,  1.0, 1./34 ,   5,  0.03 ),
-             ( 310,  0.029,  0.002,  50 ,  0.08 ,  1.0, 1./34 ,   5,  0.03 ),
-             ( 310,  0.029,  0.002,  50 ,  0.08 ,  1.0, 1./64 ,   5,  0.03 ),
-             ( 310,  0.029,  0.002,  50 ,  0.08 ,  1.0, 1./64 ,   5,  0.03 )])
+        res = np.array([
+            # tau     A       O    tosc      B    gam      nu  tgs      C
+            (  10,  0.1  ,  0    ,  300,  0.03 ,  1.0, 1./200,  10,  0.03 ),
+            ( 400,  0.1  ,  0    ,  200,  0.03 ,  2.5, 1./250,  25,  0.03 ),
+            (  20,  0.1  ,  0.03 ,  100,  0.03 ,  1.5, 1./50 ,  10,  0.03 ),
+            ( 300,  0.1  ,  0.03 ,  100,  0.03 ,  1.5, 1./50 ,  10,  0.03 ),
+            (  20,  0.03 ,  0.01 ,  100,  0.03 ,  1.0, 1./150,   5,  0.03 ),
+            (  20,  0.03 ,  0.01 ,  100,  0.03 ,  1.0, 1./150,   5,  0.03 ),
+            (  10,  0.05 ,  0.03 ,  300,  0.03 ,  1.5, 1./100,   5,  0.1  ),
+            ( 300,  0.05 ,  0.03 ,  300,  0.03 ,  1.5, 1./100,  10,  0.1  ),
+            (  56,  0.029,  0.010,  116,  0.010,  2.0, 1./466,   5,  0.03 ),
+            (  56,  0.029,  0.010,  116,  0.010,  2.0, 1./466,   5,  0.03 ),
+            (  56,  0.029,  0.010,  116,  0.010,  2.0, 1./466,   5,  0.03 ),
+            (  19,  0.078,  0.044,  107,  0.017,  1.0, 1./478,   5,  0.1  ),
+            (  19,  0.078,  0.044,  107,  0.017,  1.0, 1./478,   5,  0.1  ),
+            (  10,  0.029,  0.045,  300,  0.067,  2.0, 1./127,  10,  0.03 ),
+            ( 210,  0.029,  0.012,  50 ,  0.03 ,  1.0, 1./150,  10,  0.1  ),
+            ( 210,  0.029,  0.012,  50 ,  0.03 ,  1.0, 1./150,  10,  0.1  ),
+            ( 210,  0.029,  0.012,  50 ,  0.03 ,  1.0, 1./150,  10,  0.03 ),
+            ( 210,  0.029,  0.012,  50 ,  0.03 ,  1.0, 1./150,  10,  0.03 ),
+            ( 310,  0.029,  0.002,  50 ,  0.08 ,  1.0, 1./34 ,   5,  0.03 ),
+            ( 310,  0.029,  0.002,  50 ,  0.08 ,  1.0, 1./34 ,   5,  0.03 ),
+            ( 310,  0.029,  0.002,  50 ,  0.08 ,  1.0, 1./64 ,   5,  0.03 ),
+            ( 310,  0.029,  0.002,  50 ,  0.08 ,  1.0, 1./64 ,   5,  0.03 )])
         res[:, [0, 3, 7]] /= dt    # noremalize time scale
         res[:, 6] *= dt            # and frequency
         return res
@@ -683,8 +688,8 @@ def default_fitbnds(fitfunc, dt=1):
         print('Requesting default bounds for unknown fitfunction.')
         return None
 
-# convert sphinx compatible math to matplotlib/tex
 def math_from_doc(fitfunc, maxlen=np.inf):
+    """convert sphinx compatible math to matplotlib/tex"""
     res = fitfunc.__doc__
     res = res.replace(':math:', '')
     res = res.replace('`', '$')
@@ -705,143 +710,143 @@ def math_from_doc(fitfunc, maxlen=np.inf):
 
 
 # ------------------------------------------------------------------ #
-# correlation_fit and its return type definition
+# Fitting
 # ------------------------------------------------------------------ #
 
-class CorrelationFitResult(namedtuple('CorrelationFitResult',
-                                      ['tau', 'mre', 'fitfunc',
-                                       'popt', 'pcov', 'ssres',
-                                       'desc'])):
+class CorrelationFitResult(namedtuple('CorrelationFitResult', [
+    'tau', 'mre', 'fitfunc',
+    'popt', 'pcov', 'ssres',
+    'desc'])):
     """
-    `Namedtuple` returned by :func:`correlation_fit`
+        `Namedtuple` returned by :func:`correlation_fit`
 
-    Attributes
-    ----------
+        Attributes
+        ----------
 
-    tau : float
-        The estimated autocorrelation time in miliseconds.
+        tau : float
+            The estimated autocorrelation time in miliseconds.
 
-    mre : float
-        The branching parameter estimated from the multistep regression.
-        (Depends on the specified time bin size `dt`
-        - which should match your data. Per default ``dt=1`` and
-        `mre` is determined via the autocorrelationtime in units of bin size.)
+        mre : float
+            The branching parameter estimated from the multistep regression.
+            (Depends on the specified time bin size `dt`
+            - which should match your data. Per default ``dt=1`` and
+            `mre` is determined via the autocorrelationtime in units of bin
+            size.)
 
-    fitfunc : callable
-        The model function, f(x, …). This allows to fit directly with popt.
-        To get the description of the function, use ``fitfunc.__doc__``.
-        *Used to be the description as string.*
+        fitfunc : callable
+            The model function, f(x, …). This allows to fit directly with popt.
+            To get the description of the function, use ``fitfunc.__doc__``.
+            *Used to be the description as string.*
 
-    popt : array
-        Final fitparameters obtained from the (best) underlying
-        :func:`scipy.optimize.curve_fit`. Beware that these are not corrected
-        for the time bin size, this needs to be done manually (for
-        time and frequency variables).
+        popt : array
+            Final fitparameters obtained from the (best) underlying
+            :func:`scipy.optimize.curve_fit`. Beware that these are not
+            corrected for the time bin size, this needs to be done manually
+            (for time and frequency variables).
 
-    pcov : array
-        Final covariance matrix obtained from the (best) underlying
-        :func:`scipy.optimize.curve_fit`.
+        pcov : array
+            Final covariance matrix obtained from the (best) underlying
+            :func:`scipy.optimize.curve_fit`.
 
-    ssres : float
-        Sum of the squared residuals for the fit with `popt`. This is not yet
-        normalised per degree of freedom.
+        ssres : float
+            Sum of the squared residuals for the fit with `popt`. This is not
+            yet normalised per degree of freedom.
 
-    desc : str
-        Description, inherited from :class:`CoefficientResult` or set when
-        calling :func:`correlation_fit`
-
-    """
-
-def correlation_fit(data,
-                    dt=1,
-                    fitfunc=f_exponential,
-                    fitpars=None,
-                    fitbnds=None,
-                    maxfev=100000,
-                    desc=''):
-    """
-    Estimate the Multistep Regression Estimator by fitting the provided
-    correlation coefficients :math:`r_k`. The fit is performed using
-    :func:`scipy.optimize.curve_fit` and can optionally be provided with
-    (multiple) starting fitparameters and bounds.
-
-    Parameters
-    ----------
-    data: :class:`CoefficientResult` or array
-        Correlation coefficients to fit. Ideally, provide this as
-        :class:`CoefficientResult` as obtained from
-        :func:`correlation_coefficients`. If numpy arrays are provided,
-        the function tries to match the data.
-
-    dt : number, optional
-        The size of the time bins of your data (in miliseconds). Default is 1.
-
-    fitfunc : callable, optional
-        The model function, f(x, …).
-        Directly passed to `curve_fit()`:
-        It must take the independent variable as
-        the first argument and the parameters to fit as separate remaining
-        arguments.
-        Default is :obj:`mre.f_exponential`.
-        Other builtin options are :obj:`mre.f_exponential_offset` and
-        :obj:`mre.f_complex`.
-
-    fitpars : array, optional
-        The starting parameters for the fit. If the provided array is two
-        dimensional, multiple fits are performed and the one with the least
-        sum of squares of residuals is returned.
-
-    fitbounds : array, optional
-        Lower and upper bounds for each parameter handed to the fitting routine.
-        Provide as numpy array of the form
-        ``[[lowpar1, lowpar2, ...], [uppar1, uppar2, ...]]``
-
-    maxfev : number, optional
-        Maximum iterations for the fit.
-
-    desc : str, optional
-
-
-
-    :return: The output is grouped into a `namedtuple` and can be accessed \
-        using the attributes listed for :class:`CorrelationFitResult`, below \
-        the example.
-
-
-    Example
-    -------
-    .. code-block:: python
-
-        import numpy as np
-        import matplotlib.pyplot as plt
-        import mre
-
-        bp = mre.simulate_branching(numtrials=15)
-        rk = mre.correlation_coefficients(bp)
-
-        # compare the builtin fitfunctions
-        m1 = mre.correlation_fit(rk, fitfunc=mre.f_exponential)
-        m2 = mre.correlation_fit(rk, fitfunc=mre.f_exponential_offset)
-        m3 = mre.correlation_fit(rk, fitfunc=mre.f_complex)
-
-        plt.plot(rk.steps, rk.coefficients, label='data')
-        plt.plot(rk.steps, mre.f_exponential(rk.steps, *m1.popt),
-            label='exponential m={:.5f}'.format(m1.mre))
-        plt.plot(rk.steps, mre.f_exponential_offset(rk.steps, *m2.popt),
-            label='exp + offset m={:.5f}'.format(m2.mre))
-        plt.plot(rk.steps, mre.f_complex(rk.steps, *m3.popt),
-            label='complex m={:.5f}'.format(m3.mre))
-
-        plt.legend()
-        plt.show()
-    ..
+        desc : str
+            Description, inherited from :class:`CoefficientResult` or set when
+            calling :func:`correlation_fit`
     """
 
+def correlation_fit(
+    data,
+    dt=1,
+    fitfunc=f_exponential,
+    fitpars=None,
+    fitbnds=None,
+    maxfev=100000,
+    desc=''):
+    """
+        Estimate the Multistep Regression Estimator by fitting the provided
+        correlation coefficients :math:`r_k`. The fit is performed using
+        :func:`scipy.optimize.curve_fit` and can optionally be provided with
+        (multiple) starting fitparameters and bounds.
+
+        Parameters
+        ----------
+        data: :class:`CoefficientResult` or array
+            Correlation coefficients to fit. Ideally, provide this as
+            :class:`CoefficientResult` as obtained from
+            :func:`correlation_coefficients`. If numpy arrays are provided,
+            the function tries to match the data.
+
+        dt : number, optional
+            The size of the time bins of your data (in miliseconds).
+            Default is 1.
+
+        fitfunc : callable, optional
+            The model function, f(x, …).
+            Directly passed to `curve_fit()`:
+            It must take the independent variable as
+            the first argument and the parameters to fit as separate remaining
+            arguments.
+            Default is :obj:`mre.f_exponential`.
+            Other builtin options are :obj:`mre.f_exponential_offset` and
+            :obj:`mre.f_complex`.
+
+        fitpars : array, optional
+            The starting parameters for the fit. If the provided array is two
+            dimensional, multiple fits are performed and the one with the least
+            sum of squares of residuals is returned.
+
+        fitbounds : array, optional
+            Lower and upper bounds for each parameter handed to the fitting
+            routine. Provide as numpy array of the form
+            ``[[lowpar1, lowpar2, ...], [uppar1, uppar2, ...]]``
+
+        maxfev : number, optional
+            Maximum iterations for the fit.
+
+        desc : str, optional
+
+
+        :return: The output is grouped into a `namedtuple` and can be accessed
+            using the attributes listed for :class:`CorrelationFitResult`,
+            below the example.
+
+
+        Example
+        -------
+        .. code-block:: python
+
+            import numpy as np
+            import matplotlib.pyplot as plt
+            import mre
+
+            bp = mre.simulate_branching(numtrials=15)
+            rk = mre.correlation_coefficients(bp)
+
+            # compare the builtin fitfunctions
+            m1 = mre.correlation_fit(rk, fitfunc=mre.f_exponential)
+            m2 = mre.correlation_fit(rk, fitfunc=mre.f_exponential_offset)
+            m3 = mre.correlation_fit(rk, fitfunc=mre.f_complex)
+
+            plt.plot(rk.steps, rk.coefficients, label='data')
+            plt.plot(rk.steps, mre.f_exponential(rk.steps, *m1.popt),
+                label='exponential m={:.5f}'.format(m1.mre))
+            plt.plot(rk.steps, mre.f_exponential_offset(rk.steps, *m2.popt),
+                label='exp + offset m={:.5f}'.format(m2.mre))
+            plt.plot(rk.steps, mre.f_complex(rk.steps, *m3.popt),
+                label='complex m={:.5f}'.format(m3.mre))
+
+            plt.legend()
+            plt.show()
+        ..
+    """
     # ------------------------------------------------------------------ #
-    # checking arguments to offer some more convenience
+    # Check arguments to offer some more convenience
     # ------------------------------------------------------------------ #
 
-    print('correlation_fit() calcultes the MR Estimator:')
+    print('correlation_fit() calculating the MR Estimator...')
     mnaive = 'not calculated in your step range'
 
     if fitfunc in ['f_exponential', 'exponential']:
@@ -852,7 +857,7 @@ def correlation_fit(data,
         fitfunc = f_complex
 
     if isinstance(data, CoefficientResult):
-        print('  Coefficients given in default format')
+        print('\tCoefficients given in default format')
         # ToDo: check if this is single sample: coefficients could be 2dim
         coefficients = data.coefficients
         steps        = data.steps
@@ -860,10 +865,10 @@ def correlation_fit(data,
         if steps[0] == 1: mnaive = coefficients[0]
     else:
         try:
-            print('  Guessing provided format:')
+            print('\tGuessing provided format:')
             data = np.asarray(data)
             if len(data.shape) == 1:
-                print('    1d array, assuming this to be ' \
+                print('\t\t1d array, assuming this to be ' \
                       'coefficients with minstep=1')
                 coefficients = data
                 steps        = np.arange(1, len(coefficients)+1)
@@ -872,27 +877,27 @@ def correlation_fit(data,
             elif len(data.shape) == 2:
                 if data.shape[0] > data.shape[1]: data = np.transpose(data)
                 if data.shape[0] == 1:
-                    print('    nested 1d array, assuming this to be ' \
+                    print('\t\tnested 1d array, assuming this to be ' \
                           'coefficients with minstep=1')
                     coefficients = data[0]
                     steps        = np.arange(1, len(coefficients))
                     stderrs      = None
                     mnaive       = coefficients[0]
                 elif data.shape[0] == 2:
-                    print('    2d array, assuming this to be ' \
+                    print('\t\t2d array, assuming this to be ' \
                           'steps and coefficients')
                     steps        = data[0]
                     coefficients = data[1]
                     stderrs      = None
                     if steps[0] == 1: mnaive = coefficients[0]
                 elif data.shape[0] >= 3:
-                    print('    2d array, assuming this to be ' \
+                    print('\t\t2d array, assuming this to be ' \
                           'steps, coefficients, stderrs')
                     steps        = data[0]
                     coefficients = data[1]
                     stderrs      = None
                     if steps[0] == 1: mnaive = coefficients[0]
-                    if data.shape > 3: print('    Ignoring further rows')
+                    if data.shape > 3: print('\t\tIgnoring further rows')
         except Exception as e:
             raise Exception('{} Provided data has no known format'.foramt(e))
 
@@ -909,20 +914,20 @@ def correlation_fit(data,
         stderrs = None
 
     if fitfunc not in [f_exponential, f_exponential_offset, f_complex]:
-        print('  Custom fitfunction specified {}'. format(fitfunc))
+        print('\tCustom fitfunction specified {}'. format(fitfunc))
 
     if fitpars is None: fitpars = default_fitpars(fitfunc, dt)
     if fitbnds is None: fitbnds = default_fitbnds(fitfunc, dt)
 
-    # make this more robust
+    # ToDo: make this more robust
     if (len(fitpars.shape)<2): fitpars = fitpars.reshape(1, len(fitpars))
 
     if (fitpars.shape[0]>1):
-        print('  Repeating fit with {} sets of initial parameters:'
+        print('\tRepeating fit with {} sets of initial parameters:'
               .format(fitpars.shape[0]))
 
     # ------------------------------------------------------------------ #
-    # fit with compatible arguments via scipy.curve_fit
+    # Fit via scipy.curve_fit
     # ------------------------------------------------------------------ #
 
     ssresmin = np.inf
@@ -933,33 +938,32 @@ def correlation_fit(data,
             bnds = np.array([-np.inf, np.inf])
             outof = '{}/{} '.format(idx+1, len(fitpars)) \
                 if len(fitpars)!=1 else ''
-            print('    {}Unbound fit to {}:' \
+            print('\t{}Unbound fit to {}:' \
                 .format(outof, math_from_doc(fitfunc)))
             ic = list(inspect.signature(fitfunc).parameters)[1:]
             ic = ('{} = {:.3f}'.format(a, b) for a, b in zip(ic, pars))
-            print('      Starting parameters:', ', '.join(ic))
+            print('\t\tStarting parameters:', ', '.join(ic))
         else:
             bnds = fitbnds
             outof = '{}/{} '.format(idx+1, len(fitpars)) \
                 if len(fitpars)!=1 else ''
-            print('    {}Bounded fit to {}' \
+            print('\t\t{}Bounded fit to {}' \
                 .format(outof, math_from_doc(fitfunc)))
             ic = list(inspect.signature(fitfunc).parameters)[1:]
-            ic = ('  {0:<5} = {1:8.3f} in ({2:9.4f}, {3:9.4f})' \
-                .format(a, b, c, d) \
+            ic = ('\t\t{0:<6} = {1:8.3f} in ({2:9.4f}, {3:9.4f})' \
+                .format(a, b, c, d)
                 for a, b, c, d in zip(ic, pars, fitbnds[0, :], fitbnds[1, :]))
-            print('      Starting parameters:\n     ', '\n      '.join(ic))
+            # print('\t\tStarting parameters:\n\t\t', '\n\t\t'.join(ic))
 
         try:
             popt, pcov = scipy.optimize.curve_fit(
                 fitfunc, steps, coefficients,
-                p0 = pars, bounds = bnds, maxfev = int(maxfev), sigma = stderrs)
+                p0=pars, bounds=bnds, maxfev=int(maxfev), sigma=stderrs)
 
             residuals = coefficients - fitfunc(steps, *popt)
             ssres = np.sum(residuals**2)
         except Exception as e:
-            print('      Exception: {}\n'.format(e),
-                  '     Ignoring this fit')
+            print('\t\tException: {}\n'.format(e), '\t\tIgnoring this fit')
             ssres = np.inf
             popt  = None
             pcov  = None
@@ -978,12 +982,11 @@ def correlation_fit(data,
         ssres   = ssresmin,
         desc    = desc)
 
-    print('  Finished fitting {}, mre = {:.5f}, tau = {:.5f}, ssres = {:.5f}' \
+    print('\tFinished fitting {}, mre = {:.5f}, tau = {:.5f}, ssres = {:.5f}'
         .format(desc if desc != '' else math_from_doc(fitfunc),
-        fulres.mre, fulres.tau, fulres.ssres))
+            fulres.mre, fulres.tau, fulres.ssres))
 
     return fulres
-
 
 # ------------------------------------------------------------------ #
 # Output, Plotting
@@ -991,31 +994,30 @@ def correlation_fit(data,
 
 class OutputHandler:
     """
-    Use this guy to handle exporting details. Documented soon.
+        Use this guy to handle exporting details. Documented soon.
 
-    Example
-    -------
-    .. code-block:: python
+        Example
+        -------
+        .. code-block:: python
 
-        import numpy as np
-        import matplotlib.pyplot as plt
-        import mre
+            import numpy as np
+            import matplotlib.pyplot as plt
+            import mre
 
-        bp  = mre.simulate_branching(numtrials=15)
-        rk1 = mre.correlation_coefficients(bp, method='trialseparated',
-            desc='T')
-        rk2 = mre.correlation_coefficients(bp, method='stationarymean',
-            desc='S')
+            bp  = mre.simulate_branching(numtrials=15)
+            rk1 = mre.correlation_coefficients(bp, method='trialseparated',
+                desc='T')
+            rk2 = mre.correlation_coefficients(bp, method='stationarymean',
+                desc='S')
 
-        m1 = mre.correlation_fit(rk1)
-        m2 = mre.correlation_fit(rk2)
+            m1 = mre.correlation_fit(rk1)
+            m2 = mre.correlation_fit(rk2)
 
-        out = mre.OutputHandler(rk1, m1)
-        out.add_coefficients(rk2)
-        out.add_fit(m2)
-        out.save('~/test')
-    ..
-
+            out = mre.OutputHandler(rk1, m1)
+            out.add_coefficients(rk2)
+            out.add_fit(m2)
+            out.save('~/test')
+        ..
     """
 
     def __init__(self, rk=None, mre=None, ax=None):
