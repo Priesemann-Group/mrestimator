@@ -6,12 +6,12 @@ The builtin fitfunctions all follow this form:
 .. py:function:: mre.f_fitfunction(k, arg1, arg2, ...)
 
     :param k: Independent variable as first argument. If an array is provided, an array of same length will be returned where the function is evaluated elementwise
-    :type k: array like
+    :type k: array_like
 
     :param args: Function arguments
-    :type args: number
+    :type args: float
 
-    :rtype: number or array
+    :rtype: float or ~numpy.array
 
     Example
 

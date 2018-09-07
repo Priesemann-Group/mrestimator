@@ -3,27 +3,38 @@ Getting Started
 
 .. automodule:: mre
 
-After you `installed the toolbox
-<https://gitlab.gwdg.de/pspitzn/mre#installation>`_,
-you can import `mre`:
+If you downloaded the toolbox and want to add it only to the current
+project:
 
 .. code-block:: python
 
+    # add toolbox path
+    import sys
+    sys.path
+    sys.path.append('/path/to/mrefolder/')
+
+    # import np and plt, too. Most examples in the documentation rely on it
     import numpy as np
     import matplotlib.pyplot as plt
     import mre
 ..
 
+You can `install the toolbox
+<https://gitlab.gwdg.de/pspitzn/mre#installation>`_,
+to ``import mre`` without the extra step.
+
 In a typical scenario you want to read your data from disk. Either you provide
 it in a :ref:`suitable format <data_label>` yourself or try the
-:py:func:`input_handler`.
+:func:`input_handler`.
 For example, if you have the time series with one trial per file, e.g.
 `~/project/trial_1.csv`, `~/project/trial_2.csv` and so forth, you could either
-provide a list of file names to the handler or use a wildcard `*`.
+provide a list of file names to the handler or use a wildcard ``*``:
 
 .. code-block:: python
 
     filelist = ['~/project/trial_1.csv', '~/project/trial_2.csv']
+    prepped = mre.input_handler(filelist)
+
     fileptrn = '~/project/trial_*.csv'
     prepped = mre.input_handler(fileptrn)
 ..
@@ -39,7 +50,7 @@ from the branching process.
 ..
 
 With data prepared in the trial structure, one can calculate the correlation
-coefficients with :py:func:`correlation_coefficients`:
+coefficients with :func:`correlation_coefficients`:
 
 .. code-block:: python
 
@@ -63,7 +74,8 @@ coefficients with :py:func:`correlation_coefficients`:
     plt.show()
 ..
 
-The returned :py:data:`CoefficientResult` is `namedtuple` containing most
+The returned :class:`CoefficientResult` is a :obj:`~collections.namedtuple`
+containing most
 interesting results on the top level. You can directly use it to start
 the fitting routine to find the branching parameter:
 
@@ -79,5 +91,5 @@ the fitting routine to find the branching parameter:
     print(m.mre, m.tau, m.ssres)
 ..
 
-The :py:func:`correlation_fit` again returns a `namedtuple`:
-:py:data:`CorrelationFitResult`.
+The :func:`correlation_fit` again returns a :obj:`~collections.namedtuple`:
+:class:`CorrelationFitResult`.

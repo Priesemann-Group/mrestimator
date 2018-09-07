@@ -21,7 +21,7 @@ def input_handler(items, **kwargs):
     """
         Helper function that attempts to detect provided input and convert it
         to the format used by the toolbox. Ideally, you provide the native
-        format, a numpy `ndarray` of :code:`shape(numtrials, datalength)`.
+        format, a :class:`numpy.ndarray` of ``shape(numtrials, datalength)``.
 
         *Not implemented yet*:
         All trials should have the same data length, otherwise they will be
@@ -33,35 +33,31 @@ def input_handler(items, **kwargs):
 
         Parameters
         ----------
-        items : ndarray, string or list
-            Ideally, provide the native format `ndarray`.
+        items : str, list or ~numpy.ndarray
             A `string` is assumed to be the path to
-            file(s) that are then imported as pickle or plain text.
+            file that is then imported as pickle or plain text.
             Wildcards should work.
-            Alternatively, you can provide a `list` of data or strings.
+            Alternatively, you can provide a `list` or `ndarray` containing
+            strings or already imported data. In the latter case,
+            `input_handler` attempts to convert it to the right format.
 
         kwargs
             Keyword arguments passed to :func:`numpy.loadtxt` when filenames
-            are detected. See numpy documentation for a full list.
+            are detected (see numpy documentation for a full list).
             For instance, you can provide ``usecols=(1,2)``
             if your files have multiple columns and only the column 1 and 2
-            contain trial data you want to you use.
+            contain trial data you want to use.
             The input handler adds each column in each file to the list of
             trials.
 
-        Returns
-        -------
-        preparedsource : ndarray[trial, data]
-            the `ndarray` has two dimensions: trial and data
+
+        :return: :class:`~numpy.ndarray` containing your data (hopefully)
+            formatted correctly. Access via ``[trial, datapoint]``
 
         Example
         -------
 
         .. code-block:: python
-
-            import numpy as np
-            import matplotlib.pyplot as plt
-            import mre
 
             # import a single file
             prepared = mre.input_handler('/path/to/yourfiles/trial_1.csv')
@@ -73,6 +69,9 @@ def input_handler(items, **kwargs):
 
             # all files matching the wildcard, but only columns 3 and 4
             prepared = mre.input_handler('~/data/file_*.csv', usecols=(3, 4))
+
+            # access your data, e.g. measurement 10 of trial 3
+            pt = prepared[3, 10]
         ..
     """
     invstr = '\n\tInvalid input, please provide one of the following:\n' \
@@ -220,11 +219,10 @@ def simulate_branching(
         subp : float, optional
             Subsample the activity to the specified probability.
 
-        Returns
-        -------
-        timeseries : ndarray
-            ndarray with :code:`numtrials` time series,
-            each containging :code:`length` entries of activity.
+
+        :return: :class:`~numpy.ndarray` with :code:`numtrials`
+            time series, each containging
+            :code:`length` entries of activity.
             If no arguments are provided, one trial is created with
             10000 measurements.
     """
@@ -279,42 +277,43 @@ class CoefficientResult(namedtuple('CoefficientResult', [
     'trialactivies', 'samples',
     'desc'])):
     """
-        `Namedtuple` returned by :func:`correlation_coefficients`. Attributes
-        are set `None` if the specified method or input data do not provide
+        :obj:`~collections.namedtuple` returned by
+        :func:`correlation_coefficients`. Attributes
+        are set to :obj:`None` if the specified method or input data do not provide
         them.
 
         Attributes
         ----------
 
-        coefficients : array or None
+        coefficients : :obj:`~numpy.array` or :obj:`None`
             Contains the coefficients :math:`r_k`, has length
             ``maxstep - minstep + 1``. Access via
-            ``coefficients[step]``
+            ``.coefficients[step]``
 
-        steps : array or None
+        steps : :obj:`~numpy.array` or :obj:`None`
             Array of the :math:`k` values matching `coefficients`.
 
-        stderrs : array or None
+        stderrs : :obj:`~numpy.array` or :obj:`None`
             Standard errors of the :math:`r_k`.
 
-        trialactivities : array or None
+        trialactivities : :obj:`~numpy.array` or :obj:`None`
             Mean activity of each trial in the provided data.
             To get the global mean activity, use ``np.mean(trialactivities)``.
 
-        desc : str
-            Description (or Name) of the data set, by default all results of
+        desc : :obj:`str`
+            Description (or name) of the data set, by default all results of
             functions working with this set inherit its description (e.g. plot
             legends).
 
-        samples : :class:`CoefficientResult` or None
+        samples : :obj:`CoefficientResult` or :obj:`None`
             Contains the information on the separate (or resampled) trials,
             grouped in the same.
 
-        samples.coefficients : ndarray or None
+        samples.coefficients : :obj:`~numpy.array` or :obj:`None`
             Coefficients of each separate trial (or bootstrap sample). Access
-            via ``samples.coefficients[trial, step]``
+            via ``.samples.coefficients[trial, step]``
 
-        samples.trialactivies : array or None
+        samples.trialactivies : :obj:`~numpy.array` or :obj:`None`
             Individual activites of each trial. If ``bootsrap`` was enabled,
             this containts the activities of the resampled data.
 
@@ -356,7 +355,7 @@ def correlation_coefficients(
 
         Parameters
         ----------
-        data : ndarray
+        data : :class:`~numpy.ndarray`
             Input data, containing the time series of activity in the trial
             structure. If a one dimensional array is provieded instead, we
             assume a single trial and reshape the input.
@@ -397,7 +396,8 @@ def correlation_coefficients(
             description (e.g. plot legends).
 
 
-        :return: The output is grouped into a `namedtuple` and can be accessed
+        :return: The output is grouped into a :obj:`~collections.namedtuple`
+            and can be accessed
             using the attributes listed for :class:`CoefficientResult`, below
             the example.
 
@@ -732,11 +732,10 @@ class CorrelationFitResult(namedtuple('CorrelationFitResult', [
     'popt', 'pcov', 'ssres',
     'desc'])):
     """
-        `Namedtuple` returned by :func:`correlation_fit`
+        :obj:`~collections.namedtuple` returned by :func:`correlation_fit`
 
         Attributes
         ----------
-
         tau : float
             The estimated autocorrelation time in miliseconds.
 
@@ -787,13 +786,13 @@ def correlation_fit(
 
         Parameters
         ----------
-        data: :class:`CoefficientResult` or array
+        data: :class:`CoefficientResult` or :obj:`~numpy.array`
             Correlation coefficients to fit. Ideally, provide this as
             :class:`CoefficientResult` as obtained from
-            :func:`correlation_coefficients`. If numpy arrays are provided,
+            :func:`correlation_coefficients`. If arrays are provided,
             the function tries to match the data.
 
-        dt : number, optional
+        dt : float, optional
             The size of the time bins of your data (in miliseconds).
             Default is 1.
 
@@ -807,26 +806,26 @@ def correlation_fit(
             Other builtin options are :obj:`mre.f_exponential_offset` and
             :obj:`mre.f_complex`.
 
-        fitpars : array, optional
+        fitpars : :obj:`~numpy.ndarray`, optional
             The starting parameters for the fit. If the provided array is two
             dimensional, multiple fits are performed and the one with the least
             sum of squares of residuals is returned.
 
-        fitbounds : array, optional
+        fitbounds : :obj:`~numpy.ndarray`, optional
             Lower and upper bounds for each parameter handed to the fitting
             routine. Provide as numpy array of the form
             ``[[lowpar1, lowpar2, ...], [uppar1, uppar2, ...]]``
 
-        maxfev : number, optional
+        maxfev : int, optional
             Maximum iterations for the fit.
 
         desc : str, optional
 
 
-        :return: The output is grouped into a `namedtuple` and can be accessed
+        :return: The output is grouped into a :obj:`~collections.namedtuple`
+            and can be accessed
             using the attributes listed for :class:`CorrelationFitResult`,
             below the example.
-
 
         Example
         -------
