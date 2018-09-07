@@ -7,7 +7,7 @@ if os.environ.get('DISPLAY', '') == '':
 import matplotlib.pyplot as plt
 from collections import namedtuple
 import scipy
-import neo
+# import neo
 import time
 import glob
 import inspect
@@ -17,7 +17,7 @@ import inspect
 # Input
 # ------------------------------------------------------------------ #
 
-def input_handler(items):
+def input_handler(items, **kwargs):
     """
         Helper function that attempts to detect provided input and convert it
         to the format used by the toolbox. Ideally, you provide the native
@@ -27,8 +27,8 @@ def input_handler(items):
         All trials should have the same data length, otherwise they will be
         padded.
 
-        Whenever possible, the toolbox uses two dimensional `ndarrays` for
-        providing and returning data to/from functions. This allows to
+        The toolbox uses two dimensional `ndarrays` for
+        providing the data to/from functions. This allows to
         consistently access trials and data via the first and second index, respectively.
 
         Parameters
@@ -40,6 +40,15 @@ def input_handler(items):
             Wildcards should work.
             Alternatively, you can provide a `list` of data or strings.
 
+        kwargs
+            Keyword arguments passed to :func:`numpy.loadtxt` when filenames
+            are detected. See numpy documentation for a full list.
+            For instance, you can provide ``usecols=(1,2)``
+            if your files have multiple columns and only the column 1 and 2
+            contain trial data you want to you use.
+            The input handler adds each column in each file to the list of
+            trials.
+
         Returns
         -------
         preparedsource : ndarray[trial, data]
@@ -47,27 +56,6 @@ def input_handler(items):
 
         Example
         -------
-        .. code-block:: python
-
-            import numpy as np
-            import matplotlib.pyplot as plt
-            import mre
-
-            # branching process with 3 trials, 10000 measurement points
-            raw = mre.simulate_branching(numtrials=3, length=10000)
-            print(raw.shape)
-
-            # the bp returns data already in the right format
-            prepared = mre.input_handler(raw)
-            print(prepared.shape)
-
-            # plot the first two trials
-            plt.plot(prepared[0])     # first trial
-            plt.plot(prepared[1])     # second trial
-            plt.show()
-        ..
-
-        To load a single timeseries from the harddrive
 
         .. code-block:: python
 
@@ -75,46 +63,59 @@ def input_handler(items):
             import matplotlib.pyplot as plt
             import mre
 
+            # import a single file
             prepared = mre.input_handler('/path/to/yourfiles/trial_1.csv')
             print(prepared.shape)
+
+            # or from a list of files
+            myfiles = ['~/data/file_0.csv', '~/data/file_1.csv']
+            prepared = mre.input_handler(myfiles)
+
+            # all files matching the wildcard, but only columns 3 and 4
+            prepared = mre.input_handler('~/data/file_*.csv', usecols=(3, 4))
         ..
     """
-    inv_str = '\n  Invalid input, please provide one of the following:\n' \
-              '    - path to pickle or plain file,' \
-              '     wildcards should work "/path/to/filepattern*"\n' \
-              '    - numpy array or list containing spike data or filenames\n'
+    invstr = '\n\tInvalid input, please provide one of the following:\n' \
+        '\t\t- path to pickle or plain file as string,\n' \
+        '\t\t  wildcards should work "/path/to/filepattern*"\n' \
+        '\t\t- numpy array or list containing spike data or filenames\n'
 
     situation = -1
+    # cast tuple to list, maybe this can be done for other types in the future
+    if isinstance(items, tuple):
+        print('input_handler() detected tuple, casting to list')
+        items=list(items)
     if isinstance(items, np.ndarray):
         if items.dtype.kind in ['i', 'f', 'u']:
             print('input_handler() detected ndarray of numbers')
             situation = 0
-        elif items.dtype.kind == 'S':
+        elif items.dtype.kind in ['S', 'U']:
             print('input_handler() detected ndarray of strings')
             situation = 1
             temp = set()
-            for item in items: temp.update(glob.glob(item))
+            for item in items.astype('U'):
+                temp.update(glob.glob(os.path.expanduser(item)))
             if len(items) != len(temp):
-                print('  {} duplicate files were excluded' \
+                print('\t{} duplicate files were excluded'
                     .format(len(items)-len(temp)))
             items = temp
         else:
-            raise Exception('  Numpy.ndarray is neither data nor file path.\n',
-                            inv_str)
+            raise ValueError('Numpy.ndarray is neither data nor file path.\n{}'
+                .format(invstr))
     elif isinstance(items, list):
         if all(isinstance(item, str) for item in items):
             print('input_handler() detected list of strings')
             try:
-                print('  parsing to numpy ndarray as float')
+                print('\tparsing to numpy ndarray as float')
                 items = np.asarray(items, dtype=float)
                 situation = 0
             except Exception as e:
-                print('  {}, parsing as file path'.format(e))
+                print('\t\t{}\n\tparsing as file path'.format(e))
             situation = 1
             temp = set()
-            for item in items: temp.update(glob.glob(item))
+            for item in items: temp.update(glob.glob(os.path.expanduser(item)))
             if len(items) != len(temp):
-                print('  {} duplicate files were excluded' \
+                print('\t{} duplicate files were excluded'
                     .format(len(items)-len(temp)))
             items = temp
         elif all(isinstance(item, np.ndarray) for item in items):
@@ -122,20 +123,18 @@ def input_handler(items):
             situation = 0
         else:
             try:
-                print('input_handler() detected list\n',\
-                      ' parsing to numpy ndarray as float')
+                print('input_handler() detected list\n'
+                    '\tparsing to numpy ndarray as float')
                 situation = 0
                 items = np.asarray(items, dtype=float)
             except Exception as e:
-                print('  {}\n'.format(e), inv_str)
-                exit()
+                raise Exception('{}\n{}'.format(e, invstr))
     elif isinstance(items, str):
-        # items = [items]
-        items = glob.glob(items)
-        print(items)
+        print('input_handler() detected filepath \'{}\''.format(items))
+        items = glob.glob(os.path.expanduser(items))
         situation = 1
     else:
-        raise Exception(inv_str)
+        raise Exception(invstr)
 
 
     if situation == 0:
@@ -145,31 +144,47 @@ def input_handler(items):
         data = []
         for idx, item in enumerate(items):
             try:
-                result = np.load(item)
-                print('  {} loaded'.format(item))
+                print('\tLoading with np.loadtxt: {}'.format(item))
+                if 'unpack' in kwargs and not kwargs.get('unpack'):
+                    print('\tWarning: unpack=False is not recommended\n'
+                        '\tUsually data is stored in columns')
+                else:
+                    kwargs = dict(kwargs, unpack=True)
+                if 'ndmin' in kwargs and kwargs.get('ndmin') != 2:
+                    raise ValueError('ndmin other than 2 not supported')
+                else:
+                    kwargs = dict(kwargs, ndmin=2)
+
+                result = np.loadtxt(item, **kwargs)
                 data.append(result)
             except Exception as e:
-                print('  {}, loading as text'.format(e))
-                result = np.loadtxt(item)
+                print('\t\t{}\n\tLoading with np.load {}'.format(e, item))
+                result = np.load(item)
                 data.append(result)
-        # for now truncate. todo: add padding and check for linear increase to
-        # detect spiketimes
-        minlen = min(len(l) for l in data)
-        retdata = np.ndarray(shape=(len(data), minlen), dtype=float)
-        for idx, dat in enumerate(data):
-            retdata[idx] = dat[:minlen]
-        # retdata = np.stack(data, axis=0)
+
+        try:
+            retdata = np.vstack(data)
+        except ValueError:
+            minlenx = min(l.shape[0] for l in data)
+            minleny = min(l.shape[1] for l in data)
+
+            print('\tFiles have different length, resizing to shortest '
+                'one ({}, {})'.format(minlenx, minleny))
+            for d, dat in enumerate(data):
+                data[d] = np.resize(dat, (minlenx, minleny))
+            retdata = np.vstack(data)
+
     else:
-        raise Exception('  Unknown situation!\n', inv_str)
+        raise Exception('\tUnknown situation!\n{}'.format(invstr))
 
     # final check
     if len(retdata.shape) == 2:
-        print('  Returning ndarray with {} trial(s) and {} datapoints'\
+        print('\tReturning ndarray with {} trial(s) and {} datapoints'
               .format(retdata.shape[0], retdata.shape[1]))
         return retdata
     else:
-        print('  Warning: Guessed data type incorrectly to shape {},' \
-            ' please try something else'.format(retdata.shape))
+        print('\tWarning: Guessed data type incorrectly to shape {}, '
+            'please try something else'.format(retdata.shape))
         return retdata
 
 def simulate_branching(
