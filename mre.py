@@ -50,13 +50,14 @@ def input_handler(items, **kwargs):
             The input handler adds each column in each file to the list of
             trials.
 
-
-        :return: :class:`~numpy.ndarray` containing your data (hopefully)
+        Returns
+        -------
+        : :class:`~numpy.ndarray`
+            containing your data (hopefully)
             formatted correctly. Access via ``[trial, datapoint]``
 
         Example
         -------
-
         .. code-block:: python
 
             # import a single file
@@ -219,10 +220,11 @@ def simulate_branching(
         subp : float, optional
             Subsample the activity to the specified probability.
 
-
-        :return: :class:`~numpy.ndarray` with :code:`numtrials`
-            time series, each containging
-            :code:`length` entries of activity.
+        Returns
+        -------
+        : :class:`~numpy.ndarray`
+            with ``numtrials`` time series, each containging
+            ``length`` entries of activity.
             If no arguments are provided, one trial is created with
             10000 measurements.
     """
@@ -355,7 +357,7 @@ def correlation_coefficients(
 
         Parameters
         ----------
-        data : :class:`~numpy.ndarray`
+        data : ~numpy.ndarray
             Input data, containing the time series of activity in the trial
             structure. If a one dimensional array is provieded instead, we
             assume a single trial and reshape the input.
@@ -395,12 +397,11 @@ def correlation_coefficients(
             all results of functions working with this set inherit its
             description (e.g. plot legends).
 
-
-        :return: The output is grouped into a :obj:`~collections.namedtuple`
-            and can be accessed
-            using the attributes listed for :class:`CoefficientResult`, below
-            the example.
-
+        Returns
+        -------
+        : :class:`CoefficientResult`
+            The output is grouped and can be accessed
+            using the attributes listed below the example.
 
         Example
         -------
@@ -821,11 +822,11 @@ def correlation_fit(
 
         desc : str, optional
 
-
-        :return: The output is grouped into a :obj:`~collections.namedtuple`
-            and can be accessed
-            using the attributes listed for :class:`CorrelationFitResult`,
-            below the example.
+        Returns
+        -------
+        : :class:`CorrelationFitResult`
+            The output is grouped and can be accessed
+            using the attributes below the example.
 
         Example
         -------

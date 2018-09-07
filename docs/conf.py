@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-#
+
 # Configuration file for the Sphinx documentation builder.
 #
 # This file does only contain a selection of the most common options. For a
@@ -86,6 +86,19 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = 'sphinx'
 
+
+# Napoleon settings
+# napoleon_google_docstring = True
+# napoleon_numpy_docstring = True
+# napoleon_include_init_with_doc = False
+# napoleon_include_private_with_doc = False
+# napoleon_include_special_with_doc = True
+# napoleon_use_admonition_for_examples = False
+# napoleon_use_admonition_for_notes = False
+# napoleon_use_admonition_for_references = False
+napoleon_use_ivar = True # True enables links for attribute types
+napoleon_use_param = True # True enables links for parameter types
+napoleon_use_rtype = False
 
 # -- Options for HTML output -------------------------------------------------
 
