@@ -287,35 +287,35 @@ class CoefficientResult(namedtuple('CoefficientResult', [
         Attributes
         ----------
 
-        coefficients : :obj:`~numpy.array` or :obj:`None`
+        coefficients : ~numpy.array or None
             Contains the coefficients :math:`r_k`, has length
             ``maxstep - minstep + 1``. Access via
             ``.coefficients[step]``
 
-        steps : :obj:`~numpy.array` or :obj:`None`
+        steps : ~numpy.array or None
             Array of the :math:`k` values matching `coefficients`.
 
-        stderrs : :obj:`~numpy.array` or :obj:`None`
+        stderrs : ~numpy.array or None
             Standard errors of the :math:`r_k`.
 
-        trialactivities : :obj:`~numpy.array` or :obj:`None`
+        trialactivities : ~numpy.array or None
             Mean activity of each trial in the provided data.
             To get the global mean activity, use ``np.mean(trialactivities)``.
 
-        desc : :obj:`str`
+        desc : str
             Description (or name) of the data set, by default all results of
             functions working with this set inherit its description (e.g. plot
             legends).
 
-        samples : :obj:`CoefficientResult` or :obj:`None`
+        samples : CoefficientResult or None
             Contains the information on the separate (or resampled) trials,
             grouped in the same.
 
-        samples.coefficients : :obj:`~numpy.array` or :obj:`None`
+        samples.coefficients : ~numpy.array or None
             Coefficients of each separate trial (or bootstrap sample). Access
             via ``.samples.coefficients[trial, step]``
 
-        samples.trialactivies : :obj:`~numpy.array` or :obj:`None`
+        samples.trialactivies : ~numpy.array or None
             Individual activites of each trial. If ``bootsrap`` was enabled,
             this containts the activities of the resampled data.
 
@@ -787,7 +787,7 @@ def correlation_fit(
 
         Parameters
         ----------
-        data: :class:`CoefficientResult` or :obj:`~numpy.array`
+        data: CoefficientResult or ~numpy.array
             Correlation coefficients to fit. Ideally, provide this as
             :class:`CoefficientResult` as obtained from
             :func:`correlation_coefficients`. If arrays are provided,
@@ -807,12 +807,12 @@ def correlation_fit(
             Other builtin options are :obj:`mre.f_exponential_offset` and
             :obj:`mre.f_complex`.
 
-        fitpars : :obj:`~numpy.ndarray`, optional
+        fitpars : ~numpy.ndarray, optional
             The starting parameters for the fit. If the provided array is two
             dimensional, multiple fits are performed and the one with the least
             sum of squares of residuals is returned.
 
-        fitbounds : :obj:`~numpy.ndarray`, optional
+        fitbounds : ~numpy.ndarray, optional
             Lower and upper bounds for each parameter handed to the fitting
             routine. Provide as numpy array of the form
             ``[[lowpar1, lowpar2, ...], [uppar1, uppar2, ...]]``
