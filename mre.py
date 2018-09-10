@@ -1015,15 +1015,17 @@ def correlation_fit(
 
 class OutputHandler:
     """
-        Use this guy to handle exporting details. Documented soon.
+        Use the Outputhandler for exporting and plotting.
+
+        The main concept is to have one handler per plot. It contains
+        functions to plot into an existing matplotlib axis (subplot),
+        or, if not provided, creates a new figure.
+        Most importantly, it also exports the source (coefficients and fits)
+        that was used for any plot in plaintext, so you can reproduce figures.
 
         Example
         -------
         .. code-block:: python
-
-            import numpy as np
-            import matplotlib.pyplot as plt
-            import mre
 
             bp  = mre.simulate_branching(numtrials=15)
             rk1 = mre.correlation_coefficients(bp, method='trialseparated',
@@ -1034,10 +1036,41 @@ class OutputHandler:
             m1 = mre.correlation_fit(rk1)
             m2 = mre.correlation_fit(rk2)
 
+            # create a new handler by passing with list of elements
             out = mre.OutputHandler([rk1, m1])
+
+            # manually add elements
             out.add_coefficients(rk2)
             out.add_fit(m2)
+
+            # save the plot and meta to disk
             out.save('~/test')
+        ..
+
+        You can also work with existing figures
+
+        .. code-block:: python
+
+            # create figure with subplots
+            fig = plt.figure()
+            ax1 = fig.add_subplot(221)
+            ax2 = fig.add_subplot(222)
+            ax3 = fig.add_subplot(223)
+            ax4 = fig.add_subplot(224)
+
+            # show each chart in its own subplot
+            mre.OutputHandler(rk1, ax1)
+            mre.OutputHandler(rk2, ax2)
+            mre.OutputHandler(m1, ax3)
+            mre.OutputHandler(m2, ax4)
+
+            # matplotlib customisations
+            myaxes = [ax1, ax2, ax3, ax4]
+            for ax in myaxes:
+                ax.spines['top'].set_visible(False)
+                ax.spines['right'].set_visible(False)
+
+            plt.show()
         ..
     """
 
@@ -1069,7 +1102,7 @@ class OutputHandler:
 
         if isinstance(data, CoefficientResult) \
         or isinstance(data, CorrelationFitResult):
-            data = list(data)
+            data = [data]
 
         for d in data:
             if isinstance(d, CoefficientResult):
