@@ -538,9 +538,11 @@ def correlation_coefficients(
         sepres       = None
 
         # numbers this time, shape=(1)
-        fulmean  = np.mean(data)
-        fulvar   = np.var(data, ddof=numtrials)
-        # fulvar = np.mean((data[:]-fulmean)**2)*(numels/(numels-1))
+        # fulmean  = np.mean(data)
+        # fulvar   = np.var(data, ddof=numtrials)
+        trialactivies = np.mean(data, axis=1)
+        fulmean  = np.mean(trialactivies)
+        fulvar = np.mean((data[:]-fulmean)**2)*(numels/(numels-1))
 
         for idx, k in enumerate(steps):
             if not idx%100: print('\r  {}/{} steps' \
@@ -571,10 +573,12 @@ def correlation_coefficients(
             for tdx in range(numrepls):
                 print('\r  {}/{} samples'.format(tdx+1, numrepls), end="")
                 trialchoices = np.random.choice(np.arange(0, numtrials),
-                                                size=numtrials)
+                    size=numtrials)
                 bsdata = data[trialchoices]
-                bsmean = np.mean(bsdata)
-                bsvar  = np.var(bsdata, ddof=numtrials)
+                # bsmean = np.mean(bsdata)
+                # bsvar  = np.var(bsdata, ddof=numtrials)
+                bsmean = np.mean(trialactivies[trialchoices])
+                bsvar = np.mean((bsdata[:]-bsmean)**2)*(numels/(numels-1))
 
                 sepres.trialactivies[tdx] = bsmean
 
@@ -596,7 +600,7 @@ def correlation_coefficients(
             coefficients  = coefficients,
             offsets       = offsets,
             stderrs       = stderrs,
-            trialactivies = np.mean(data, axis=1),
+            trialactivies = trialactivies,
             samples       = sepres,
             desc          = desc)
 
@@ -794,6 +798,9 @@ def correlation_fit(
 
         dt : float, optional
             The size of the time bins of your data (in miliseconds).
+            Note that this sets the scale of the resulting autocorrelation time
+            `tau` and the retruned fitparameters `popt` and `pcov`, as the
+            fit is done in units of bins.
             Default is 1.
 
         fitfunc : callable, optional
@@ -922,7 +929,7 @@ def correlation_fit(
 
     # make sure stderrs are not all equal
     try:
-        if stderrs == stderrs[0]: stderrs = None
+        if (stderrs == stderrs[0]).all: stderrs = None
     except:
         stderrs = None
 
@@ -1035,6 +1042,18 @@ class OutputHandler:
     """
 
     def __init__(self, data=None, ax=None):
+        """
+            Construct a new OutputHandler, optionally you can provide
+            the a list of elements to plot.
+
+            Parameters
+            ----------
+            data : list, CoefficientResult or CorrelationFitResult, optional
+                List of the elements to plot/export. Can be added later.
+
+            ax : ~matplotlib.axes.Axes, optional
+                The an instance of a matplotlib axes (a subplot) to plot into.
+        """
         if isinstance(ax, matplotlib.axes.Axes): self.ax = ax
         elif ax is None: _, self.ax = plt.subplots()
         else: raise ValueError('ax is not a matplotlib.axes.Axes')
@@ -1062,6 +1081,15 @@ class OutputHandler:
                     'CoefficientResults and/or CorrelationFitResults\n')
 
     def set_xdata(self, xdata=None):
+        """
+            Set the x-Axis. Only works for fits. Will be overwritten when
+            coefficients are added.
+
+            Parameters
+            ----------
+            xdata : ~numpy.array
+                x-values to plot the fits for.
+        """
         # this needs to be improve, for now only fits can be redrawn
         if xdata is None: xdata = np.arange(1501)
         if len(self.rks) == 0: self.xdata = xdata
@@ -1078,6 +1106,17 @@ class OutputHandler:
             self.ax.autoscale_view()
 
     def add_coefficients(self, rk, desc=''):
+        """
+            Add an individual CoefficientResult.
+
+            Parameters
+            ----------
+            rk : CoefficientResult
+                Added to the list of plotted elements.
+
+            desc : str, optional
+                Assign a custom label for the plot legend.
+        """
         # the description supplied here only affects the plot legend
         if not isinstance(rk, CoefficientResult):
             raise ValueError
@@ -1120,6 +1159,17 @@ class OutputHandler:
         self.ax.legend()
 
     def add_fit(self, mre, desc=''):
+        """
+            Add an individual CorrelationFitResult.
+
+            Parameters
+            ----------
+            mre : CorrelationFitResult
+                Added to the list of plotted elements.
+
+            desc : str, optional
+                Assign a custom label for the plot legend.
+        """
         # the description supplied here only affects the plot legend
         if not isinstance(mre, CorrelationFitResult):
             raise ValueError
@@ -1142,10 +1192,31 @@ class OutputHandler:
         self.ax.legend()
 
     def save(self, fname=''):
+        """
+            Saves plots (ax element of this handler) and source that it was
+            created from to the specified location.
+
+            Parameters
+            ----------
+            fname : str, optional
+                Path where to save, without file extension. Defaults to "./mre"
+        """
         self.save_plot(fname)
         self.save_meta(fname)
 
     def save_plot(self, fname='', ftype='pdf', ax=None):
+        """
+            Saves plots only (ignoring the source) to the specified location.
+
+            Parameters
+            ----------
+            fname : str, optional
+                Path where to save, without file extension. Defaults to "./mre"
+
+            ftype: str, optional
+                So far, only 'pdf' is implemented.
+
+        """
         ax = ax if ax is not None else self.ax
         if not isinstance(fname, str): fname = str(fname)
         if fname == '': fname = './mre'
@@ -1157,6 +1228,16 @@ class OutputHandler:
                 ax.figure.savefig(fname+'.pdf')
 
     def save_meta(self, fname=''):
+        """
+            Saves only the details/source used to create the plot. It is
+            recommended to call this manually, if you decide to save
+            the plots yourself or when you want fit results only.
+
+            Parameters
+            ----------
+            fname : str, optional
+                Path where to save, without file extension. Defaults to "./mre"
+        """
         if not isinstance(fname, str): fname = str(fname)
         if fname == '': fname = './mre'
         fname = os.path.expanduser(fname)
@@ -1166,6 +1247,7 @@ class OutputHandler:
             for fdx, fit in enumerate(self.fits):
                 if fit.desc != '': hdr += fit.desc + '\n'
                 hdr += 'function: ' + math_from_doc(fit.fitfunc) + '\n'
+                hdr += 'm={}, tau={}[ms]\n'.format(fit.mre, fit.tau)
                 hdr += '\twith parameters:\n'
                 parname = list(inspect.signature(fit.fitfunc).parameters)[1:]
                 for pdx, par in enumerate(self.fits[fdx].popt):
