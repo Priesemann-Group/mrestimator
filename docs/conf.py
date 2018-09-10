@@ -45,7 +45,8 @@ extensions = [
     'sphinx.ext.coverage',
     'sphinx.ext.mathjax',
     'sphinx.ext.napoleon',
-    'sphinx.ext.intersphinx'
+    'sphinx.ext.intersphinx',
+    'sphinx.ext.viewcode'
 ]
 
 
@@ -101,6 +102,8 @@ napoleon_use_param = True # True enables links for parameter types
 napoleon_use_rtype = False
 
 # -- Options for HTML output -------------------------------------------------
+
+html_show_sourcelink = False
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.

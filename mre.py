@@ -7,6 +7,7 @@ if os.environ.get('DISPLAY', '') == '':
 import matplotlib.pyplot as plt
 from collections import namedtuple
 import scipy
+import scipy.optimize
 # import neo
 import time
 import glob
@@ -286,7 +287,6 @@ class CoefficientResult(namedtuple('CoefficientResult', [
 
         Attributes
         ----------
-
         coefficients : ~numpy.array or None
             Contains the coefficients :math:`r_k`, has length
             ``maxstep - minstep + 1``. Access via
@@ -322,7 +322,6 @@ class CoefficientResult(namedtuple('CoefficientResult', [
 
         Example
         -------
-
         .. code-block:: python
 
             import mre
@@ -635,12 +634,12 @@ def default_fitpars(fitfunc, dt=1):
         fitfunc : callable
             The builtin fitfunction
 
-        dt : number
+        dt : float
             The time scale, usually time bin size of your data.
 
         Returns
         -------
-        pars : array like
+        pars : array_like
             The default parameters of the given function, may be a 2d array for
             multiple sets of initial conditions are useful
     """
@@ -1028,14 +1027,14 @@ class OutputHandler:
             m1 = mre.correlation_fit(rk1)
             m2 = mre.correlation_fit(rk2)
 
-            out = mre.OutputHandler(rk1, m1)
+            out = mre.OutputHandler([rk1, m1])
             out.add_coefficients(rk2)
             out.add_fit(m2)
             out.save('~/test')
         ..
     """
 
-    def __init__(self, rk=None, mre=None, ax=None):
+    def __init__(self, data=None, ax=None):
         if isinstance(ax, matplotlib.axes.Axes): self.ax = ax
         elif ax is None: _, self.ax = plt.subplots()
         else: raise ValueError('ax is not a matplotlib.axes.Axes')
@@ -1049,10 +1048,18 @@ class OutputHandler:
         self.xlabel = None
         self.ylabels = None
 
-        if isinstance(rk, CoefficientResult):
-            self.add_coefficients(rk)
-        if isinstance(mre, CorrelationFitResult):
-            self.add_fit(mre)
+        if isinstance(data, CoefficientResult) \
+        or isinstance(data, CorrelationFitResult):
+            data = list(data)
+
+        for d in data:
+            if isinstance(d, CoefficientResult):
+                self.add_coefficients(d)
+            elif isinstance(d, CorrelationFitResult):
+                self.add_fit(d)
+            else:
+                raise ValueError('\nPlease provide a list containing '
+                    'CoefficientResults and/or CorrelationFitResults\n')
 
     def set_xdata(self, xdata=None):
         # this needs to be improve, for now only fits can be redrawn
