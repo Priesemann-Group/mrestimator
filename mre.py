@@ -1083,11 +1083,14 @@ class OutputHandler:
             plt.draw()
         ..
     """
-
     def __init__(self, data=None, ax=None):
         """
             Construct a new OutputHandler, optionally you can provide
             the a list of elements to plot.
+
+            ToDo: Make the OutputHandler talk to each other so that
+            when one is written (possibly linked to others via one figure)
+            all subfigure meta data is exported, too.
 
             Parameters
             ----------
@@ -1103,22 +1106,26 @@ class OutputHandler:
 
         self.rks = []
         self.fits = []
-        self.title = None
+        self.fitlabels = []
         self.type = None
         self.xdata = None
         self.ydata = None
         self.xlabel = None
-        self.ylabels = None
+        self.ylabels = []
 
+        # single argument to list
         if isinstance(data, CoefficientResult) \
-        or isinstance(data, CorrelationFitResult):
+        or isinstance(data, CorrelationFitResult) \
+        or isinstance(data, np.ndarray):
             data = [data]
 
-        for d in data:
+        for d in data or []:
             if isinstance(d, CoefficientResult):
                 self.add_coefficients(d)
             elif isinstance(d, CorrelationFitResult):
                 self.add_fit(d)
+            elif isinstance(d, np.ndarray):
+                self.add_ts(d)
             else:
                 raise ValueError('\nPlease provide a list containing '
                     'CoefficientResults and/or CorrelationFitResults\n')
@@ -1148,91 +1155,227 @@ class OutputHandler:
             self.ax.relim()
             self.ax.autoscale_view()
 
-    def add_coefficients(self, rk, desc=''):
+    def add_coefficients(self, data, **kwargs):
         """
             Add an individual CoefficientResult.
 
             Parameters
             ----------
-            rk : CoefficientResult
+            data : CoefficientResult
                 Added to the list of plotted elements.
 
-            desc : str, optional
-                Assign a custom label for the plot legend.
+            kwargs
+                Keyword arguments passed to
+                :obj:`matplotlib.axes.Axes.plot`. Use to customise the
+                plots. If a `label` is set via `kwargs`, it will be used to
+                overwrite the description of `data` in the meta data.
+                If an alpha value is set, the shaded error region will
+                be omitted.
+
+            Example
+            -------
+            .. code-block:: python
+
+                rk = mre.correlation_coefficients(mre.simulate_branching())
+
+                mout = mre.OutputHandler()
+                mout.add_coefficients(rk, color='C1', label='test')
+            ..
         """
         # the description supplied here only affects the plot legend
-        if not isinstance(rk, CoefficientResult):
+        if not isinstance(data, CoefficientResult):
             raise ValueError
         if not (self.type is None or self.type == 'correlation'):
             raise ValueError
         self.type = 'correlation'
-        try:
-            if desc == '': desc = rk.desc
-            else: desc = str(desc)
-        except: desc = ''
-        if desc != '': desc += ' '
-        if len(self.rks) == 0:
-            self.set_xdata(rk.steps)
-            self.xlabel = 'steps'
-            self.ydata = np.zeros(shape=(1,len(rk.coefficients)))
-            self.ydata[0] = rk.coefficients;
-            self.ylabels = [desc+'coefficients']
+
+        # description for columns of meta data
+        desc = str(data.desc)
+
+        # plot legend label
+        if 'label' in kwargs:
+            label = kwargs.get('label')
+            if label == '':
+                label = None
+            if label is None:
+                labelerr = None
+            else:
+                # user wants custom label not intended to hide the legend
+                label = str(label)
+                labelerr = str(label) + ' Errors'
+                # apply to meta data, too
+                desc = str(label)
         else:
-            if not np.array_equal(self.xdata, rk.steps):
+            # user has not set anything, copy from desc if set
+            label = 'Data'
+            labelerr = 'Errors'
+            if desc != '':
+                label = desc
+                labelerr = desc + ' Errors'
+
+        if desc != '':
+            desc += ' '
+
+        if len(self.rks) == 0:
+            self.set_xdata(data.steps)
+            self.xlabel = 'steps'
+            self.ydata = np.zeros(shape=(1,len(data.coefficients)))
+            self.ydata[0] = data.coefficients;
+            self.ylabels = [desc+'coefficients']
+            self.ax.set_xlabel('k')
+            self.ax.set_ylabel('$r_{k}$')
+            self.ax.set_title('Correlation')
+        else:
+            if not np.array_equal(self.xdata, data.steps):
                 raise ValueError('steps of new CoefficientResult do not match')
-            self.ydata = np.vstack((self.ydata, rk.coefficients))
+            self.ydata = np.vstack((self.ydata, data.coefficients))
             self.ylabels.append(desc+'coefficients')
 
-        if rk.stderrs is not None:
-            self.ydata = np.vstack((self.ydata, rk.stderrs))
+        if data.stderrs is not None:
+            self.ydata = np.vstack((self.ydata, data.stderrs))
             self.ylabels.append(desc+'stderrs')
 
-        self.rks.append(rk)
+        self.rks.append(data)
 
         # update plot
-        p, = self.ax.plot(rk.steps, rk.coefficients,
-            label='Data' if desc == '' else desc)
+        p, = self.ax.plot(data.steps, data.coefficients,
+            label=label)
 
-        if rk.stderrs is not None:
-            err1 = rk.coefficients-rk.stderrs
-            err2 = rk.coefficients+rk.stderrs
-            self.ax.fill_between(rk.steps, err1, err2,
-                alpha = 0.2, facecolor=p.get_color(), label=desc+'Errors')
+        if data.stderrs is not None and 'alpha' not in kwargs:
+            err1 = data.coefficients-data.stderrs
+            err2 = data.coefficients+data.stderrs
+            self.ax.fill_between(data.steps, err1, err2,
+                alpha = 0.2, facecolor=p.get_color(), label=labelerr)
 
-        self.ax.legend()
+        if label is not None:
+            self.ax.legend()
 
-    def add_fit(self, mre, desc=''):
+    def add_fit(self, data, **kwargs):
         """
             Add an individual CorrelationFitResult.
 
             Parameters
             ----------
-            mre : CorrelationFitResult
+            data : CorrelationFitResult
                 Added to the list of plotted elements.
 
-            desc : str, optional
-                Assign a custom label for the plot legend.
+            kwargs
+                Keyword arguments passed to
+                :obj:`matplotlib.axes.Axes.plot`. Use to customise the
+                plots. If a `label` is set via `kwargs`, it will be added
+                as a note in the meta data.
         """
-        # the description supplied here only affects the plot legend
-        if not isinstance(mre, CorrelationFitResult):
+        if not isinstance(data, CorrelationFitResult):
             raise ValueError
         if not (self.type is None or self.type == 'correlation'):
             raise ValueError
         self.type = 'correlation'
         if self.xdata is None:
             self.set_xdata()
-        try:
-            if desc == '': desc = mre.desc
-            else: desc = str(desc)
-        except: desc = ''
-        if desc != '': desc += ' '
-        self.fits.append(mre)
+            self.ax.set_xlabel('k')
+            self.ax.set_ylabel('$r_{k}$')
+            self.ax.set_title('Correlation')
+
+        # description for fallback
+        desc = str(data.desc)
+
+        # plot legend label
+        if 'label' in kwargs:
+            label = kwargs.get('label')
+            if label == '':
+                label = None
+            else:
+                # user wants custom label not intended to hide the legend
+                label = str(label)
+        else:
+            # user has not set anything, copy from desc if set
+            label = math_from_doc(data.fitfunc)
+            if desc != '':
+                label = desc + ' ' + label
+
+        self.fits.append(data)
+        self.fitlabels.append(label)
 
         # update plot
-        label = math_from_doc(mre.fitfunc, maxlen=20)
-        self.ax.plot(self.xdata, mre.fitfunc(self.xdata, *mre.popt),
-            label=desc+label)
-        self.ax.legend()
+        self.ax.plot(self.xdata, data.fitfunc(self.xdata, *data.popt),
+            label=label)
+        if label is not None:
+            self.ax.legend()
+
+    def add_ts(self, data, **kwargs):
+        """
+            Add timeseries (possibly with trial structure).
+            Not compatible with OutputHandlers that have data added via
+            `add_fit()` or `add_coefficients()`.
+
+            Parameters
+            ----------
+            data : ~numpy.ndarray
+                The timeseries to plot. If the `ndarray` is two dimensional,
+                a trial structure is assumed and all trials are plotted using
+                the same style (default or defined via `kwargs`).
+                *Not implemented yet*: Providing a ts with its own custom axis
+
+            kwargs
+                Keyword arguments passed to
+                :obj:`matplotlib.axes.Axes.plot`. Use to customise the
+                plots.
+
+            Example
+            -------
+            .. code-block:: python
+
+                bp = mre.simulate_branching(numtrials=10)
+
+                tsout = mre.OutputHandler()
+                tsout.add_ts(bp, alpha=0.1, label='Trials')
+                tsout.add_ts(np.mean(bp, axis=0), label='Mean')
+
+                plt.show()
+            ..
+        """
+        if not (self.type is None or self.type == 'timeseries'):
+            raise ValueError('\nTime series are not compatible with '
+                'a coefficients plot\n')
+        self.type = 'timeseries'
+        if not isinstance(data, np.ndarray):
+            data = np.array(data)
+        if len(data.shape) < 2:
+            data = data.reshape((1, len(data)))
+        elif len(data.shape) > 2:
+            raise ValueError('\nOnly compatible with up to two dimensions\n')
+
+        desc = kwargs.get('label') if 'label' in kwargs else 'ts'
+        color = kwargs.get('color') if 'color' in kwargs else None
+        for idx, dat in enumerate(data):
+            if self.xdata is None:
+                self.set_xdata(np.arange(1, data.shape[1]+1))
+                self.xlabel = 'steps'
+                self.ax.set_xlabel('t')
+                self.ax.set_ylabel('$A_{t}$')
+                self.ax.set_title('Time Series')
+            elif len(self.xdata) != len(dat):
+                raise ValueError('\nTime series have different length\n')
+            if self.ydata is None:
+                self.ydata = np.full((1, len(self.xdata)), np.nan)
+                self.ydata[0] = dat
+            else:
+                self.ydata = np.vstack((self.ydata, dat))
+
+            self.ylabels.append(desc+'[{}]'.format(idx)
+                if len(data) > 1 else desc)
+            p, = self.ax.plot(self.xdata, dat, **kwargs)
+
+            # dont plot an empty legend
+            if kwargs.get('label') is not None \
+            and kwargs.get('label') != '':
+                self.ax.legend()
+
+            # only add to legend once
+            if idx == 0:
+                kwargs = dict(kwargs, label=None)
+                kwargs = dict(kwargs, color=p.get_color())
+
 
     def save(self, fname=''):
         """
@@ -1249,7 +1392,7 @@ class OutputHandler:
 
     def save_plot(self, fname='', ftype='pdf', ax=None):
         """
-            Saves plots only (ignoring the source) to the specified location.
+            Only saves plots (ignoring the source) to the specified location.
 
             Parameters
             ----------
@@ -1267,6 +1410,7 @@ class OutputHandler:
 
         if isinstance(ftype, str): ftype = [ftype]
         for t in list(ftype):
+            print('Saving plot to {}.{}'.format(fname, t))
             if t == 'pdf':
                 ax.figure.savefig(fname+'.pdf')
 
@@ -1274,7 +1418,7 @@ class OutputHandler:
         """
             Saves only the details/source used to create the plot. It is
             recommended to call this manually, if you decide to save
-            the plots yourself or when you want fit results only.
+            the plots yourself or when you want only the fit results.
 
             Parameters
             ----------
@@ -1284,30 +1428,33 @@ class OutputHandler:
         if not isinstance(fname, str): fname = str(fname)
         if fname == '': fname = './mre'
         fname = os.path.expanduser(fname)
+        print('Saving meta to {}.tsv'.format(fname))
         # fits
         hdr = ''
         try:
             for fdx, fit in enumerate(self.fits):
-                if fit.desc != '': hdr += fit.desc + '\n'
-                hdr += 'function: ' + math_from_doc(fit.fitfunc) + '\n'
+                hdr += 'legendlabel: ' + str(self.fitlabels[fdx]) + '\n'
+                hdr += 'description: ' + str(fit.desc) + '\n'
                 hdr += 'm={}, tau={}[ms]\n'.format(fit.mre, fit.tau)
+                hdr += 'function: ' + math_from_doc(fit.fitfunc) + '\n'
                 hdr += '\twith parameters:\n'
                 parname = list(inspect.signature(fit.fitfunc).parameters)[1:]
                 for pdx, par in enumerate(self.fits[fdx].popt):
                     hdr += '\t\t{} = {}\n'.format(parname[pdx], par)
                 hdr += '\n'
-        except Exception as e: print(e)
+        except Exception as e:
+            print(e)
 
-        # rks
+        # rks / ts
         labels = ''
         dat = []
-        if len(self.rks) > 0:
+        if self.ydata is not None:
             labels += '1_'+self.xlabel
             for ldx, label in enumerate(self.ylabels):
                 labels += '\t'+str(ldx+2)+'_'+label
             labels = labels.replace(' ', '_')
             dat = np.vstack((self.xdata, self.ydata))
-        np.savetxt(fname+'.tsv', dat, delimiter='\t', header=hdr+labels)
+        np.savetxt(fname+'.tsv', np.transpose(dat), delimiter='\t', header=hdr+labels)
 
 def save_automatic():
     pass
