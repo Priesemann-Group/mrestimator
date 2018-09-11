@@ -1021,17 +1021,22 @@ def correlation_fit(
 
 class OutputHandler:
     """
-        Use the Outputhandler for exporting and plotting.
+        The OutputHandler can be used to export results and to
+        create charts with
+        timeseries, correlation-coefficients or fits.
 
         The main concept is to have one handler per plot. It contains
-        functions to plot into an existing matplotlib axis (subplot),
+        functions to add content into an existing matplotlib axis (subplot),
         or, if not provided, creates a new figure.
-        Most importantly, it also exports the source (coefficients and fits)
-        that was used for any plot in plaintext, so you can reproduce figures.
+        Most importantly, it also exports plaintext of the respective source material so figures are reproducible.
 
         Example
         -------
         .. code-block:: python
+
+            import numpy as np
+            import matplotlib.pyplot as plt
+            import mre
 
             bp  = mre.simulate_branching(numtrials=15)
             rk1 = mre.correlation_coefficients(bp, method='trialseparated',
@@ -1053,7 +1058,7 @@ class OutputHandler:
             out.save('~/test')
         ..
 
-        You can also work with existing figures
+        Working with existing figures:
 
         .. code-block:: python
 
@@ -1168,7 +1173,7 @@ class OutputHandler:
                 Keyword arguments passed to
                 :obj:`matplotlib.axes.Axes.plot`. Use to customise the
                 plots. If a `label` is set via `kwargs`, it will be used to
-                overwrite the description of `data` in the meta data.
+                overwrite the description of `data` in the meta file.
                 If an alpha value is set, the shaded error region will
                 be omitted.
 
