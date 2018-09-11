@@ -869,9 +869,10 @@ def correlation_fit(
     print('correlation_fit() calculating the MR Estimator...')
     mnaive = 'not calculated in your step range'
 
-    if fitfunc in ['f_exponential', 'exponential']:
+    if fitfunc in ['f_exponential', 'exponential', 'exp']:
         fitfunc = f_exponential
-    elif fitfunc in ['f_exponential_offset', 'exponentialoffset']:
+    elif fitfunc in ['f_exponential_offset', 'exponentialoffset',
+        'offset', 'exp_off', 'exp_offs']:
         fitfunc = f_exponential_offset
     elif fitfunc in ['f_complex', 'complex']:
         fitfunc = f_complex
@@ -926,6 +927,11 @@ def correlation_fit(
         else: desc = str(desc)
     except:
         desc = ''
+
+    # check dt
+    dt = float(dt)
+    if dt <= 0:
+        raise ValueError('\nTimestep dt needs to be a float > 0\n')
 
     # make sure stderrs are not all equal
     try:
@@ -1070,7 +1076,11 @@ class OutputHandler:
                 ax.spines['top'].set_visible(False)
                 ax.spines['right'].set_visible(False)
 
-            plt.show()
+            plt.show(block=False)
+
+            # hide a legend
+            ax1.legend().set_visible(False)
+            plt.draw()
         ..
     """
 
