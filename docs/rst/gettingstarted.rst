@@ -10,7 +10,6 @@ project:
 
     # add toolbox path
     import sys
-    sys.path
     sys.path.append('/path/to/mrefolder/')
 
     # import np and plt, too. Most examples in the documentation rely on it
