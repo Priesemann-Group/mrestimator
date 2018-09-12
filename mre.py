@@ -277,7 +277,7 @@ def simulate_branching(
 class CoefficientResult(namedtuple('CoefficientResult', [
     'coefficients', 'steps',
     'offsets', 'stderrs',
-    'trialactivies', 'samples',
+    'trialacts', 'samples',
     'desc'])):
     """
         :obj:`~collections.namedtuple` returned by
@@ -298,9 +298,9 @@ class CoefficientResult(namedtuple('CoefficientResult', [
         stderrs : ~numpy.array or None
             Standard errors of the :math:`r_k`.
 
-        trialactivities : ~numpy.array or None
+        trialacts : ~numpy.array or None
             Mean activity of each trial in the provided data.
-            To get the global mean activity, use ``np.mean(trialactivities)``.
+            To get the global mean activity, use ``np.mean(trialacts)``.
 
         desc : str
             Description (or name) of the data set, by default all results of
@@ -315,9 +315,9 @@ class CoefficientResult(namedtuple('CoefficientResult', [
             Coefficients of each separate trial (or bootstrap sample). Access
             via ``.samples.coefficients[trial, step]``
 
-        samples.trialactivies : ~numpy.array or None
-            Individual activites of each trial. If ``bootsrap`` was enabled,
-            this containts the activities of the resampled data.
+        samples.trialacts : ~numpy.array or None
+            Individual activites of each trial. If `bootsrapping` was used,
+            this containts the `numboot` activities of the resampled replicas.
 
 
         Example
@@ -348,7 +348,7 @@ def correlation_coefficients(
     minstep=1,
     maxstep=1000,
     method='trialseparated',
-    bootstrap=True,
+    numboot=100,
     seed=3141,
     desc=''):
     """
@@ -369,26 +369,29 @@ def correlation_coefficients(
             values between `minstep` and `maxstep` are processed (stride 1).
 
         method : str, optional
-            The estimation method to use, either `'trialseparated'` or
-            `'stationarymean'`. The default, `'trialseparated'` calculates
-            the :math:`r_k` for each trial separately and averaged
-            over. Each trials contribution is weighted with its variance.
-            `'stationarymean'` assumes the mean activity and its variance to be
+            The estimation method to use, either `'trialseparated'` (``'ts'``,
+            default) or
+            `'stationarymean'` (``'sm'``). ``'ts'``
+            calculates the :math:`r_k` for each trial separately and averages
+            over trials. Each trials contribution is weighted with its
+            variance.
+            ``'sm'`` assumes the mean activity and its variance to be
             constant across all trials.
 
-        bootstrap : bool, optional
-            Only considered if using the `'stationarymean'` method.
-            Enable bootstrapping to generate multiple (resampled)
+        numboot : int, optional
+            Only affects the `'stationarymean'` method.
+            Enable bootstrapping to generate `numboot` (resampled)
             series of trials from the provided one. This allows to approximate
-            the returned error statistically, (as opposed to the fit errors).
-            *Not implemented yet*
+            statistical errors, returned in `stderrs`.
+            Default is `numboot=100`.
 
         seed : int or None, optional
-            If ``bootstrap=True``, a custom seed can be specified for the
+            If bootstrapping (`numboot>0`), a custom seed can be passed to the
+            random number generator used for
             resampling. Per default, it is set to the *same* value every time
             `correlation_coefficients()` is called to return consistent results
-            when repeating the analysis on the same data. Pass `None` to change
-            this behaviour. For more details, see
+            when repeating the analysis on the same data. Set to `None` to
+            change this behaviour. For more details, see
             :obj:`numpy.random.RandomState`.
 
         desc : str, optional
@@ -430,42 +433,43 @@ def correlation_coefficients(
             plt.show()
         ..
     """
-
     # ------------------------------------------------------------------ #
     # Check arguments to offer some more convenience
     # ------------------------------------------------------------------ #
 
-    if method not in ['trialseparated', 'stationarymean']:
+    if method not in ['trialseparated', 'ts', 'stationarymean', 'sm']:
         raise NotImplementedError('Unknown method: "{}"'.format(method))
+    if method == 'ts':
+        method = 'trialseparated'
+    elif method == 'sm':
+        method = 'stationarymean'
 
     if not isinstance(desc, str): desc = str(desc)
 
-    print('correlation_coefficients() using "{}" method:'.format(method))
+    print('correlation_coefficients() using \'{}\' method:'.format(method))
 
     dim = -1
     try:
         dim = len(data.shape)
         if dim == 1:
-            print('  Warning: You should provide an ndarray of ' \
-                  'shape(numtrials, datalength).\n' \
-                  '           Continuing with one trial, reshaping your input.')
+            print('\tWarning: You should provide an ndarray of '
+                'shape(numtrials, datalength).\n'
+                '\tContinuing with one trial, reshaping your input.')
             data = np.reshape(data, (1, len(data)))
         elif dim >= 3:
-            print('  Exception: Provided ndarray is of dim {}.\n'.format(dim),
-                  '            Please provide a two dimensional ndarray.')
-            exit()
+            raise ValueError('\nProvided ndarray is of dim {}.\n'.format(dim),
+                  'Please provide a two dimensional ndarray.\n')
     except Exception as e:
-        print('  Exception: {}.\n'.format(e),
-              '            Please provide a two dimensional ndarray.')
-        return
+        raise ValueError('{}\nPlease provide a two dimensional ndarray.\n'
+            .format(e))
 
     if minstep > maxstep:
-        print('  Warning: minstep > maxstep, setting minstep=1')
+        print('\tWarning: minstep > maxstep, setting minstep=1')
         minstep = 1
 
     if maxstep > data.shape[1]:
         maxstep = data.shape[1]-2
-        print('  Warning: maxstep is larger than your data, adjusting to {}' \
+        print('\tWarning: maxstep is larger than your data, adjusting to {}'
               .format(maxstep))
 
     # ------------------------------------------------------------------ #
@@ -477,7 +481,7 @@ def correlation_coefficients(
     numtrials = data.shape[0]     # number of trials
     numels    = data.shape[1]     # number of measurements per trial
 
-    print('  {} trials, length {}'.format(numtrials, numels))
+    print('\t{} trials, length {}'.format(numtrials, numels))
 
     if method == 'trialseparated':
         # ------------------------------------------------------------------ #
@@ -492,7 +496,7 @@ def correlation_coefficients(
             offsets       = None,
             stderrs       = None,
             steps         = steps,
-            trialactivies = np.mean(data, axis=1),
+            trialacts     = np.mean(data, axis=1),
             samples       = None,
             desc          = desc)
 
@@ -500,15 +504,15 @@ def correlation_coefficients(
         trialvars  = np.var(data, axis=1, ddof=1)          # (numtrials)
 
         for idx, k in enumerate(steps):
-            if not idx%100: print('\r  {}/{} steps' \
-                .format(idx+1, numsteps), end="")
+            if not idx%100:
+                print('\r\t{}/{} steps'.format(idx+1, numsteps), end="")
 
             sepres.coefficients[:, idx] = \
                 np.mean((data[:,  :-k] - trialmeans) * \
                         (data[:, k:  ] - trialmeans), axis=1) \
                 * ((numels-k)/(numels-k-1)) / trialvars
 
-        print('\x1b[2K\r  {} steps: done'.format(numsteps))
+        print('\x1b[2K\r\t{} steps: done'.format(numsteps))
 
         if numtrials > 1:
             stderrs = np.sqrt(
@@ -523,7 +527,7 @@ def correlation_coefficients(
             coefficients  = np.mean(sepres.coefficients, axis=0),
             offsets       = None,
             stderrs       = stderrs,
-            trialactivies = np.mean(data, axis=1),
+            trialacts     = np.mean(data, axis=1),
             samples       = sepres,
             desc          = desc)
 
@@ -543,57 +547,61 @@ def correlation_coefficients(
         # numbers this time, shape=(1)
         # fulmean  = np.mean(data)
         # fulvar   = np.var(data, ddof=numtrials)
-        trialactivies = np.mean(data, axis=1)
-        fulmean  = np.mean(trialactivies)
-        fulvar = np.mean((data[:]-fulmean)**2)*(numels/(numels-1))
+        trialacts = np.mean(data, axis=1)                # (numtrials)
+        fulmean   = np.mean(trialacts)                   # (1)
+        fulvar    = np.mean((data[:]-fulmean)**2)*(numels/(numels-1))
+
+        # (x-mean)(y-mean) = x*y - mean(x+y) + mean*mean
+        xty = np.empty(shape=(numsteps, numtrials))
+        xpy = np.empty(shape=(numsteps, numtrials))
+        xtx = np.mean(data[:]*data[:], axis=1)           # (numtrials)
+        for idx, k in enumerate(steps):
+            x = data[:, 0:-k]
+            y = data[:, k:  ]
+            xty[idx] = np.mean(x * y, axis=1)
+            xpy[idx] = np.mean(x + y, axis=1)
 
         for idx, k in enumerate(steps):
-            if not idx%100: print('\r  {}/{} steps' \
-                .format(idx+1, numsteps), end="")
-
             coefficients[idx] = \
-                np.mean((data[:,  :-k] - fulmean) * \
-                        (data[:, k:  ] - fulmean)) \
-                * ((numels-k)/(numels-k-1)) / fulvar
+                (np.mean(xty[idx, :] - xpy[idx, :] * fulmean) \
+                + fulmean**2) / fulvar * ((numels-k)/(numels-k-1))
 
-        print('\x1b[2K\r  {} steps: done'.format(numsteps))
-
-        if bootstrap:
-            print('  Bootstrapping...')
+        if numboot <= 1:
+            print('\tWarning: Bootstrap needs at least numboot=2 replicas, '
+                'skipped resampling')
+        if numboot>1:
+            print('\tBootstrapping...')
             np.random.seed(seed)
-            numrepls = numtrials
 
             sepres = CoefficientResult(
-                coefficients  = np.zeros(shape=(numrepls, numsteps),
+                coefficients  = np.zeros(shape=(numboot, numsteps),
                                          dtype='float64'),
                 offsets       = None,
                 stderrs       = None,
                 steps         = steps,
-                trialactivies = np.zeros(numrepls, dtype='float64'),
+                trialacts     = np.zeros(numboot, dtype='float64'),
                 samples       = None,
                 desc          = desc)
 
-            for tdx in range(numrepls):
-                print('\r  {}/{} samples'.format(tdx+1, numrepls), end="")
+            for tdx in range(numboot):
+                print('\r\t{}/{} samples'.format(tdx+1, numboot), end="")
                 trialchoices = np.random.choice(np.arange(0, numtrials),
                     size=numtrials)
-                bsdata = data[trialchoices]
-                # bsmean = np.mean(bsdata)
-                # bsvar  = np.var(bsdata, ddof=numtrials)
-                bsmean = np.mean(trialactivies[trialchoices])
-                bsvar = np.mean((bsdata[:]-bsmean)**2)*(numels/(numels-1))
+                bsmean = np.mean(trialacts[trialchoices])
+                bsvar = (np.mean(xtx[trialchoices])-bsmean**2) \
+                    * (numels/(numels-1))
 
-                sepres.trialactivies[tdx] = bsmean
+                sepres.trialacts[tdx] = bsmean
 
                 for idx, k in enumerate(steps):
                     sepres.coefficients[tdx, idx] = \
-                        np.mean((bsdata[:,  :-k] - bsmean) * \
-                                (bsdata[:, k:  ] - bsmean)) \
-                        * ((numels-k)/(numels-k-1)) / bsvar
+                        (np.mean(xty[idx, trialchoices] - \
+                                 xpy[idx, trialchoices] * bsmean) \
+                        + bsmean**2) / bsvar * ((numels-k)/(numels-k-1))
 
-            print('\x1b[2K\r  {} bootstrap samples: done'.format(numrepls))
+            print('\x1b[2K\r\t{} bootstrap samples: done'.format(numboot))
 
-            if numrepls > 1:
+            if numboot > 1:
                 stderrs = np.sqrt(np.var(sepres.coefficients, axis=0, ddof=1))
                 if (stderrs == stderrs[0]).all():
                     stderrs = None
@@ -605,7 +613,7 @@ def correlation_coefficients(
             coefficients  = coefficients,
             offsets       = offsets,
             stderrs       = stderrs,
-            trialactivies = trialactivies,
+            trialacts     = trialacts,
             samples       = sepres,
             desc          = desc)
 
@@ -1016,7 +1024,7 @@ def correlation_fit(
         desc    = desc)
 
     print('\tFinished fitting {}, mre = {:.5f}, tau = {:.5f}, ssres = {:.5f}'
-        .format('"'+desc+'"' if desc != '' else fitfunc.__name__,
+        .format('\''+desc+'\'' if desc != '' else fitfunc.__name__,
             fulres.mre, fulres.tau, fulres.ssres))
 
     return fulres
