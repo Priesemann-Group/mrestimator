@@ -511,7 +511,10 @@ def correlation_coefficients(
         print('\x1b[2K\r  {} steps: done'.format(numsteps))
 
         if numtrials > 1:
-            stderrs = np.sqrt(np.var(sepres.coefficients, axis=0, ddof=1))
+            stderrs = np.sqrt(
+                np.var(sepres.coefficients, axis=0, ddof=1)/numtrials)
+            if (stderrs == stderrs[0]).all():
+                stderrs = None
         else :
             stderrs = None
 
@@ -592,6 +595,8 @@ def correlation_coefficients(
 
             if numrepls > 1:
                 stderrs = np.sqrt(np.var(sepres.coefficients, axis=0, ddof=1))
+                if (stderrs == stderrs[0]).all():
+                    stderrs = None
             else:
                 stderrs = None
 
@@ -935,7 +940,8 @@ def correlation_fit(
 
     # make sure stderrs are not all equal
     try:
-        if (stderrs == stderrs[0]).all: stderrs = None
+        if (stderrs == stderrs[0]).all():
+            stderrs = None
     except:
         stderrs = None
 
