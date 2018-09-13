@@ -2,13 +2,13 @@ from distutils.core import setup
 
 # read the contents of your README file
 from os import path
-this_directory = path.abspath(path.dirname(__file__))
-with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
+
+with open('README.md') as f:
     long_description = f.read()
 
 setup(
     name='mrestimator',
-    version='0.0.2',
+    version='0.0.5',
     author='Paul Spitzner',
     author_email='paul.spitzner@ds.mpg.de',
     packages=['mrestimator'],

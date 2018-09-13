@@ -16,7 +16,6 @@ For Details on the estimator, please see
 
 Assuming a working Python3 environment,
 usually you can install the dependencies via pip:
-
 ```
 pip3 install numpy scipy matplotlib neo
 ```
@@ -25,7 +24,6 @@ pip3 install numpy scipy matplotlib neo
 
 Clone the repository via ssh. For now, this requires you to have a gwdg gitlab
 account [with ssh keys in place.](https://docs.gitlab.com/ee/ssh/)
-
 ```
 git clone git@gitlab.gwdg.de:pspitzn/mre.git
 export PYTHONPATH="${PYTHONPATH}:$(pwd)/mre"
@@ -34,14 +32,14 @@ export PYTHONPATH="${PYTHONPATH}:$(pwd)/mre"
 The second line adds the downloaded directory to your `PYTHONPATH` environment
 variable, so that it will be found automatically. If you want to add the path
 automatically when you login, you can add it to your `~/.bashrc` or `~/.profile`:
-
 ```
 echo 'export PYTHONPATH="${PYTHONPATH}:'$(pwd)'/mre"' >> ~/.bashrc
 ```
 
-Then, you should be able to import the module into any python session
-
+Then, you should be able to import the module into any
+python session
 ```
 python3
-import mre
+import mrestimator as mre
 ```
+
