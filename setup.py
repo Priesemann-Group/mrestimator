@@ -15,9 +15,9 @@ setup(
     url='https://gitlab.gwdg.de/pspitzn/mre',
     license='LICENSE',
     description='Toolbox for the Multistep Regression Estimator.',
-    # long_description=long_description,
-    # long_description_content_type='text/markdown',
-    long_description='Toolbox for the Multistep Regression Estimator.',
+    long_description=long_description,
+    long_description_content_type='text/markdown',
+    # long_description='Toolbox for the Multistep Regression Estimator.',
     python_requires='>3.5.0',
     install_requires=[
         "numpy >= 1.13.0",

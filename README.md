@@ -2,8 +2,7 @@
 
 Welcomme to the Toolbox for the Multistep Regression Estimator
 
-[Documentation (more coming soon!)]
-(https://pspitzn.pages.gwdg.de/mre/)
+[Documentation](https://pspitzn.pages.gwdg.de/mre/)
 
 For Details on the estimator, please see
 [J. Wilting and V. Priesemann, Nat. Commun. 9, 2325 (2018)](https://doi.org/10.1038/s41467-018-04725-4)
