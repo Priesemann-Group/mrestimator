@@ -1,6 +1,6 @@
-# MRE
+# Mr. Estimator
 
-Welcomme to the Toolbox for the MR Estimator
+Welcomme to the Toolbox for the Multistep Regression Estimator
 
 [Documentation (more coming soon!)]
 (https://pspitzn.pages.gwdg.de/mre/)
@@ -46,21 +46,3 @@ Then, you should be able to import the module into any python session
 python3
 import mre
 ```
-
-
-
-
-## Documentation Building
-### Requirements:
-```
-pip install sphinx sphinx_rtd_theme autodoc
-```
-
-### Building:
-
-Navigate to the root directory, then
-```
-cd docs/
-make html
-```
-the resulting documentation is then in `docs/_build/html/index.html`
