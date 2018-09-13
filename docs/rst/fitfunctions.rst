@@ -18,7 +18,7 @@ The builtin fitfunctions all follow this form:
     .. code-block:: python
 
         import numpy as np
-        import mre
+        import mrestimator as mre
 
         # evaluate exp(-1) via A e^(-k/tau)
         print(mre.f_exponential(1, 1, 1))
@@ -41,5 +41,5 @@ The builtin fitfunctions all follow this form:
 
     ..
 
-.. automodule:: mre
+.. automodule:: mrestimator
    :members: f_exponential, f_exponential_offset, f_complex, default_fitpars

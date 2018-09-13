@@ -3,5 +3,5 @@ Plotting and Exporting
 
 
 
-.. automodule:: mre
+.. automodule:: mrestimator
    :members: OutputHandler

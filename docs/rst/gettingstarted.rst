@@ -1,7 +1,7 @@
 Getting Started
 ===============
 
-.. automodule:: mre
+.. automodule:: mrestimator
 
 If you downloaded the toolbox and want to add it only to the current
 project:
@@ -15,12 +15,12 @@ project:
     # import np and plt, too. Most examples in the documentation rely on it
     import numpy as np
     import matplotlib.pyplot as plt
-    import mre
+    import mrestimator as mre
 ..
 
 You can `install the toolbox
 <https://gitlab.gwdg.de/pspitzn/mre#installation>`_,
-to ``import mre`` without the extra step.
+to ``import mrestimator`` without the extra step.
 
 In a typical scenario you want to read your data from disk. Either you provide
 it in a :ref:`suitable format <data_label>` yourself or try the

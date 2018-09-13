@@ -324,7 +324,7 @@ class CoefficientResult(namedtuple('CoefficientResult', [
         -------
         .. code-block:: python
 
-            import mre
+            import mrestimator as mre
 
             bp = mre.simulate_branching(numtrials=3)
             rk = mre.correlation_coefficients(bp)
@@ -411,7 +411,7 @@ def correlation_coefficients(
 
             import numpy as np
             import matplotlib.pyplot as plt
-            import mre
+            import mrestimator as mre
 
             # branching process with 15 trials
             bp = mre.simulate_branching(numtrials=15)
@@ -853,7 +853,7 @@ def correlation_fit(
 
             import numpy as np
             import matplotlib.pyplot as plt
-            import mre
+            import mrestimator as mre
 
             bp = mre.simulate_branching(numtrials=15)
             rk = mre.correlation_coefficients(bp)
@@ -1050,7 +1050,7 @@ class OutputHandler:
 
             import numpy as np
             import matplotlib.pyplot as plt
-            import mre
+            import mrestimator as mre
 
             bp  = mre.simulate_branching(numtrials=15)
             rk1 = mre.correlation_coefficients(bp, method='trialseparated',
