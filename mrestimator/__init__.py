@@ -281,7 +281,7 @@ class CoefficientResult(namedtuple('CoefficientResult', [
     'desc'])):
     """
         :obj:`~collections.namedtuple` returned by
-        :func:`correlation_coefficients`. Attributes
+        :func:`coefficients`. Attributes
         are set to :obj:`None` if the specified method or input data do not provide
         them.
 
@@ -319,15 +319,19 @@ class CoefficientResult(namedtuple('CoefficientResult', [
             Individual activites of each trial. If `bootsrapping` was used,
             this containts the `numboot` activities of the resampled replicas.
 
-
         Example
         -------
         .. code-block:: python
 
+            import numpy as np
+            import matplotlib.pyplot as plt
             import mrestimator as mre
 
-            bp = mre.simulate_branching(numtrials=3)
-            rk = mre.correlation_coefficients(bp)
+            # branching process with 15 trials
+            bp = mre.simulate_branching(numtrials=15)
+
+            # the bp returns data already in the right format
+            rk = mre.coefficients(bp)
 
             # list available fields
             print(rk._fields)
@@ -338,12 +342,25 @@ class CoefficientResult(namedtuple('CoefficientResult', [
             # print all entries as a dict
             print(rk._asdict())
 
-            # get this documentation
-            help(rk)
+            # get the documentation
+            print(help(rk))
+
+            # separate trials, swap indices to comply with the pyplot layout
+            plt.plot(rk.steps, np.transpose(rk.samples.coefficients),
+                     color='C0', alpha=0.1)
+
+            # estimated coefficients
+            plt.plot(rk.steps, rk.coefficients,
+                     color='C0', label='estimated r_k')
+
+            plt.xlabel(r'$k$')
+            plt.ylabel(r'$r_k$')
+            plt.legend(loc='upper right')
+            plt.show()
         ..
     """
 
-def correlation_coefficients(
+def coefficients(
     data,
     minstep=1,
     maxstep=1000,
@@ -389,7 +406,7 @@ def correlation_coefficients(
             If bootstrapping (`numboot>0`), a custom seed can be passed to the
             random number generator used for
             resampling. Per default, it is set to the *same* value every time
-            `correlation_coefficients()` is called to return consistent results
+            `coefficients()` is called to return consistent results
             when repeating the analysis on the same data. Set to `None` to
             change this behaviour. For more details, see
             :obj:`numpy.random.RandomState`.
@@ -403,35 +420,7 @@ def correlation_coefficients(
         -------
         : :class:`CoefficientResult`
             The output is grouped and can be accessed
-            using the attributes listed below the example.
-
-        Example
-        -------
-        .. code-block:: python
-
-            import numpy as np
-            import matplotlib.pyplot as plt
-            import mrestimator as mre
-
-            # branching process with 15 trials
-            bp = mre.simulate_branching(numtrials=15)
-
-            # the bp returns data already in the right format
-            rk = mre.correlation_coefficients(bp)
-
-            # separate trials, swap indices to comply with the pyplot layout
-            plt.plot(rk.steps, np.transpose(rk.samples.coefficients),
-                     color='C0', alpha=0.1)
-
-            # estimated coefficients
-            plt.plot(rk.steps, rk.coefficients,
-                     color='C0', label='estimated r_k')
-
-            plt.xlabel(r'$k$')
-            plt.ylabel(r'$r_k$')
-            plt.legend(loc='upper right')
-            plt.show()
-        ..
+            using its attributes (listed below).
     """
     # ------------------------------------------------------------------ #
     # Check arguments to offer some more convenience
@@ -446,7 +435,7 @@ def correlation_coefficients(
 
     if not isinstance(desc, str): desc = str(desc)
 
-    print('correlation_coefficients() using \'{}\' method:'.format(method))
+    print('coefficients() using \'{}\' method:'.format(method))
 
     dim = -1
     try:
@@ -744,12 +733,12 @@ def math_from_doc(fitfunc, maxlen=np.inf):
 # Fitting
 # ------------------------------------------------------------------ #
 
-class CorrelationFitResult(namedtuple('CorrelationFitResult', [
+class FitResult(namedtuple('FitResult', [
     'tau', 'mre', 'fitfunc',
     'popt', 'pcov', 'ssres',
     'desc'])):
     """
-        :obj:`~collections.namedtuple` returned by :func:`correlation_fit`
+        :obj:`~collections.namedtuple` returned by :func:`fit`
 
         Attributes
         ----------
@@ -784,10 +773,38 @@ class CorrelationFitResult(namedtuple('CorrelationFitResult', [
 
         desc : str
             Description, inherited from :class:`CoefficientResult` or set when
-            calling :func:`correlation_fit`
+            calling :func:`fit`
+
+        Example
+        -------
+        .. code-block:: python
+
+            import numpy as np
+            import matplotlib.pyplot as plt
+            import mrestimator as mre
+
+            bp = mre.simulate_branching(numtrials=15)
+            rk = mre.coefficients(bp)
+
+            # compare the builtin fitfunctions
+            m1 = mre.fit(rk, fitfunc=mre.f_exponential)
+            m2 = mre.fit(rk, fitfunc=mre.f_exponential_offset)
+            m3 = mre.fit(rk, fitfunc=mre.f_complex)
+
+            plt.plot(rk.steps, rk.coefficients, label='data')
+            plt.plot(rk.steps, mre.f_exponential(rk.steps, *m1.popt),
+                label='exponential m={:.5f}'.format(m1.mre))
+            plt.plot(rk.steps, mre.f_exponential_offset(rk.steps, *m2.popt),
+                label='exp + offset m={:.5f}'.format(m2.mre))
+            plt.plot(rk.steps, mre.f_complex(rk.steps, *m3.popt),
+                label='complex m={:.5f}'.format(m3.mre))
+
+            plt.legend()
+            plt.show()
+        ..
     """
 
-def correlation_fit(
+def fit(
     data,
     dt=1,
     fitfunc=f_exponential,
@@ -806,7 +823,7 @@ def correlation_fit(
         data: CoefficientResult or ~numpy.array
             Correlation coefficients to fit. Ideally, provide this as
             :class:`CoefficientResult` as obtained from
-            :func:`correlation_coefficients`. If arrays are provided,
+            :func:`coefficients`. If arrays are provided,
             the function tries to match the data.
 
         dt : float, optional
@@ -822,9 +839,9 @@ def correlation_fit(
             It must take the independent variable as
             the first argument and the parameters to fit as separate remaining
             arguments.
-            Default is :obj:`mre.f_exponential`.
-            Other builtin options are :obj:`mre.f_exponential_offset` and
-            :obj:`mre.f_complex`.
+            Default is :obj:`f_exponential`.
+            Other builtin options are :obj:`f_exponential_offset` and
+            :obj:`f_complex`.
 
         fitpars : ~numpy.ndarray, optional
             The starting parameters for the fit. If the provided array is two
@@ -843,43 +860,15 @@ def correlation_fit(
 
         Returns
         -------
-        : :class:`CorrelationFitResult`
+        : :class:`FitResult`
             The output is grouped and can be accessed
-            using the attributes below the example.
-
-        Example
-        -------
-        .. code-block:: python
-
-            import numpy as np
-            import matplotlib.pyplot as plt
-            import mrestimator as mre
-
-            bp = mre.simulate_branching(numtrials=15)
-            rk = mre.correlation_coefficients(bp)
-
-            # compare the builtin fitfunctions
-            m1 = mre.correlation_fit(rk, fitfunc=mre.f_exponential)
-            m2 = mre.correlation_fit(rk, fitfunc=mre.f_exponential_offset)
-            m3 = mre.correlation_fit(rk, fitfunc=mre.f_complex)
-
-            plt.plot(rk.steps, rk.coefficients, label='data')
-            plt.plot(rk.steps, mre.f_exponential(rk.steps, *m1.popt),
-                label='exponential m={:.5f}'.format(m1.mre))
-            plt.plot(rk.steps, mre.f_exponential_offset(rk.steps, *m2.popt),
-                label='exp + offset m={:.5f}'.format(m2.mre))
-            plt.plot(rk.steps, mre.f_complex(rk.steps, *m3.popt),
-                label='complex m={:.5f}'.format(m3.mre))
-
-            plt.legend()
-            plt.show()
-        ..
+            using its attributes (listed below).
     """
     # ------------------------------------------------------------------ #
     # Check arguments and prepare
     # ------------------------------------------------------------------ #
 
-    print('correlation_fit() calculating the MR Estimator...')
+    print('fit() calculating the MR Estimator...')
     mnaive = 'not calculated in your step range'
 
     if fitfunc in ['f_exponential', 'exponential', 'exp']:
@@ -1014,7 +1003,7 @@ def correlation_fit(
             fulpopt  = popt
             fulpcov  = pcov
 
-    fulres = CorrelationFitResult(
+    fulres = FitResult(
         tau     = fulpopt[0]*dt,
         mre     = np.exp(-1/fulpopt[0]),
         fitfunc = fitfunc,
@@ -1053,13 +1042,13 @@ class OutputHandler:
             import mrestimator as mre
 
             bp  = mre.simulate_branching(numtrials=15)
-            rk1 = mre.correlation_coefficients(bp, method='trialseparated',
+            rk1 = mre.coefficients(bp, method='trialseparated',
                 desc='T')
-            rk2 = mre.correlation_coefficients(bp, method='stationarymean',
+            rk2 = mre.coefficients(bp, method='stationarymean',
                 desc='S')
 
-            m1 = mre.correlation_fit(rk1)
-            m2 = mre.correlation_fit(rk2)
+            m1 = mre.fit(rk1)
+            m2 = mre.fit(rk2)
 
             # create a new handler by passing with list of elements
             out = mre.OutputHandler([rk1, m1])
@@ -1113,7 +1102,7 @@ class OutputHandler:
 
             Parameters
             ----------
-            data : list, CoefficientResult or CorrelationFitResult, optional
+            data : list, CoefficientResult or FitResult, optional
                 List of the elements to plot/export. Can be added later.
 
             ax : ~matplotlib.axes.Axes, optional
@@ -1134,20 +1123,20 @@ class OutputHandler:
 
         # single argument to list
         if isinstance(data, CoefficientResult) \
-        or isinstance(data, CorrelationFitResult) \
+        or isinstance(data, FitResult) \
         or isinstance(data, np.ndarray):
             data = [data]
 
         for d in data or []:
             if isinstance(d, CoefficientResult):
                 self.add_coefficients(d)
-            elif isinstance(d, CorrelationFitResult):
+            elif isinstance(d, FitResult):
                 self.add_fit(d)
             elif isinstance(d, np.ndarray):
                 self.add_ts(d)
             else:
                 raise ValueError('\nPlease provide a list containing '
-                    'CoefficientResults and/or CorrelationFitResults\n')
+                    'CoefficientResults and/or FitResults\n')
 
     def set_xdata(self, xdata=None):
         """
@@ -1195,7 +1184,7 @@ class OutputHandler:
             -------
             .. code-block:: python
 
-                rk = mre.correlation_coefficients(mre.simulate_branching())
+                rk = mre.coefficients(mre.simulate_branching())
 
                 mout = mre.OutputHandler()
                 mout.add_coefficients(rk, color='C1', label='test')
@@ -1271,11 +1260,11 @@ class OutputHandler:
 
     def add_fit(self, data, **kwargs):
         """
-            Add an individual CorrelationFitResult.
+            Add an individual FitResult.
 
             Parameters
             ----------
-            data : CorrelationFitResult
+            data : FitResult
                 Added to the list of plotted elements.
 
             kwargs
@@ -1284,7 +1273,7 @@ class OutputHandler:
                 plots. If a `label` is set via `kwargs`, it will be added
                 as a note in the meta data.
         """
-        if not isinstance(data, CorrelationFitResult):
+        if not isinstance(data, FitResult):
             raise ValueError
         if not (self.type is None or self.type == 'correlation'):
             raise ValueError

@@ -1,6 +1,9 @@
 Fitfunctions
 ============
 
+.. toctree::
+    :titlesonly:
+
 The builtin fitfunctions all follow this form:
 
 .. py:function:: mre.f_fitfunction(k, arg1, arg2, ...)
@@ -26,8 +29,8 @@ The builtin fitfunctions all follow this form:
         # test data
         rk = mre.correlation_coefficients(mre.simulate_branching(numtrials=3))
 
-        # pass builtin function to correlation_fit
-        m = mre.correlation_fit(rk, mre.f_exponential_offset)
+        # pass builtin function to fit
+        m = mre.fit(rk, mre.f_exponential_offset)
 
         # provide an array as function argument to evaluate elementwise
         # this is useful for plotting with matplotlib

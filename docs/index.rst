@@ -15,10 +15,11 @@ Welcome to the Multistep Regression Estimator!
 .. toctree::
     :titlesonly:
     :name: Welcome
-    :maxdepth: 4
+    :maxdepth: 2
     :caption: Contents
 
     rst/mre
+    changelog
 
 
 Indices and tables

@@ -49,12 +49,12 @@ from the branching process.
 ..
 
 With data prepared in the trial structure, one can calculate the correlation
-coefficients with :func:`correlation_coefficients`:
+coefficients with :func:`coefficients`:
 
 .. code-block:: python
 
     # calculate correlation coefficients
-    rk = mre.correlation_coefficients(prepped)
+    rk = mre.coefficients(prepped)
 
     # list what's inside
     print(m._fields)
@@ -81,7 +81,7 @@ the fitting routine to find the branching parameter:
 .. code-block:: python
 
     # default fit is an exponential
-    m = mre.correlation_fit(rk)
+    m = mre.fit(rk)
 
     # list what's inside
     print(m._fields)
@@ -90,5 +90,5 @@ the fitting routine to find the branching parameter:
     print(m.mre, m.tau, m.ssres)
 ..
 
-The :func:`correlation_fit` again returns a :obj:`~collections.namedtuple`:
-:class:`CorrelationFitResult`.
+The :func:`fit` again returns a :obj:`~collections.namedtuple`:
+:class:`FitResult`.

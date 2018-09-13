@@ -3,6 +3,8 @@
 Importing Data
 ==============
 
+.. toctree::
+    :titlesonly:
 
 .. automodule:: mrestimator
    :members: input_handler, simulate_branching

@@ -7,4 +7,4 @@ MR Estimation
     fitfunctions
 
 .. automodule:: mrestimator
-   :members: correlation_coefficients, CoefficientResult, correlation_fit, CorrelationFitResult
+   :members: coefficients, CoefficientResult, fit, FitResult
