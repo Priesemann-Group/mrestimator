@@ -19,7 +19,7 @@ project:
 ..
 
 You can `install the toolbox
-<https://gitlab.gwdg.de/pspitzn/mre#installation>`_,
+<https://github.com/pSpitzner/mrestimator#manual-installation>`_,
 to ``import mrestimator`` without the extra step.
 
 In a typical scenario you want to read your data from disk. Either you provide
