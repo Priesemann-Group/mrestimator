@@ -273,17 +273,13 @@ def simulate_branching(
 # ------------------------------------------------------------------ #
 
 # this is equivalent to CoefficientResult = namedtuple(... but
-# we can provide documentation
-class CoefficientResult(namedtuple('CoefficientResult', [
-    'coefficients', 'steps',
-    'offsets', 'stderrs',
-    'trialacts', 'samples',
-    'desc'])):
+# we can provide documentation and set default values
+class CoefficientResult(namedtuple('CoefficientResult',
+    'coefficients steps dt dtunit offsets stderrs trialacts samples desc')):
     """
         :obj:`~collections.namedtuple` returned by
         :func:`coefficients`. Attributes
-        are set to :obj:`None` if the specified method or input data do not provide
-        them.
+        are set to :obj:`None` if the specified method or input data do not provide them.
 
         Attributes
         ----------
@@ -294,6 +290,12 @@ class CoefficientResult(namedtuple('CoefficientResult', [
 
         steps : ~numpy.array or None
             Array of the :math:`k` values matching `coefficients`.
+
+        dt : float
+            The size of each step in `dtunits`. Default is 1.
+
+        dtunit : str
+            Units of step size. Default is `'ms'`.
 
         stderrs : ~numpy.array or None
             Standard errors of the :math:`r_k`.
@@ -359,11 +361,24 @@ class CoefficientResult(namedtuple('CoefficientResult', [
             plt.show()
         ..
     """
+    # set (some) default values
+    def __new__(cls,
+        coefficients, steps,
+        dt=1, dtunit='ms',
+        offsets=None, stderrs=None,
+        trialacts=None, samples=None,
+        desc=''):
+            return super(cls, CoefficientResult).__new__(cls,
+                coefficients, steps,
+                dt, dtunit,
+                offsets, stderrs,
+                trialacts, samples,
+                desc)
 
 def coefficients(
     data,
-    minstep=1,
-    maxstep=1000,
+    steps=None,
+    dt=1, dtunit='ms',
     method='trialseparated',
     numboot=100,
     seed=3141,
@@ -378,13 +393,28 @@ def coefficients(
             structure. If a one dimensional array is provieded instead, we
             assume a single trial and reshape the input.
 
-        minstep : int, optional
-            The smallest autocorellation step :math:`k` to use.
+        steps : ~numpy.array, optional
+            Specify the steps :math:`k` for which to compute coefficients
+            :math:`r_k`.
+            If an array of length two is provided, e.g.
+            ``steps=(minstep, maxstep)``, all enclosed integer values will be
+            used. Default is ``(1, 1500)``.
+            Arrays larger than two are assumed to contain a manual choice of
+            steps. Strides other than one are possible.
 
-        maxstep : int, optional
-            The largest autocorellation step :math:`k` to use. All :math:`k`
-            values between `minstep` and `maxstep` are processed (stride 1).
+        dt : float, optional
+            The size of each step in `dtunits`. Default is 1.
 
+        dtunit : str, optional
+            Units of step size. Default is `'ms'`.
+
+        desc : str, optional
+            Set the description of the :class:`CoefficientResult`. By default
+            all results of functions working with this set inherit its
+            description (e.g. plot legends).
+
+        Other Parameters
+        ----------------
         method : str, optional
             The estimation method to use, either `'trialseparated'` (``'ts'``,
             default) or
@@ -411,11 +441,6 @@ def coefficients(
             change this behaviour. For more details, see
             :obj:`numpy.random.RandomState`.
 
-        desc : str, optional
-            Set the description of the :class:`CoefficientResult`. By default
-            all results of functions working with this set inherit its
-            description (e.g. plot legends).
-
         Returns
         -------
         : :class:`CoefficientResult`
@@ -432,40 +457,69 @@ def coefficients(
         method = 'trialseparated'
     elif method == 'sm':
         method = 'stationarymean'
+    print('coefficients() using \'{}\' method:'.format(method))
 
     if not isinstance(desc, str): desc = str(desc)
 
-    print('coefficients() using \'{}\' method:'.format(method))
+    # check dt
+    dt = float(dt)
+    if dt <= 0:
+        raise ValueError('\nTimestep dt needs to be a float > 0\n')
+    dtunit = str(dtunit)
 
     dim = -1
     try:
         dim = len(data.shape)
         if dim == 1:
             print('\tWarning: You should provide an ndarray of '
-                'shape(numtrials, datalength).\n'
-                '\tContinuing with one trial, reshaping your input.')
+                'shape(numtrials, datalength)\n'
+                '\tContinuing with one trial, reshaping your input')
             data = np.reshape(data, (1, len(data)))
         elif dim >= 3:
-            raise ValueError('\nProvided ndarray is of dim {}.\n'.format(dim),
-                  'Please provide a two dimensional ndarray.\n')
+            raise ValueError('\nProvided ndarray is of dim {}\n'.format(dim),
+                  'Please provide a two dimensional ndarray\n')
     except Exception as e:
-        raise ValueError('{}\nPlease provide a two dimensional ndarray.\n'
+        raise ValueError('{}\nPlease provide a two dimensional ndarray\n'
             .format(e))
 
-    if minstep > maxstep:
-        print('\tWarning: minstep > maxstep, setting minstep=1')
-        minstep = 1
+    if steps is None:
+        steps = (None, None)
+    try:
+        steps = np.array(steps)
+        assert len(steps.shape) == 1
+    except Exception as e:
+        raise ValueError('{}\nPlease provide steps as '.format(e) +
+            'steps=(minstep, maxstep)\nor as one dimensional numpy '+
+            'array containing all desired step values\n')
+    if len(steps) == 2:
+        minstep=1
+        maxstep=1500
+        if steps[0] is not None:
+            minstep = steps[0]
+        if steps[1] is not None:
+            maxstep = steps[1]
+        if minstep > maxstep or minstep < 1:
+            print('\tWarning: minstep={} is invalid, setting to 1'
+                .format(minstep))
+            minstep = 1
 
-    if maxstep > data.shape[1]:
-        maxstep = data.shape[1]-2
-        print('\tWarning: maxstep is larger than your data, adjusting to {}'
-              .format(maxstep))
+        if maxstep > data.shape[1] or maxstep < minstep:
+            print('\tWarning: maxstep={} is invalid, '.format(maxstep), end='')
+            maxstep = int(data.shape[1]-2)
+            print('adjusting to {}'.format(maxstep))
+        steps     = np.arange(minstep, maxstep+1)
+        print('\tUsing steps between {} and {}'.format(minstep, maxstep))
+    else:
+        if (steps<1).any():
+            raise ValueError('\nAll provided steps must be >= 1\n')
+        print('\tUsing provided custom steps')
+
+
 
     # ------------------------------------------------------------------ #
     # Continue with trusted arguments
     # ------------------------------------------------------------------ #
 
-    steps     = np.arange(minstep, maxstep+1)
     numsteps  = len(steps)        # number of steps for rks
     numtrials = data.shape[0]     # number of trials
     numels    = data.shape[1]     # number of measurements per trial
@@ -473,20 +527,11 @@ def coefficients(
     print('\t{} trials, length {}'.format(numtrials, numels))
 
     if method == 'trialseparated':
-        # ------------------------------------------------------------------ #
-        # ToDo:
-        # fulres.offsets are zeros
-        # fulres.samples are mostly unused, only the coefficients are filled
-        # unpopulated entries are assigned None
-        # ------------------------------------------------------------------ #
         sepres = CoefficientResult(
             coefficients  = np.zeros(shape=(numtrials, numsteps),
                                      dtype='float64'),
-            offsets       = None,
-            stderrs       = None,
             steps         = steps,
             trialacts     = np.mean(data, axis=1),
-            samples       = None,
             desc          = desc)
 
         trialmeans = np.mean(data, axis=1, keepdims=True)  # (numtrials, 1)
@@ -514,22 +559,15 @@ def coefficients(
         fulres = CoefficientResult(
             steps         = steps,
             coefficients  = np.mean(sepres.coefficients, axis=0),
-            offsets       = None,
             stderrs       = stderrs,
             trialacts     = np.mean(data, axis=1),
             samples       = sepres,
+            dt            = dt,
+            dtunit        = dtunit,
             desc          = desc)
 
     elif method == 'stationarymean':
-        # ------------------------------------------------------------------ #
-        # ToDo:
-        # fulres.offsets are zeros
-        # fulres.stderrs are zeros, will be done via bootstrapping
-        # fulres.samples are completely unused
-        # unpopulated entries are assigned None
-        # ------------------------------------------------------------------ #
         coefficients = np.zeros(numsteps, dtype='float64')
-        offsets      = None
         stderrs      = None
         sepres       = None
 
@@ -565,11 +603,10 @@ def coefficients(
             sepres = CoefficientResult(
                 coefficients  = np.zeros(shape=(numboot, numsteps),
                                          dtype='float64'),
-                offsets       = None,
-                stderrs       = None,
                 steps         = steps,
                 trialacts     = np.zeros(numboot, dtype='float64'),
-                samples       = None,
+                dt            = dt,
+                dtunit        = dtunit,
                 desc          = desc)
 
             for tdx in range(numboot):
@@ -600,10 +637,11 @@ def coefficients(
         fulres = CoefficientResult(
             steps         = steps,
             coefficients  = coefficients,
-            offsets       = offsets,
             stderrs       = stderrs,
             trialacts     = trialacts,
             samples       = sepres,
+            dt            = dt,
+            dtunit        = dtunit,
             desc          = desc)
 
     return fulres
@@ -630,29 +668,27 @@ def f_complex(k, tau, A, O, tauosc, B, gamma, nu, taugs, C):
         + C*np.exp(-(k/taugs)**2) \
         + O*np.ones_like(k)
 
-def default_fitpars(fitfunc, dt=1):
+def default_fitpars(fitfunc):
     """
-        Called to get the default parameters of built in fitfunctions that are
-        used to initialise the fitting routine
+        Called to get the default parameters of built-in fitfunctions that are
+        used to initialise the fitting routine. Timelike values specified
+        here were derived assuming a timescale of miliseconds.
 
         Parameters
         ----------
         fitfunc : callable
             The builtin fitfunction
 
-        dt : float
-            The time scale, usually time bin size of your data.
-
         Returns
         -------
-        pars : array_like
-            The default parameters of the given function, may be a 2d array for
-            multiple sets of initial conditions are useful
+        pars : ~numpy.ndarray
+            The default parameters of the given function, 2d array for
+            multiple sets of initial conditions.
     """
     if fitfunc == f_exponential:
-        return np.array([20/dt, 1])
+        return np.array([(20, 1), (200, 1)])
     elif fitfunc == f_exponential_offset:
-        return np.array([20/dt, 1, 0])
+        return np.array([(20, 1, 0), (200, 1, 0)])
     elif fitfunc == f_complex:
         res = np.array([
             # tau     A       O    tosc      B    gam      nu  tgs      C
@@ -678,14 +714,14 @@ def default_fitpars(fitfunc, dt=1):
             ( 310,  0.029,  0.002,  50 ,  0.08 ,  1.0, 1./34 ,   5,  0.03 ),
             ( 310,  0.029,  0.002,  50 ,  0.08 ,  1.0, 1./64 ,   5,  0.03 ),
             ( 310,  0.029,  0.002,  50 ,  0.08 ,  1.0, 1./64 ,   5,  0.03 )])
-        res[:, [0, 3, 7]] /= dt    # noremalize time scale
-        res[:, 6] *= dt            # and frequency
+        # res[:, [0, 3, 7]] /= dt    # noremalize time scale
+        # res[:, 6] *= dt            # and frequency
         return res
     else:
-        print('Requesting default arguments for unknown fitfunction.')
-        return None
+        raise ValueError('Requesting default arguments for unknown ' +
+            'fitfunction.')
 
-def default_fitbnds(fitfunc, dt=1):
+def default_fitbnds(fitfunc):
     if fitfunc == f_exponential:
         return None
     elif fitfunc == f_exponential_offset:
@@ -702,12 +738,11 @@ def default_fitbnds(fitfunc, dt=1):
              (       0,        30),     # tgs
              (      -5,         5)])    # C
         res = np.transpose(res)         # scipy curve-fit wants this layout
-        res[:, [0, 3, 7]] /= dt         # noremalize time scale
-        res[:, 6] *= dt                 # and frequency
+        # res[:, [0, 3, 7]] /= dt         # noremalize time scale
+        # res[:, 6] *= dt                 # and frequency
         return res
     else:
-        print('Requesting default bounds for unknown fitfunction.')
-        return None
+        raise ValueError('Requesting default bounds for unknown fitfunction.')
 
 def math_from_doc(fitfunc, maxlen=np.inf):
     """convert sphinx compatible math to matplotlib/tex"""
@@ -733,29 +768,23 @@ def math_from_doc(fitfunc, maxlen=np.inf):
 # Fitting
 # ------------------------------------------------------------------ #
 
-class FitResult(namedtuple('FitResult', [
-    'tau', 'mre', 'fitfunc',
-    'popt', 'pcov', 'ssres',
-    'desc'])):
+class FitResult(namedtuple('FitResult',
+    'tau mre fitfunc popt pcov ssres steps dt dtunit desc')):
     """
         :obj:`~collections.namedtuple` returned by :func:`fit`
 
         Attributes
         ----------
         tau : float
-            The estimated autocorrelation time in miliseconds.
+            The estimated autocorrelation time in `dtunits`. Default is `'ms'`.
 
         mre : float
             The branching parameter estimated from the multistep regression.
-            (Depends on the specified time bin size `dt`
-            - which should match your data. Per default ``dt=1`` and
-            `mre` is determined via the autocorrelationtime in units of bin
-            size.)
 
         fitfunc : callable
             The model function, f(x, …). This allows to fit directly with popt.
-            To get the description of the function, use ``fitfunc.__doc__``.
-            *Used to be the description as string.*
+            To get the (TeX) description of a (builtin) function,
+            use ``math_from_doc(fitfunc)``.
 
         popt : array
             Final fitparameters obtained from the (best) underlying
@@ -771,9 +800,23 @@ class FitResult(namedtuple('FitResult', [
             Sum of the squared residuals for the fit with `popt`. This is not
             yet normalised per degree of freedom.
 
+        steps : ~numpy.array
+            The step numbers :math:`k` of the coefficients :math:`r_k` that
+            were included in the fit. Think fitrange.
+
+        dt : float
+            The size of each step in `dtunits`. Default is 1.
+
+        dtunit : str
+            Units of step size and the calculated autocorrelation time.
+            Default is `'ms'`.
+            `dt` and `dtunit` are inherited from :class:`CoefficientResult`.
+            Overwrite by providing `data` from :func:`coefficients` and the
+            desired values set there.
+
         desc : str
-            Description, inherited from :class:`CoefficientResult` or set when
-            calling :func:`fit`
+            Description, inherited from :class:`CoefficientResult`.
+            `desc` provided to :func:`fit` takes priority, if set.
 
         Example
         -------
@@ -803,11 +846,22 @@ class FitResult(namedtuple('FitResult', [
             plt.show()
         ..
     """
+    # set (some) default values
+    def __new__(cls,
+        tau, mre, fitfunc,
+        popt=None, pcov=None, ssres=None,
+        steps=None, dt=1, dtunit='ms',
+        desc=''):
+            return super(cls, FitResult).__new__(cls,
+                tau, mre, fitfunc,
+                popt, pcov, ssres,
+                steps, dt, dtunit,
+                desc)
 
 def fit(
     data,
-    dt=1,
     fitfunc=f_exponential,
+    steps=None,
     fitpars=None,
     fitbnds=None,
     maxfev=100000,
@@ -826,13 +880,6 @@ def fit(
             :func:`coefficients`. If arrays are provided,
             the function tries to match the data.
 
-        dt : float, optional
-            The size of the time bins of your data (in miliseconds).
-            Note that this sets the scale of the resulting autocorrelation time
-            `tau` and the retruned fitparameters `popt` and `pcov`, as the
-            fit is done in units of bins.
-            Default is 1.
-
         fitfunc : callable, optional
             The model function, f(x, …).
             Directly passed to `curve_fit()`:
@@ -843,10 +890,22 @@ def fit(
             Other builtin options are :obj:`f_exponential_offset` and
             :obj:`f_complex`.
 
+        steps : ~numpy.array, optional
+            Specify the steps :math:`k` for which to fit (think fitrange).
+            If an array of length two is provided, e.g.
+            ``steps=(minstep, maxstep)``, all enclosed values present in the
+            provdied `data`, including `minstep` and `maxstep` will be used.
+            Arrays larger than two are assumed to contain a manual choice of
+            steps and those that are also present in `data` will be used.
+            Strides other than one are possible.
+            Default: all values given in `data` are included in the fit.
+
+        Other Parameters
+        ----------------
         fitpars : ~numpy.ndarray, optional
             The starting parameters for the fit. If the provided array is two
-            dimensional, multiple fits are performed and the one with the least
-            sum of squares of residuals is returned.
+            dimensional, multiple fits are performed and the one with the
+            smallest sum of squares of residuals is returned.
 
         fitbounds : ~numpy.ndarray, optional
             Lower and upper bounds for each parameter handed to the fitting
@@ -857,6 +916,7 @@ def fit(
             Maximum iterations for the fit.
 
         desc : str, optional
+            Provide a custom description.
 
         Returns
         -------
@@ -874,21 +934,77 @@ def fit(
     if fitfunc in ['f_exponential', 'exponential', 'exp']:
         fitfunc = f_exponential
     elif fitfunc in ['f_exponential_offset', 'exponentialoffset',
-        'offset', 'exp_off', 'exp_offs']:
+        'exponential_offset','offset', 'exp_off', 'exp_offs']:
         fitfunc = f_exponential_offset
     elif fitfunc in ['f_complex', 'complex']:
         fitfunc = f_complex
 
+    if steps is None:
+        steps = (None, None)
+    try:
+        steps = np.array(steps)
+        assert len(steps.shape) == 1
+    except Exception as e:
+        raise ValueError('{}\nPlease provide steps as '.format(e) +
+            'steps=(minstep, maxstep)\nor as one dimensional numpy '+
+            'array containing all desired step values\n')
+    if len(steps) == 2:
+        minstep=1
+        maxstep=1500
+        if steps[0] is not None:
+            minstep = steps[0]
+        if steps[1] is not None:
+            maxstep = steps[1]
+        if minstep > maxstep or minstep < 1:
+            print('\tWarning: minstep={} is invalid, setting to 1'
+                .format(minstep))
+            minstep = 1
+
     if isinstance(data, CoefficientResult):
         print('\tCoefficients given in default format')
-        # ToDo: check if this is single sample: coefficients could be 2dim
-        coefficients = data.coefficients
-        steps        = data.steps
-        stderrs      = data.stderrs
-        if steps[0] == 1: mnaive = coefficients[0]
+        if data.steps[0] == 1: mnaive = data.coefficients[0]
+        if len(steps) == 2:
+            # check that coefficients for this range are there, else adjust
+            beg=0
+            if minstep is not None:
+                beg = np.argmax(data.steps>=minstep)
+                if minstep < data.steps[0]:
+                    print('\tWarning: minstep lower than provided steps')
+            end=len(data.steps)
+            if maxstep is not None:
+                end = np.argmin(data.steps<=maxstep)
+                if end == 0:
+                    end = len(data.steps)
+                    print('\tWarning: maxstep larger than provided steps')
+            # ToDo: check if this is single sample: coefficients could be 2dim
+            coefficients = data.coefficients[beg:end]
+            steps        = data.steps[beg:end]
+            stderrs      = data.stderrs[beg:end]
+        else:
+            # find occurences of steps in data.steps and use the indices
+            if tuple(map(int, (np.__version__.split(".")))) <= (1,15,0):
+                _, stepind, _ = \
+                    np.intersect1d(data.steps, steps, return_indices=True)
+            else:
+                # return_indices option needs numpy 1.15.0
+                stepind = []
+                for i in steps:
+                    for j, _ in enumerate(data.steps):
+                        if i == data.steps[j]:
+                            stepind.append(j)
+                            break
+                stepind = np.sort(stepind)
+            coefficients = data.coefficients[stepind]
+            steps        = data.steps[stepind]
+            stderrs      = data.stderrs[stepind]
+
+        dt           = data.dt
+        dtunit       = data.dtunit
     else:
         try:
             print('\tGuessing provided format:')
+            dt = 1
+            dtunit = 'ms'
             data = np.asarray(data)
             if len(data.shape) == 1:
                 print('\t\t1d array, assuming this to be ' \
@@ -922,18 +1038,14 @@ def fit(
                     if steps[0] == 1: mnaive = coefficients[0]
                     if data.shape > 3: print('\t\tIgnoring further rows')
         except Exception as e:
-            raise Exception('{} Provided data has no known format'.format(e))
+            raise Exception('{}\nProvided data has no known format\n'
+                .format(e))
 
     try:
         if desc == '': desc = data.desc
         else: desc = str(desc)
     except:
         desc = ''
-
-    # check dt
-    dt = float(dt)
-    if dt <= 0:
-        raise ValueError('\nTimestep dt needs to be a float > 0\n')
 
     # make sure stderrs are not all equal
     try:
@@ -945,8 +1057,8 @@ def fit(
     if fitfunc not in [f_exponential, f_exponential_offset, f_complex]:
         print('\tCustom fitfunction specified {}'. format(fitfunc))
 
-    if fitpars is None: fitpars = default_fitpars(fitfunc, dt)
-    if fitbnds is None: fitbnds = default_fitbnds(fitfunc, dt)
+    if fitpars is None: fitpars = default_fitpars(fitfunc)
+    if fitbnds is None: fitbnds = default_fitbnds(fitfunc)
 
     # ToDo: make this more robust
     if (len(fitpars.shape)<2): fitpars = fitpars.reshape(1, len(fitpars))
@@ -954,17 +1066,19 @@ def fit(
     if fitbnds is None:
         bnds = np.array([-np.inf, np.inf])
         print('\tUnbound fit to {}:'.format(math_from_doc(fitfunc)))
+        print('\t\tkmin = {}, kmax = {}'.format(steps[0], steps[-1]))
         ic = list(inspect.signature(fitfunc).parameters)[1:]
         ic = ('{} = {:.3f}'.format(a, b) for a, b in zip(ic, fitpars[0]))
-        print('\t\tStarting parameters:', ', '.join(ic))
+        print('\t\tStarting parameters: [1/dt]', ', '.join(ic))
     else:
         bnds = fitbnds
         print('\tBounded fit to {}'.format(math_from_doc(fitfunc)))
+        print('\t\tkmin = {}, kmax = {}'.format(steps[0], steps[-1]))
         ic = list(inspect.signature(fitfunc).parameters)[1:]
         ic = ('\t{0:<6} = {1:8.3f} in ({2:9.4f}, {3:9.4f})'
             .format(a, b, c, d) for a, b, c, d
                 in zip(ic, fitpars[0], fitbnds[0, :], fitbnds[1, :]))
-        print('\t\tFirst parameters:\n\t\t', '\n\t\t'.join(ic))
+        print('\t\tFirst parameters [1/dt]:\n\t\t', '\n\t\t'.join(ic))
 
     if (fitpars.shape[0]>1):
         print('\t\tRepeating fit with {} sets of initial parameters:'
@@ -984,7 +1098,7 @@ def fit(
 
         try:
             popt, pcov = scipy.optimize.curve_fit(
-                fitfunc, steps, coefficients,
+                fitfunc, steps*dt, coefficients,
                 p0=pars, bounds=bnds, maxfev=int(maxfev), sigma=stderrs)
 
             residuals = coefficients - fitfunc(steps, *popt)
@@ -994,7 +1108,6 @@ def fit(
             ssres = np.inf
             popt  = None
             pcov  = None
-
             if idx != len(fitpars)-1: print('\n', end='')
             print('\t\tException: {}\n'.format(e), '\t\tIgnoring this fit')
 
@@ -1003,18 +1116,38 @@ def fit(
             fulpopt  = popt
             fulpcov  = pcov
 
+    if popt is None:
+        raise RuntimeError('All attempted fits failed\n')
+
     fulres = FitResult(
-        tau     = fulpopt[0]*dt,
-        mre     = np.exp(-1/fulpopt[0]),
+        tau     = fulpopt[0],
+        mre     = np.exp(-1*dt/fulpopt[0]),
         fitfunc = fitfunc,
         popt    = fulpopt,
         pcov    = fulpcov,
         ssres   = ssresmin,
+        steps   = steps,
+        dt      = dt,
+        dtunit  = dtunit,
         desc    = desc)
 
-    print('\tFinished fitting {}, mre = {:.5f}, tau = {:.5f}, ssres = {:.5f}'
+    print('\tFinished fitting {}, mre = {:.5f}, tau = {:.5f}{}, ssres = {:.5f}'
         .format('\''+desc+'\'' if desc != '' else fitfunc.__name__,
-            fulres.mre, fulres.tau, fulres.ssres))
+            fulres.mre, fulres.tau, fulres.dtunit, fulres.ssres))
+
+    if fulres.tau >= 0.9*(steps[-1]*dt):
+        print('\tWarning: The obtained autocorrelationtime is large compared '+
+            'to the fitrange\n\t\tkmin~{:.0f}{}, kmax~{:.0f}{}, tau~{:.0f}{}\n'
+            .format(steps[0]*dt, dtunit, steps[-1]*dt, dtunit,
+                fulres.tau, dtunit) +
+            '\t\tConsider fitting with a larger \'maxstep\'')
+
+    if fulres.tau <= 0.01*(steps[-1]*dt) or fulres.tau <= steps[0]*dt:
+        print('\tWarning: The obtained autocorrelationtime is small compared '+
+            'to the fitrange\n\t\tkmin~{:.0f}{}, kmax~{:.0f}{}, tau~{:.0f}{}\n'
+            .format(steps[0]*dt, dtunit, steps[-1]*dt, dtunit,
+                fulres.tau, dtunit) +
+            '\t\tConsider fitting with smaller \'minstep\' and \'maxstep\'')
 
     return fulres
 
@@ -1115,6 +1248,8 @@ class OutputHandler:
         self.rks = []
         self.fits = []
         self.fitlabels = []
+        self.dt = 1
+        self.dtunits = None
         self.type = None
         self.xdata = None
         self.ydata = None
@@ -1225,17 +1360,30 @@ class OutputHandler:
             desc += ' '
 
         if len(self.rks) == 0:
+            self.dt       = data.dt
+            self.dtunit   = data.dtunit
             self.set_xdata(data.steps)
-            self.xlabel = 'steps'
-            self.ydata = np.zeros(shape=(1,len(data.coefficients)))
+            self.xlabel   = 'steps[{}{}]'.format(data.dt, data.dtunit)
+            self.ydata    = np.zeros(shape=(1,len(data.coefficients)))
             self.ydata[0] = data.coefficients;
-            self.ylabels = [desc+'coefficients']
-            self.ax.set_xlabel('k')
+            self.ylabels  = [desc+'coefficients']
+            prec=0
+            while(not (data.dt*10**(prec)).is_integer() and prec <5):
+                prec+=1
+            self.ax.set_xlabel('k [{:.{p}f}{}]'
+                .format(data.dt, data.dtunit, p=prec))
             self.ax.set_ylabel('$r_{k}$')
             self.ax.set_title('Correlation')
         else:
+            if self.dt != data.dt:
+                print('Warning: dt does not match')
+                self.ax.set_xlabel('k [different units]')
+            if self.dtunit != data.dtunit:
+                print('Warning: dtunit does not match')
+                self.ax.set_xlabel('k [different units]')
             if not np.array_equal(self.xdata, data.steps):
-                raise ValueError('steps of new CoefficientResult do not match')
+                raise ValueError('\nSteps of new CoefficientResult do not ' +
+                    'match\n')
             self.ydata = np.vstack((self.ydata, data.coefficients))
             self.ylabels.append(desc+'coefficients')
 
@@ -1278,11 +1426,22 @@ class OutputHandler:
         if not (self.type is None or self.type == 'correlation'):
             raise ValueError
         self.type = 'correlation'
+
+
         if self.xdata is None:
             self.set_xdata()
-            self.ax.set_xlabel('k')
+            self.dt     = data.dt
+            self.dtunit = data.dtunit
+            self.ax.set_xlabel('k [{}{}]'.format(data.dt, data.dtunit))
             self.ax.set_ylabel('$r_{k}$')
             self.ax.set_title('Correlation')
+        else:
+            if self.dt != data.dt:
+                print('Warning: dt does not match')
+                self.ax.set_xlabel('k [different units]')
+            if self.dtunit != data.dtunit:
+                print('Warning: dtunit does not match')
+                self.ax.set_xlabel('k [different units]')
 
         # description for fallback
         desc = str(data.desc)
@@ -1305,8 +1464,12 @@ class OutputHandler:
         self.fitlabels.append(label)
 
         # update plot
-        self.ax.plot(self.xdata, data.fitfunc(self.xdata, *data.popt),
-            label=label)
+        p, = self.ax.plot(data.steps,
+            data.fitfunc(data.steps*data.dt, *data.popt), label=label)
+        if data.steps[0] > self.xdata[0] or data.steps[-1] < self.xdata[-1]:
+            self.ax.plot(self.xdata,
+                data.fitfunc(self.xdata*data.dt, *data.popt),
+                label=None, color=p.get_color(), alpha=0.2)
         if label is not None:
             self.ax.legend()
 
@@ -1443,7 +1606,10 @@ class OutputHandler:
             for fdx, fit in enumerate(self.fits):
                 hdr += 'legendlabel: ' + str(self.fitlabels[fdx]) + '\n'
                 hdr += 'description: ' + str(fit.desc) + '\n'
-                hdr += 'm={}, tau={}[ms]\n'.format(fit.mre, fit.tau)
+                hdr += 'm={}, tau={}[{}]\n' \
+                    .format(fit.mre, fit.tau, fit.dtunit)
+                hdr += 'fitrange: {} <= k <= {}[{}{}]\n' \
+                    .format(fit.steps[0], fit.steps[-1], fit.dt, fit.dtunit)
                 hdr += 'function: ' + math_from_doc(fit.fitfunc) + '\n'
                 hdr += '\twith parameters:\n'
                 parname = list(inspect.signature(fit.fitfunc).parameters)[1:]

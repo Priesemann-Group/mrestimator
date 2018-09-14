@@ -21,6 +21,7 @@ The builtin fitfunctions all follow this form:
     .. code-block:: python
 
         import numpy as np
+        import matplotlib.pyplot as plt
         import mrestimator as mre
 
         # evaluate exp(-1) via A e^(-k/tau)
@@ -30,18 +31,20 @@ The builtin fitfunctions all follow this form:
         rk = mre.correlation_coefficients(mre.simulate_branching(numtrials=3))
 
         # pass builtin function to fit
-        m = mre.fit(rk, mre.f_exponential_offset)
+        f = mre.f_exponential_offset
+        m = mre.fit(rk, f)
 
         # provide an array as function argument to evaluate elementwise
-        # this is useful for plotting with matplotlib
+        # this is useful for plotting
         xargs = np.array([0, 1, 2, 3])
 
         print(m.popt)
 
         # unpack m.popt to provide all contained arguments at once
-        print(mre.f_exponential_offset(xargs, *m.popt))
+        print(f(xargs, *m.popt))
 
-
+        # get a TeX string compatible with matplotlib's legends
+        print(mre.math_from_doc(f))
     ..
 
 .. automodule:: mrestimator
