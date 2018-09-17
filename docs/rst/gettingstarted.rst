@@ -3,7 +3,7 @@ Getting Started
 
 .. automodule:: mrestimator
 
-If you downloaded the toolbox and want to add it only to the current
+If you downloaded the toolbox manually and want to add it only to the current
 project:
 
 .. code-block:: python
@@ -19,7 +19,7 @@ project:
 ..
 
 You can `install the toolbox
-<https://github.com/pSpitzner/mrestimator#manual-installation>`_,
+<https://github.com/pSpitzner/mrestimator#installation>`_,
 to ``import mrestimator`` without the extra step.
 
 In a typical scenario you want to read your data from disk. Either you provide
