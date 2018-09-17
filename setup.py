@@ -1,4 +1,4 @@
-from distutils.core import setup
+from setuptools import setup
 
 # read the contents of your README file
 from os import path
@@ -8,7 +8,7 @@ with open('README.md') as f:
 
 setup(
     name='mrestimator',
-    version='0.0.5',
+    version='0.0.2',
     author='Paul Spitzner',
     author_email='paul.spitzner@ds.mpg.de',
     packages=['mrestimator'],

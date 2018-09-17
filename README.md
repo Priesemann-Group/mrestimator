@@ -1,12 +1,13 @@
 # Mr. Estimator
 
-Welcomme to the Toolbox for the Multistep Regression Estimator
+Welcomme to the Toolbox for the Multistep Regression Estimator ("Mister Estimator")
 
-See the [Documentation](https://pspitzn.pages.gwdg.de/mre/) for usage details
-and [how to get started.](https://pspitzn.pages.gwdg.de/mre/rst/gettingstarted.html)
+- [**Documentation**](https://pspitzn.pages.gwdg.de/mre)
+- [**Getting Started**](https://pspitzn.pages.gwdg.de/mre/rst/gettingstarted.html)
+- [**Python Package index**](https://pypi.org/project/mrestimator)
+- [**Github**](https://github.com/pSpitzner/mrestimator)
+- **Details on the estimator:** [J. Wilting and V. Priesemann, Nat. Commun. 9, 2325 (2018)](https://doi.org/10.1038/s41467-018-04725-4)
 
-For Details on the estimator itself, see
-[J. Wilting and V. Priesemann, Nat. Commun. 9, 2325 (2018)](https://doi.org/10.1038/s41467-018-04725-4)
 
 ## Requirements
 - Python (3.5)
@@ -14,11 +15,16 @@ For Details on the estimator itself, see
 - scipy (1.0.0)
 - matplotlib (1.5.1)
 
-Assuming a working Python3 environment,
-usually you can install the dependencies via pip:
+
+## Installation
+Assuming a working Python3 environment, usually you can install via pip:
+
 ```
-pip3 install -U numpy scipy matplotlib
+pip3 install -U mrestimator
 ```
+
+If you run into problems during installation, they are most likely due to numpy and scipy.
+You may check their [official documentation](https://scipy.org/install.html).
 
 ## Manual Installation
 
