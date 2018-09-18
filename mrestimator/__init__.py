@@ -30,7 +30,8 @@ def input_handler(items, **kwargs):
 
         The toolbox uses two dimensional `ndarrays` for
         providing the data to/from functions. This allows to
-        consistently access trials and data via the first and second index, respectively.
+        consistently access trials and data via the first and second index,
+        respectively.
 
         Parameters
         ----------
@@ -982,11 +983,11 @@ def fit(
             stderrs      = data.stderrs[beg:end]
         else:
             # find occurences of steps in data.steps and use the indices
-            if tuple(map(int, (np.__version__.split(".")))) <= (1,15,0):
+            try:
                 _, stepind, _ = \
                     np.intersect1d(data.steps, steps, return_indices=True)
-            else:
                 # return_indices option needs numpy 1.15.0
+            except TypeError:
                 stepind = []
                 for i in steps:
                     for j, _ in enumerate(data.steps):
@@ -994,6 +995,7 @@ def fit(
                             stepind.append(j)
                             break
                 stepind = np.sort(stepind)
+
             coefficients = data.coefficients[stepind]
             steps        = data.steps[stepind]
             stderrs      = data.stderrs[stepind]

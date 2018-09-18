@@ -10,11 +10,13 @@ Welcomme to the Toolbox for the Multistep Regression Estimator ("Mister Estimato
 
 
 ## Requirements
-- Python (3.5)
-- numpy (1.15.0)
-- scipy (1.0.0)
-- matplotlib (1.5.1)
+- Python (>=3.5)
+- numpy (>=1.11.0)
+- scipy (>=1.0.0)
+- matplotlib (>=1.5.3)
 
+We recommend (and develop with) the latest stable versions of the dependencies, at the time of writing that is
+Python 3.7.0, numpy 1.15.1, scipy 1.1.0 and matplotlib 2.2.3.
 
 ## Installation
 Assuming a working Python3 environment, usually you can install via pip:
