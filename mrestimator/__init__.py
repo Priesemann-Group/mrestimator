@@ -7,6 +7,7 @@ if os.environ.get('DISPLAY', '') == '':
 import matplotlib.pyplot as plt
 from collections import namedtuple
 import scipy
+import scipy.stats
 import scipy.optimize
 # import neo
 import time
@@ -242,7 +243,7 @@ def simulate_branching(
     if subp <= 0 or subp > 1:
         raise Exception('  Subsampling probability should be between 0 and 1')
     if subp != 1:
-        print('  Applying subsampling to proabability {} probability'
+        print('  Applying subsampling to {} probability'
               .format(subp))
         a_t = np.copy(A_t)
 
@@ -1166,7 +1167,8 @@ class OutputHandler:
         The main concept is to have one handler per plot. It contains
         functions to add content into an existing matplotlib axis (subplot),
         or, if not provided, creates a new figure.
-        Most importantly, it also exports plaintext of the respective source material so figures are reproducible.
+        Most importantly, it also exports plaintext of the respective source
+        material so figures are reproducible.
 
         Example
         -------
@@ -1358,6 +1360,9 @@ class OutputHandler:
                 label = desc
                 labelerr = desc + ' Errors'
 
+            # dont put errors in the legend. this should become a user choice
+            labelerr = ''
+
         if desc != '':
             desc += ' '
 
@@ -1410,7 +1415,9 @@ class OutputHandler:
 
     def add_fit(self, data, **kwargs):
         """
-            Add an individual FitResult.
+            Add an individual FitResult. The part of the fit that
+            contributed to the fitting is drawn solid, the remaining range
+            is dashed.
 
             Parameters
             ----------
@@ -1471,7 +1478,7 @@ class OutputHandler:
         if data.steps[0] > self.xdata[0] or data.steps[-1] < self.xdata[-1]:
             self.ax.plot(self.xdata,
                 data.fitfunc(self.xdata*data.dt, *data.popt),
-                label=None, color=p.get_color(), alpha=0.2)
+                label=None, color=p.get_color(), ls='dashed')
         if label is not None:
             self.ax.legend()
 

@@ -1,6 +1,12 @@
 Changelog
 =========
 
+`0.0.3` - (2018_09_19)
+----------------------
+* Changed: Check for old numpy versions in `fit()`
+* Changed: Per default, fits are drawn solid (dashed) over the fitted (remaining) range
+* Fixed: Typos
+
 (2018_09_14)
 ------------
 * New: CoefficientResult constructor now has some default arguments. Still required: `steps` and `coefficients`. Also added the `dt, dtunit` attributes.

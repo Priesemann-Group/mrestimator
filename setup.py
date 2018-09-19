@@ -9,10 +9,10 @@ with open('README.md') as f:
 setup(
     name='mrestimator',
     version='0.0.3',
-    author='Paul Spitzner',
+    author='Paul Spitzner, Jonas Dehning, Jens Wilting, Viola Priesemann',
     author_email='paul.spitzner@ds.mpg.de',
     packages=['mrestimator'],
-    url='https://gitlab.gwdg.de/pspitzn/mre',
+    url='https://github.com/pSpitzner/mrestimator',
     license='LICENSE',
     description='Toolbox for the Multistep Regression Estimator.',
     long_description=long_description,
