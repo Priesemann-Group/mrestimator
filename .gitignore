@@ -4,3 +4,5 @@ _build
 dist
 MANIFEST
 *.egg-info
+example/data
+example/output
