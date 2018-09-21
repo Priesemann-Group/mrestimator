@@ -3,6 +3,7 @@ Changelog
 
 (2018_09_21)
 ------------
+* Fixed: Calling `fit()` with only one trial does not crash anymore due to missing errors
 * Fixed: Calling `fit()` without specifying `steps` now uses the range used in `coefficients()`.
 * Changed: The parameters of `simulate_branching()` are different. `activity` is now `a`, `m` is no longer optional and a (time dependent) drive can be set using `h`.
 * New: `simulate_subsampling()`

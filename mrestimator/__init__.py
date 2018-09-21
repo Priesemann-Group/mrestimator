@@ -1455,7 +1455,6 @@ class OutputHandler:
         if desc != '':
             desc += ' '
 
-        stepind = np.arange(0, data.steps.size)
         if len(self.rks) == 0:
             self.dt       = data.dt
             self.dtunit   = data.dtunit
@@ -1471,34 +1470,48 @@ class OutputHandler:
                 .format(data.dt, data.dtunit, p=prec))
             self.ax.set_ylabel('$r_{k}$')
             self.ax.set_title('Correlation')
+            indnew = np.arange(0, data.steps.size)
+            indold = np.arange(0, self.xdata.size)
         else:
             if self.dt != data.dt:
                 print('Warning: dt does not match')
                 self.ax.set_xlabel('k [different units]')
             if self.dtunit != data.dtunit:
                 print('Warning: dtunit does not match')
-                self.ax.set_xlabel('k [different units]')
+                self.ax.set_xlabel('k [different git]')
             if not np.array_equal(self.xdata, data.steps):
-                raise ValueError('\nSteps of new CoefficientResult do not ' +
-                    'match\n')
+                # raise ValueError('\nSteps of new CoefficientResult do not ' +
+                    # 'match\n')
+                indold, indnew = _intersecting_index(self.xdata, data.steps)
+                if indnew.size < self.xdata.size/10:
+                    print('Warning: Steps of new coefficients intersect ' +
+                        ' with less than 10 % of the existing plot range')
+                if data.steps[indnew[-1]] < data.steps[-1]:
+                    print('Warning: The new coefficients are only plotted ' +
+                        'over the presend (smaller) range')
 
-            self.ydata = np.vstack((self.ydata, data.coefficients))
+                ydata = np.full(self.xdata.size, np.nan)
+                ydata[indold] = data.coefficients[indnew]
+
+            self.ydata = np.vstack((self.ydata, ydata))
             self.ylabels.append(desc+'coefficients')
 
         if data.stderrs is not None:
-            self.ydata = np.vstack((self.ydata, data.stderrs))
+            ydata = np.full(self.xdata.size, np.nan)
+            ydata[indold] = data.stderrs[indnew]
+            self.ydata = np.vstack((self.ydata, ydata))
             self.ylabels.append(desc+'stderrs')
 
         self.rks.append(data)
 
         # update plot
-        p, = self.ax.plot(data.steps, data.coefficients,
+        p, = self.ax.plot(data.steps[indnew], data.coefficients[indnew],
             label=label)
 
         if data.stderrs is not None and 'alpha' not in kwargs:
-            err1 = data.coefficients-data.stderrs
-            err2 = data.coefficients+data.stderrs
-            self.ax.fill_between(data.steps, err1, err2,
+            err1 = data.coefficients[indnew]-data.stderrs[indnew]
+            err2 = data.coefficients[indnew]+data.stderrs[indnew]
+            self.ax.fill_between(data.steps[indnew], err1, err2,
                 alpha = 0.2, facecolor=p.get_color(), label=labelerr)
 
         if label is not None:
@@ -1678,7 +1691,6 @@ class OutputHandler:
 
             ftype: str, optional
                 So far, only 'pdf' is implemented.
-
         """
         ax = ax if ax is not None else self.ax
         if not isinstance(fname, str): fname = str(fname)
@@ -1735,5 +1747,55 @@ class OutputHandler:
             labels = labels.replace(' ', '_')
             dat = np.vstack((self.xdata, self.ydata))
         np.savetxt(fname+'.tsv', np.transpose(dat), delimiter='\t', header=hdr+labels)
+
+
+def _intersecting_index(ar1, ar2):
+    """
+        find indices where ar1 and ar2 have same elements. assumes uniqueness
+        of elements in ar1 and ar2. returns (indices in ar1, indices in ar2)
+    """
+    try:
+        _, comm1, comm2 = np.intersect1d(ar1, ar2, return_indices=True)
+        # return_indices option needs numpy 1.15.0
+    except TypeError:
+        comm1 = []
+        comm2 = []
+        for idx, i in enumerate(ar1):
+            for jdx, j in enumerate(ar2):
+                if i == j:
+                    comm1.append(idx)
+                    comm2.append(jdx)
+                    break
+        comm1 = np.sort(comm1)
+        comm2 = np.sort(comm2)
+
+    return comm1, comm2
+
+def _at_index(data, indices, keepdim=None, padding=np.nan):
+    """
+        get data[indices] safely and with optional padding to either
+        indices.size or data.size
+    """
+    if not (keepdim is None or keepdim in ['data', 'index']):
+        raise TypeError('unexpected argument keepdim={}'.format(keepdim))
+
+    data    = np.asarray(data)
+    indices = np.asarray(indices)
+    i       = indices[indices < data.size]
+    print('i:', i, i.size)
+    if keepdim is None:
+        return data[i]
+    elif keepdim == 'data':
+        res = np.full(data.size, padding)
+        res[i] = data[i]
+        return res
+    elif keepdim == 'index':
+        res = np.full(indices.size, padding)
+        if i.size !=0:
+            res[0:indices.size-1] = data[i]
+        return res
+
+
+
 
 
