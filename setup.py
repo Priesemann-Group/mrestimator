@@ -8,7 +8,7 @@ with open('README.md') as f:
 
 setup(
     name='mrestimator',
-    version='0.0.3',
+    version='0.0.4',
     author='Paul Spitzner, Jonas Dehning, Jens Wilting, Viola Priesemann',
     author_email='paul.spitzner@ds.mpg.de',
     packages=['mrestimator'],

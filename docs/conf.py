@@ -19,14 +19,14 @@ sys.path.insert(0, os.path.abspath('../'))
 
 # -- Project information -----------------------------------------------------
 
-project = 'mre'
-copyright = '2018, Paul Spitzner'
-author = 'Paul Spitzner'
+project = 'Mr. Estimator'
+copyright = '2018, Paul Spitzner, Jonas Dehning, Jens Wilting, Viola Priesemann'
+author = 'Paul Spitzner, Jonas Dehning, Jens Wilting, Viola Priesemann'
 
 # The short X.Y version
-version = ''
+version = '0.0.3'
 # The full version, including alpha/beta/rc tags
-release = '0.1'
+release = '0.0.3'
 
 
 # -- General configuration ---------------------------------------------------
@@ -136,6 +136,10 @@ html_static_path = ['_static']
 # 'searchbox.html']``.
 #
 # html_sidebars = {}
+
+# icons
+html_favicon = 'media/favicon.ico'
+html_logo = 'media/logo.png'
 
 
 # -- Options for HTMLHelp output ---------------------------------------------

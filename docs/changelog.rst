@@ -1,8 +1,17 @@
 Changelog
 =========
 
-`0.0.3` - (2018_09_19)
-----------------------
+(2018_09_21)
+------------
+* Fixed: Calling `fit()` without specifying `steps` now uses the range used in `coefficients()`.
+* Changed: The parameters of `simulate_branching()` are different. `activity` is now `a`, `m` is no longer optional and a (time dependent) drive can be set using `h`.
+* New: `simulate_subsampling()`
+* New: Whenn adding time series to the `OutputHandler` in trial structure with more than one trial via `add_ts()`, they are drawn slightly transparent by default. Setting `alpha` overwrites this.
+* New: Mr. Estimator came up with his logo.
+
+
+`0.0.3 <https://pypi.org/project/mrestimator/0.0.3>`_ (2018_09_19)
+------------------------------------------------------------------
 * Changed: Check for old numpy versions in `fit()`
 * Changed: Per default, fits are drawn solid (dashed) over the fitted (remaining) range
 * Fixed: Typos

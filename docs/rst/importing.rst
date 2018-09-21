@@ -7,4 +7,4 @@ Importing Data
     :titlesonly:
 
 .. automodule:: mrestimator
-   :members: input_handler, simulate_branching
+   :members: input_handler, simulate_branching, simulate_subsampling

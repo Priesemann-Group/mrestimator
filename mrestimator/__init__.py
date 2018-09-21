@@ -144,6 +144,13 @@ def input_handler(items, **kwargs):
         retdata = np.stack((items), axis=0)
         if len(retdata.shape) == 1: retdata = retdata.reshape((1, len(retdata)))
     elif situation == 1:
+        if len(items) == 0:
+            # glob of earlyier analysis returns nothing if file not found
+            raise FileNotFoundError(
+                '\nSpecifying absolute file path is recommended, ' +
+                'input_handler() was looking in {}\n'.format(os.getcwd()) +
+                'Use \'os.chdir(os.path.dirname(__file__))\' to set the ' +
+                'working directory to the location of your script file\n')
         data = []
         for idx, item in enumerate(items):
             try:
@@ -191,29 +198,45 @@ def input_handler(items, **kwargs):
         return retdata
 
 def simulate_branching(
+    m,
+    a=None,
+    h=None,
     length=10000,
-    m=0.9,
-    activity=100,
     numtrials=1,
     subp=1,
     seed=None):
     """
-        Simulates a branching process with Poisson input.
+        Simulates a branching process with Poisson input. Returns data
+        in the trial structure.
+
+        Per default, the function discards the first
+        few time steps to produce stationary activity. If a
+        `drive` is passed as ``h=0``, the recording starts instantly
+        (and produces exponentially decaying activity).
 
         Parameters
         ----------
-        length : int, optional
-            Number of steps for the process, thereby sets the total length of
-            the generated time series.
-
-        m : float, optional
+        m : float
             Branching parameter.
 
-        activity : float, optional
-            Mean activity of the process.
+        a : float
+            Stationarity activity of the process.
+            Only considered if no drive `h` is specified.
+
+        h : ~numpy.array, optional
+            Specify a custom drive (possibly changing) for every time step.
+            If `h` is given, its length takes priority over the `length`
+            parameter. If the first or only value of `h` is zero, the recording
+            starts instantly with set activity `a` and the resulting timeseries
+            will not be stationary in the beginning.
+
+        length : int, optional
+            Number of steps for the process, thereby sets the total length of
+            the generated time series. Overwritten if drive `h` is set as an
+            array.
 
         numtrials : int, optional
-            Generate more than one trial.
+            Generate 'numtrials' trials. Default is 1.
 
         seed : int, optional
             Initialise the random number generator with a seed. Per default it
@@ -221,54 +244,98 @@ def simulate_branching(
             returns different results).
 
         subp : float, optional
-            Subsample the activity to the specified probability.
+            Subsample the activity with the probability `subp` (calls
+            `simulate_subsampling()` before returning).
 
         Returns
         -------
         : :class:`~numpy.ndarray`
-            with ``numtrials`` time series, each containging
-            ``length`` entries of activity.
-            If no arguments are provided, one trial is created with
+            with `numtrials` time series, each containging
+            `length` entries of activity.
+            Per default, one trial is created with
             10000 measurements.
     """
-    np.random.seed(seed)
+
+    if h is None:
+        if a is None:
+            raise TypeError('missing argument\n'+
+                'Either provide the activity a or drive h\n')
+        else:
+            h = np.full((length), a * (1 - m))
+    else:
+        if a is None:
+            a = 0
+        h = np.asarray(h)
+        if h.size == 1:
+            h = np.full((length), h)
+        elif len(h.shape) != 1:
+            raise ValueError('\nProvide drive h as a float or 1d array\n')
+        else:
+            length = h.size
+
+    print('Generating branching process:')
+
+    if h[0] == 0 and a != 0:
+        print('\tSkipping thermalization since initial h=0')
+    if h[0] == 0 and a == 0:
+        print('\tWarning: a=0 and initial h=0')
+
+    print('\t{:d} trials {:d} time steps\n'.format(numtrials, length)+
+          '\tbranchign ratio m={}\n'.format(m)+
+          '\t(initial) activity s={}\n'.format(a)+
+          '\t(initial) drive rate h={}'.format(h[0]))
 
     A_t = np.zeros(shape=(numtrials, length), dtype=int)
-    h = activity * (1 - m)
+    a = np.ones_like(A_t[:, 0])*a
 
-    print('Generating branching process with {}'.format(length),
-          'time steps, m={}'.format(m),
-          'and drive rate h={0:.2f}'.format(h))
+    # if drive is zero, user would expect exp-decay of set activity
+    if (h[0] != 0 and h[0]):
+        # avoid nonstationarity by discarding some steps
+        for idx in range(0, np.fmax(100, int(length*0.05))):
+            a = np.random.poisson(lam=m*a + h[0])
 
-    if subp <= 0 or subp > 1:
-        raise Exception('  Subsampling probability should be between 0 and 1')
-    if subp != 1:
-        print('  Applying subsampling to {} probability'
-              .format(subp))
-        a_t = np.copy(A_t)
+    A_t[:, 0] = np.random.poisson(lam=m*a + h[0])
+    for idx in range(1, length):
+        A_t[:, idx] = np.random.poisson(lam=m*A_t[:, idx-1] + h[idx])
 
-    for trial in range(0, numtrials):
-        # if not trial == 0: print('Starting trial ', trial)
-        A_t[trial, 0] = np.random.poisson(lam=activity)
+    if subp != 1 and subp is not None:
+        try:
+            return simulate_subsampling(A_t, prob=subp)
+        except ValueError:
+            pass
+    return A_t
 
-        for idx in range(1, length):
-            tmp = 0
-            tmp += np.random.poisson(lam=h)
-            if m > 0:
-                tmp += np.random.poisson(lam=m*A_t[trial, idx - 1])
-            A_t[trial, idx] = tmp
+def simulate_subsampling(data=None, prob=0.1):
+    """
+        Apply binomial subsampling.
 
-            # binomial subsampling
-            if subp != 1:
-                a_t[trial, idx] = scipy.stats.binom.rvs(tmp, subp)
+        Parameters
+        ----------
+        data : ~numpy.ndarray
+            Data (in trial structre) to subsample. Note that `data` will be
+            cast to integers. For instance, if your activity is normalised
+            consider multiplying with a constant. If `data` is not provided,
+            `simulate_branching()` is used with default parameters.
 
-        print('  Branching process created with mean activity At={}'
-              .format(A_t[trial].mean()),
-              'subsampled to at={}'
-              .format(a_t[trial].mean()) if subp != 1 else '')
+        prob : float
+            Subsample to probability `prob`. Default is 0.1.
+    """
+    if prob <= 0 or prob > 1:
+        raise ValueError(
+            '\nSubsampling probability should be between 0 and 1\n')
 
-    if subp < 1: return a_t
-    else: return A_t
+    if data is None:
+        data = simulate_branching()
+
+    data = np.asarray(data)
+    if len(data.shape) != 2:
+        raise ValueError('\nProvide data as 2d ndarray (trial structure)\n')
+
+    # activity = np.mean(data)
+    # a_t = np.empty_like(data)
+
+    # binomial subsampling
+    return scipy.stats.binom.rvs(data.astype(int), prob)
 
 # ------------------------------------------------------------------ #
 # Coefficients
@@ -900,6 +967,7 @@ def fit(
             Arrays larger than two are assumed to contain a manual choice of
             steps and those that are also present in `data` will be used.
             Strides other than one are possible.
+            Ignored if `data` is not passed as CoefficientResult.
             Default: all values given in `data` are included in the fit.
 
         Other Parameters
@@ -951,16 +1019,22 @@ def fit(
             'steps=(minstep, maxstep)\nor as one dimensional numpy '+
             'array containing all desired step values\n')
     if len(steps) == 2:
-        minstep=1
-        maxstep=1500
-        if steps[0] is not None:
-            minstep = steps[0]
-        if steps[1] is not None:
-            maxstep = steps[1]
-        if minstep > maxstep or minstep < 1:
-            print('\tWarning: minstep={} is invalid, setting to 1'
-                .format(minstep))
-            minstep = 1
+        minstep=steps[0]
+        maxstep=steps[1]
+    if steps.size < 2:
+        raise ValueError('\nPlease provide steps as ' +
+            'steps=(minstep, maxstep)\nor as one dimensional numpy '+
+            'array containing all desired step values\n')
+    #     minstep=1
+    #     maxstep=1500
+    #     if steps[0] is not None:
+    #         minstep = steps[0]
+    #     if steps[1] is not None:
+    #         maxstep = steps[1]
+    #     if minstep > maxstep or minstep < 1:
+    #         print('\tWarning: minstep={} is invalid, setting to 1'
+    #             .format(minstep))
+    #         minstep = 1
 
     if isinstance(data, CoefficientResult):
         print('\tCoefficients given in default format')
@@ -978,10 +1052,15 @@ def fit(
                 if end == 0:
                     end = len(data.steps)
                     print('\tWarning: maxstep larger than provided steps')
-            # ToDo: check if this is single sample: coefficients could be 2dim
+            if data.coefficients.ndim != 1:
+                raise NotImplementedError(
+                    '\nAnalysing individual samples not supported yet\n')
             coefficients = data.coefficients[beg:end]
             steps        = data.steps[beg:end]
-            stderrs      = data.stderrs[beg:end]
+            try:
+                stderrs  = data.stderrs[beg:end]
+            except TypeError:
+                stderrs  = None
         else:
             # find occurences of steps in data.steps and use the indices
             try:
@@ -999,11 +1078,18 @@ def fit(
 
             coefficients = data.coefficients[stepind]
             steps        = data.steps[stepind]
-            stderrs      = data.stderrs[stepind]
+            try:
+                stderrs  = data.stderrs[stepind]
+            except TypeError:
+                stderrs  = None
 
         dt           = data.dt
         dtunit       = data.dtunit
     else:
+        if minstep is not None or maxstep is not None:
+            raise TypeError('\nArgument \'steps\' only works when ' +
+                'passing data as CoefficienResult from the coefficients() ' +
+                'function\n')
         try:
             print('\tGuessing provided format:')
             dt = 1
@@ -1247,7 +1333,10 @@ class OutputHandler:
         """
         if isinstance(ax, matplotlib.axes.Axes): self.ax = ax
         elif ax is None: _, self.ax = plt.subplots()
-        else: raise ValueError('ax is not a matplotlib.axes.Axes')
+        else: raise TypeError(
+            'ax is not a matplotlib.axes.Axes\n'+
+            'If you want to add multiple items, pass them as a list as the '+
+            'first argument\n')
 
         self.rks = []
         self.fits = []
@@ -1366,6 +1455,7 @@ class OutputHandler:
         if desc != '':
             desc += ' '
 
+        stepind = np.arange(0, data.steps.size)
         if len(self.rks) == 0:
             self.dt       = data.dt
             self.dtunit   = data.dtunit
@@ -1391,6 +1481,7 @@ class OutputHandler:
             if not np.array_equal(self.xdata, data.steps):
                 raise ValueError('\nSteps of new CoefficientResult do not ' +
                     'match\n')
+
             self.ydata = np.vstack((self.ydata, data.coefficients))
             self.ylabels.append(desc+'coefficients')
 
@@ -1527,6 +1618,12 @@ class OutputHandler:
 
         desc = kwargs.get('label') if 'label' in kwargs else 'ts'
         color = kwargs.get('color') if 'color' in kwargs else None
+        alpha = kwargs.get('alpha') if 'alpha' in kwargs else None
+        # per default, if more than one series provided reduce alpha
+        if data.shape[0] > 1 and not 'alpha' in kwargs:
+            alpha=0.1
+        kwargs = dict(kwargs, alpha=alpha)
+
         for idx, dat in enumerate(data):
             if self.xdata is None:
                 self.set_xdata(np.arange(1, data.shape[1]+1))
@@ -1638,9 +1735,5 @@ class OutputHandler:
             labels = labels.replace(' ', '_')
             dat = np.vstack((self.xdata, self.ydata))
         np.savetxt(fname+'.tsv', np.transpose(dat), delimiter='\t', header=hdr+labels)
-
-def save_automatic():
-    pass
-
 
 
