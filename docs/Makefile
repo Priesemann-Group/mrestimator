@@ -1,5 +1,6 @@
 # Minimal makefile for Sphinx documentation
-#
+# to compile locally with gitlab-runner:
+# gitlab-runner exec docker pages
 
 # You can set these variables from the command line.
 SPHINXOPTS    =

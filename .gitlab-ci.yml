@@ -3,10 +3,10 @@ image: alpine
 pages:
   stage: deploy
   script:
+  - ls
+  - ls docs
   - apk --no-cache add py3-pip python-dev
-  - pip3 install sphinx
-  - pip3 install sphinx_rtd_theme
-  - pip3 install m2r
+  - pip3 install -r ./docs/piprequirements.txt
   - apk --no-cache add make
   - make html
   - mkdir .public

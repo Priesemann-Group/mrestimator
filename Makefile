@@ -1,3 +1,5 @@
+# to compile locally with gitlab-runner:
+# gitlab-runner exec docker pages
 all: html
 
 html: FORCE
