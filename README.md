@@ -3,7 +3,7 @@
 Welcomme to the Toolbox for the Multistep Regression Estimator ("Mister Estimator")
 
 - [**Documentation**](https://pspitzn.pages.gwdg.de/mrestimator)
-- [**Getting Started**](https://pspitzn.pages.gwdg.de/mrestimator/rst/gettingstarted.html)
+- [**Getting Started**](https://pspitzn.pages.gwdg.de/mrestimator/doc/gettingstarted.html)
 - [**Python Package index**](https://pypi.org/project/mrestimator)
 - [**Github**](https://github.com/pSpitzner/mrestimator)
 - **Details on the estimator:** [J. Wilting and V. Priesemann, Nat. Commun. 9, 2325 (2018)](https://doi.org/10.1038/s41467-018-04725-4)

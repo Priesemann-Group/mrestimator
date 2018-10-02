@@ -3,11 +3,9 @@ The Toolbox
 
 .. toctree::
     :titlesonly:
-    :name: MRE
 
-    gettingstarted
     importing
-    core
+    mre
     exporting
     outlook
 

@@ -1493,10 +1493,11 @@ class OutputHandler:
                 ydata = np.full(self.xdata.size, np.nan)
                 ydata[indold] = data.coefficients[indnew]
 
-            self.ydata = np.vstack((self.ydata, ydata))
-            self.ylabels.append(desc+'coefficients')
+                self.ydata = np.vstack((self.ydata, ydata))
+                self.ylabels.append(desc+'coefficients')
 
         if data.stderrs is not None:
+            indold, indnew = _intersecting_index(self.xdata, data.steps)
             ydata = np.full(self.xdata.size, np.nan)
             ydata[indold] = data.stderrs[indnew]
             self.ydata = np.vstack((self.ydata, ydata))
