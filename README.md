@@ -26,7 +26,7 @@ pip3 install -U mrestimator
 ```
 
 If you run into problems during installation, they are most likely due to numpy and scipy.
-You may check their [official documentation](https://scipy.org/install.html).
+You may check the [official scipy.org documentation](https://scipy.org/install.html).
 
 ## Manual Installation
 
