@@ -9,6 +9,7 @@ from collections import namedtuple
 import scipy
 import scipy.stats
 import scipy.optimize
+import re
 # import neo
 import time
 import glob
@@ -1056,7 +1057,8 @@ def fit(
                 raise NotImplementedError(
                     '\nAnalysing individual samples not supported yet\n')
             coefficients = data.coefficients[beg:end]
-            steps        = data.steps[beg:end]
+            # make sure this is data, no pointer, so we dont overwrite anything
+            steps        = np.copy(data.steps[beg:end])
             try:
                 stderrs  = data.stderrs[beg:end]
             except TypeError:
@@ -1077,7 +1079,8 @@ def fit(
                 stepind = np.sort(stepind)
 
             coefficients = data.coefficients[stepind]
-            steps        = data.steps[stepind]
+            # make sure this is data, no pointer, so we dont overwrite anything
+            steps        = np.copy(data.steps[stepind])
             try:
                 stderrs  = data.stderrs[stepind]
             except TypeError:
@@ -1190,7 +1193,7 @@ def fit(
                 fitfunc, steps*dt, coefficients,
                 p0=pars, bounds=bnds, maxfev=int(maxfev), sigma=stderrs)
 
-            residuals = coefficients - fitfunc(steps, *popt)
+            residuals = coefficients - fitfunc(steps*dt, *popt)
             ssres = np.sum(residuals**2)
 
         except Exception as e:
@@ -1341,11 +1344,12 @@ class OutputHandler:
         self.rks = []
         self.fits = []
         self.fitlabels = []
+        self.fitcurves = []     # list of lists of drawn curves for each fit
         self.dt = 1
-        self.dtunits = None
+        self.dtunit = None
         self.type = None
         self.xdata = None
-        self.ydata = None
+        self.ydata = []         # list of 1d np arrays
         self.xlabel = None
         self.ylabels = []
 
@@ -1366,16 +1370,118 @@ class OutputHandler:
                 raise ValueError('\nPlease provide a list containing '
                     'CoefficientResults and/or FitResults\n')
 
-    def set_xdata(self, xdata=None):
+    def set_xdata(self, data=None, dt=1, dtunit=None):
         """
-            Set the x-Axis. Only works for fits. Will be overwritten when
-            coefficients are added.
+            Adjust xdata of the plot, matching the input value.
+            Returns an array of indices matching the incoming indices to
+            already present ones.
 
             Parameters
             ----------
-            xdata : ~numpy.array
-                x-values to plot the fits for.
+            data : ~numpy.array
+                x-values to plot the fits for. `data` does not need to be
+                spaced equally but is assumed to be sorted.
+
+            Returns
+            -------
+            : :class:`~numpy.array`
+                containing the indices where the `data` given to this function
+                coincides with (possibly) already existing data that was
+                added/plotted before.
         """
+        # make sure data is not altered
+        xdata = np.copy(data.astype('float64'))
+        # xdata = data
+
+        # nothing set so far, no arugment provided, return some default
+        if self.xdata is None and xdata is None:
+            self.xdata  = np.arange(0, 1501)
+            self.dtunit = dtunit;
+            self.dt     = dt;
+            return np.arange(0, 1501)
+
+        # set x for the first time, copying input
+        if self.xdata is None:
+            self.xdata  = np.array(xdata)
+            self.dtunit = dtunit;
+            self.dt     = dt;
+            return np.arange(0, self.xdata.size)
+
+        # no new data provided, no need to call this
+        elif xdata is None:
+            print("Warning: calling set_xdata() without argument when " +
+                "xdata is already set. Nothing to overwrite\n")
+            return np.arange(0, self.xdata.size)
+
+        # compare dtunits
+        elif dtunit != self.dtunit and dtunit is not None:
+            print('Warning: dtunit does not match, adjusting axis label\n')
+            regex = r'\[.*?\]'
+            oldlabel = self.ax.xaxis.get_label()
+            self.ax.set_xlabel(re.sub(regex, '[different units]', oldlabel))
+
+        # set dtunit to new value if not assigned yet
+        elif self.dtunit is None and dtunit is not None:
+            self.dtunit = dtunit
+
+        # new data matches old data, nothing to adjust
+        if np.array_equal(self.xdata, xdata) and self.dt == dt:
+            return np.arange(0, self.xdata.size)
+
+        # compare timescales dt
+        elif self.dt < dt:
+            print('Warning: dt does not match,')
+            scd = dt / self.dt
+            if scd.is_integer():
+                print('Changing axis values of new data (dt={})\n'.format(dt) +
+                    'to match higher resolution of ' +
+                    'old xaxis (dt={})\n'.format(self.dt))
+                scd = dt / self.dt
+                xdata *= scd
+            else:
+                print('New dt={} is not an integer multiple of '.format(dt) +
+                    'the previous dt={}\n'.format(self.dt) +
+                    'Plotting with \'[different units]\'\n')
+                regex = r'\[.*?\]'
+                oldlabel = self.ax.xaxis.get_label()
+                self.ax.set_xlabel(
+                    re.sub(regex, '[different units]', oldlabel))
+
+        elif self.dt > dt:
+            scd = self.dt / dt
+            if scd.is_integer():
+                print('Changing dt to new value dt={}\n'.format(dt) +
+                    'Adjusting existing axis values (dt={})\n'.format(self.dt))
+                self.xdata *= scd
+                self.dt = dt
+            else:
+                print('old dt={} is not an integer multiple '.format(self.dt) +
+                    'of the new value dt={}\n'.format(self.dt) +
+                    'Plotting with \'[different units]\'\n')
+                regex = r'\[.*?\]'
+                oldlabel = self.ax.xaxis.get_label()
+                self.ax.set_xlabel(
+                    re.sub(regex, '[different units]', oldlabel))
+
+        # check if new is subset of old
+        temp = np.union1d(self.xdata, xdata)
+        if not np.array_equal(self.xdata, temp):
+            print('Rearrange present data')
+            _, indtemp = _intersecting_index(self.xdata, temp)
+            self.xdata = temp
+            for ydx, col in enumerate(self.ydata):
+                coln = np.full(self.xdata.size, np.nan)
+                coln[indtemp] = col
+                self.ydata[ydx] = coln
+
+        # return list of indices where to place new ydata in the existing
+        # (higher-resolution) notation
+        indold, indnew = _intersecting_index(self.xdata, xdata)
+        assert(len(indold) == len(xdata))
+
+        return indold
+
+    def set_xdata_old(self, xdata=None):
         # this needs to be improve, for now only fits can be redrawn
         if xdata is None: xdata = np.arange(1501)
         if len(self.rks) == 0: self.xdata = xdata
@@ -1455,68 +1561,47 @@ class OutputHandler:
         if desc != '':
             desc += ' '
 
+        # no previous coefficients present
         if len(self.rks) == 0:
-            self.dt       = data.dt
-            self.dtunit   = data.dtunit
-            self.set_xdata(data.steps)
-            self.xlabel   = 'steps[{}{}]'.format(data.dt, data.dtunit)
-            self.ydata    = np.zeros(shape=(1,len(data.coefficients)))
-            self.ydata[0] = data.coefficients;
-            self.ylabels  = [desc+'coefficients']
-            prec=0
-            while(not (data.dt*10**(prec)).is_integer() and prec <5):
-                prec+=1
-            self.ax.set_xlabel('k [{:.{p}f}{}]'
-                .format(data.dt, data.dtunit, p=prec))
+            self.dt     = data.dt
+            self.dtunit = data.dtunit
+            self.xlabel = \
+                'steps[{}{}]'.format(_printeger(data.dt, 5), data.dtunit)
+            self.ax.set_xlabel(
+                'k [{}{}]'.format(_printeger(data.dt, 5), data.dtunit))
             self.ax.set_ylabel('$r_{k}$')
             self.ax.set_title('Correlation')
-            indnew = np.arange(0, data.steps.size)
-            indold = np.arange(0, self.xdata.size)
-        else:
-            if self.dt != data.dt:
-                print('Warning: dt does not match')
-                self.ax.set_xlabel('k [different units]')
-            if self.dtunit != data.dtunit:
-                print('Warning: dtunit does not match')
-                self.ax.set_xlabel('k [different git]')
-            if not np.array_equal(self.xdata, data.steps):
-                # raise ValueError('\nSteps of new CoefficientResult do not ' +
-                    # 'match\n')
-                indold, indnew = _intersecting_index(self.xdata, data.steps)
-                if indnew.size < self.xdata.size/10:
-                    print('Warning: Steps of new coefficients intersect ' +
-                        ' with less than 10 % of the existing plot range')
-                if data.steps[indnew[-1]] < data.steps[-1]:
-                    print('Warning: The new coefficients are only plotted ' +
-                        'over the presend (smaller) range')
 
-                ydata = np.full(self.xdata.size, np.nan)
-                ydata[indold] = data.coefficients[indnew]
-
-                self.ydata = np.vstack((self.ydata, ydata))
-                self.ylabels.append(desc+'coefficients')
+        inds = self.set_xdata(data.steps, dt=data.dt, dtunit=data.dtunit)
+        ydata = np.full(self.xdata.size, np.nan)
+        ydata[inds] = data.coefficients
+        self.ydata.append(ydata)
+        self.ylabels.append(desc+'coefficients')
 
         if data.stderrs is not None:
-            indold, indnew = _intersecting_index(self.xdata, data.steps)
             ydata = np.full(self.xdata.size, np.nan)
-            ydata[indold] = data.stderrs[indnew]
-            self.ydata = np.vstack((self.ydata, ydata))
+            ydata[inds] = data.stderrs
+            self.ydata.append(ydata)
             self.ylabels.append(desc+'stderrs')
 
         self.rks.append(data)
 
         # update plot
-        p, = self.ax.plot(data.steps[indnew], data.coefficients[indnew],
+        p, = self.ax.plot(data.steps*data.dt/self.dt, data.coefficients,
             label=label)
 
         if data.stderrs is not None and 'alpha' not in kwargs:
-            err1 = data.coefficients[indnew]-data.stderrs[indnew]
-            err2 = data.coefficients[indnew]+data.stderrs[indnew]
-            self.ax.fill_between(data.steps[indnew], err1, err2,
+            err1 = data.coefficients-data.stderrs
+            err2 = data.coefficients+data.stderrs
+            self.ax.fill_between(data.steps*data.dt/self.dt, err1, err2,
                 alpha = 0.2, facecolor=p.get_color(), label=labelerr)
 
         if label is not None:
             self.ax.legend()
+
+        # refresh fits after possibly changing xaxis
+        for f in self.fits:
+            self._render_fit(f)
 
     def add_fit(self, data, **kwargs):
         """
@@ -1541,21 +1626,13 @@ class OutputHandler:
             raise ValueError
         self.type = 'correlation'
 
-
         if self.xdata is None:
-            self.set_xdata()
             self.dt     = data.dt
             self.dtunit = data.dtunit
             self.ax.set_xlabel('k [{}{}]'.format(data.dt, data.dtunit))
             self.ax.set_ylabel('$r_{k}$')
             self.ax.set_title('Correlation')
-        else:
-            if self.dt != data.dt:
-                print('Warning: dt does not match')
-                self.ax.set_xlabel('k [different units]')
-            if self.dtunit != data.dtunit:
-                print('Warning: dtunit does not match')
-                self.ax.set_xlabel('k [different units]')
+        inds = self.set_xdata(data.steps, dt=data.dt, dtunit=data.dtunit)
 
         # description for fallback
         desc = str(data.desc)
@@ -1576,14 +1653,30 @@ class OutputHandler:
 
         self.fits.append(data)
         self.fitlabels.append(label)
+        self.fitcurves.append([])
+        for f in self.fits:
+            self._render_fit(f)
+
+    def _render_fit(self, fit):
+        # (re)draw fit over (possibly) new xrange
+        indfit = self.fits.index(fit)
+        label = self.fitlabels[indfit]
+        color = None
+        for curve in self.fitcurves[indfit]:
+            color = curve.get_color()
+            curve.remove()
+        self.fitcurves[indfit] = []
 
         # update plot
-        p, = self.ax.plot(data.steps,
-            data.fitfunc(data.steps*data.dt, *data.popt), label=label)
-        if data.steps[0] > self.xdata[0] or data.steps[-1] < self.xdata[-1]:
-            self.ax.plot(self.xdata,
-                data.fitfunc(self.xdata*data.dt, *data.popt),
+        p, = self.ax.plot(fit.steps*fit.dt,
+            fit.fitfunc(fit.steps*fit.dt, *fit.popt),
+            color=color, label=label)
+        self.fitcurves[indfit].append(p)
+        if fit.steps[0] > self.xdata[0] or fit.steps[-1] < self.xdata[-1]:
+            d, = self.ax.plot(self.xdata*self.dt,
+                fit.fitfunc(self.xdata*self.dt, *fit.popt),
                 label=None, color=p.get_color(), ls='dashed')
+            self.fitcurves[indfit].append(d)
         if label is not None:
             self.ax.legend()
 
@@ -1647,11 +1740,12 @@ class OutputHandler:
                 self.ax.set_title('Time Series')
             elif len(self.xdata) != len(dat):
                 raise ValueError('\nTime series have different length\n')
-            if self.ydata is None:
-                self.ydata = np.full((1, len(self.xdata)), np.nan)
-                self.ydata[0] = dat
-            else:
-                self.ydata = np.vstack((self.ydata, dat))
+            # if self.ydata is None:
+            #     self.ydata = np.full((1, len(self.xdata)), np.nan)
+            #     self.ydata[0] = dat
+            # else:
+            #     self.ydata = np.vstack((self.ydata, dat))
+            self.ydata.append(dat)
 
             self.ylabels.append(desc+'[{}]'.format(idx)
                 if len(data) > 1 else desc)
@@ -1741,12 +1835,12 @@ class OutputHandler:
         # rks / ts
         labels = ''
         dat = []
-        if self.ydata is not None:
+        if self.ydata is not None and len(self.ydata) != 0:
             labels += '1_'+self.xlabel
             for ldx, label in enumerate(self.ylabels):
                 labels += '\t'+str(ldx+2)+'_'+label
             labels = labels.replace(' ', '_')
-            dat = np.vstack((self.xdata, self.ydata))
+            dat = np.vstack((self.xdata, np.asarray(self.ydata)))
         np.savetxt(fname+'.tsv', np.transpose(dat), delimiter='\t', header=hdr+labels)
 
 
@@ -1796,6 +1890,11 @@ def _at_index(data, indices, keepdim=None, padding=np.nan):
             res[0:indices.size-1] = data[i]
         return res
 
+def _printeger(f, maxprec=5):
+    prec=0
+    while(not (f*10**(prec)).is_integer() and prec <maxprec):
+        prec+=1
+    return'{:.{p}f}'.format(f, p=prec)
 
 
 
