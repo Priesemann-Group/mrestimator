@@ -1056,7 +1056,8 @@ def fit(
                 raise NotImplementedError(
                     '\nAnalysing individual samples not supported yet\n')
             coefficients = data.coefficients[beg:end]
-            steps        = data.steps[beg:end]
+            # make sure this is data, no pointer, so we dont overwrite anything
+            steps        = np.copy(data.steps[beg:end])
             try:
                 stderrs  = data.stderrs[beg:end]
             except TypeError:
@@ -1077,7 +1078,8 @@ def fit(
                 stepind = np.sort(stepind)
 
             coefficients = data.coefficients[stepind]
-            steps        = data.steps[stepind]
+            # make sure this is data, no pointer, so we dont overwrite anything
+            steps        = np.copy(data.steps[stepind])
             try:
                 stderrs  = data.stderrs[stepind]
             except TypeError:
@@ -1190,7 +1192,7 @@ def fit(
                 fitfunc, steps*dt, coefficients,
                 p0=pars, bounds=bnds, maxfev=int(maxfev), sigma=stderrs)
 
-            residuals = coefficients - fitfunc(steps, *popt)
+            residuals = coefficients - fitfunc(steps*dt, *popt)
             ssres = np.sum(residuals**2)
 
         except Exception as e:
