@@ -9,6 +9,7 @@ from collections import namedtuple
 import scipy
 import scipy.stats
 import scipy.optimize
+import re
 # import neo
 import time
 import glob
@@ -1341,13 +1342,18 @@ class OutputHandler:
             'first argument\n')
 
         self.rks = []
+        self.rklabels = []
+        self.rkcurves = []
+        self.rkkwargs = []
         self.fits = []
         self.fitlabels = []
+        self.fitcurves = []     # list of lists of drawn curves for each fit
+        self.fitkwargs = []
         self.dt = 1
-        self.dtunits = None
+        self.dtunit = None
         self.type = None
         self.xdata = None
-        self.ydata = None
+        self.ydata = []         # list of 1d np arrays
         self.xlabel = None
         self.ylabels = []
 
@@ -1368,16 +1374,181 @@ class OutputHandler:
                 raise ValueError('\nPlease provide a list containing '
                     'CoefficientResults and/or FitResults\n')
 
-    def set_xdata(self, xdata=None):
+    def set_xdata(self, data=None, dt=1, dtunit=None):
         """
-            Set the x-Axis. Only works for fits. Will be overwritten when
-            coefficients are added.
+            Adjust xdata of the plot, matching the input value.
+            Returns an array of indices matching the incoming indices to
+            already present ones. Automatically called when adding content.
+
+            If you want to customize the plot range, add all the content
+            and use matplotlibs
+            :obj:`~matplotlib.axes.Axes.set_xlim` function once at the end.
+            (`set_xdata()` also manages meta data and can only *increase* the
+            plot range)
 
             Parameters
             ----------
-            xdata : ~numpy.array
-                x-values to plot the fits for.
+            data : ~numpy.array
+                x-values to plot the fits for. `data` does not need to be
+                spaced equally but is assumed to be sorted.
+
+            dt : float
+                check if existing data can be mapped to the new, provided `dt`
+                or the other way around. `set_xdata()` pads
+                undefined areas with `nan`.
+
+            dtunit : str
+                check if the new `dtunit` matches the one set previously. Any
+                padding to match `dt` is only done if `dtunits` are the same,
+                otherwise the plot falls back to using generic integer steps.
+
+            Returns
+            -------
+            : :class:`~numpy.array`
+                containing the indices where the `data` given to this function
+                coincides with (possibly) already existing data that was
+                added/plotted before.
+
+            Example
+            -------
+            .. code-block:: python
+
+                out = mre.OutputHandler()
+
+                # 100 intervals of 2ms
+                out.set_xdata(np.arange(0,100), dt=2, dtunit='ms')
+
+                # increase resolution to 1ms for the first 50ms
+                # this changes the existing structure in the meta data. also
+                # the axis of `out` is not equally spaced anymore
+                fiftyms = np.arange(0,50)
+                out.set_xdata(fiftyms, dt=1, dtunit='ms')
+
+                # data with larger intervals is less dense, the returned list
+                # tells you which index in `out` belongs to every index
+                # in `xdat`
+                xdat = np.arange(0,50)
+                ydat = np.random_sample(50)
+                inds = out.set_xdata(xdat, dt=4, dtunit='ms')
+
+                # to pad `ydat` to match the axis of `out`:
+                temp = np.full(out.xdata.size, np.nan)
+                temp[inds] = ydat
+
+            ..
         """
+        # make sure data is not altered
+        xdata = np.copy(data.astype('float64'))
+        # xdata = data
+
+        # nothing set so far, no arugment provided, return some default
+        if self.xdata is None and xdata is None:
+            self.xdata  = np.arange(0, 1501)
+            self.dtunit = dtunit;
+            self.dt     = dt;
+            return np.arange(0, 1501)
+
+        # set x for the first time, copying input
+        if self.xdata is None:
+            self.xdata  = np.array(xdata)
+            self.dtunit = dtunit;
+            self.dt     = dt;
+            return np.arange(0, self.xdata.size)
+
+        # no new data provided, no need to call this
+        elif xdata is None:
+            print("Warning: calling set_xdata() without argument when " +
+                "xdata is already set. Nothing to overwrite\n")
+            return np.arange(0, self.xdata.size)
+
+        # compare dtunits
+        elif dtunit != self.dtunit and dtunit is not None:
+            print('Warning: dtunit does not match, adjusting axis label\n')
+            regex = r'\[.*?\]'
+            oldlabel = self.ax.get_xlabel()
+            self.ax.set_xlabel(re.sub(regex, '[different units]', oldlabel))
+
+        # set dtunit to new value if not assigned yet
+        elif self.dtunit is None and dtunit is not None:
+            self.dtunit = dtunit
+
+        # new data matches old data, nothing to adjust
+        if np.array_equal(self.xdata, xdata) and self.dt == dt:
+            return np.arange(0, self.xdata.size)
+
+        # compare timescales dt
+        elif self.dt < dt:
+            print('Warning: dt does not match,')
+            scd = dt / self.dt
+            if float(scd).is_integer():
+                print('Changing axis values of new data (dt={})\n'.format(dt) +
+                    'to match higher resolution of ' +
+                    'old xaxis (dt={})\n'.format(self.dt))
+                scd = dt / self.dt
+                xdata *= scd
+            else:
+                print('New dt={} is not an integer multiple of '.format(dt) +
+                    'the previous dt={}\n'.format(self.dt) +
+                    'Plotting with \'[different units]\'\n')
+                try:
+                    regex = r'\[.*?\]'
+                    oldlabel = self.ax.get_xlabel()
+                    self.ax.set_xlabel(re.sub(
+                        regex, '[different units]', oldlabel))
+                    self.xlabel = re.sub(
+                        regex, '[different units]', self.xlabel)
+                except TypeError:
+                    pass
+
+        elif self.dt > dt:
+            scd = self.dt / dt
+            if float(scd).is_integer():
+                print('Changing dt to new value dt={}\n'.format(dt) +
+                    'Adjusting existing axis values (dt={})\n'.format(self.dt))
+                self.xdata *= scd
+                self.dt = dt
+                try:
+                    regex = r'\[.*?\]'
+                    oldlabel = self.ax.get_xlabel()
+                    newlabel = str('[{}{}]'.format(
+                        _printeger(self.dt), self.dtunit))
+                    self.ax.set_xlabel(re.sub(regex, newlabel, oldlabel))
+                    self.xlabel = re.sub(regex, newlabel, self.xlabel)
+                except TypeError:
+                    pass
+            else:
+                print('old dt={} is not an integer multiple '.format(self.dt) +
+                    'of the new value dt={}\n'.format(self.dt) +
+                    'Plotting with \'[different units]\'\n')
+                try:
+                    regex = r'\[.*?\]'
+                    oldlabel = self.ax.get_xlabel()
+                    self.ax.set_xlabel(re.sub(
+                        regex, '[different units]', oldlabel))
+                    self.xlabel = re.sub(
+                        regex, '[different units]', self.xlabel)
+                except TypeError:
+                    pass
+
+        # check if new is subset of old
+        temp = np.union1d(self.xdata, xdata)
+        if not np.array_equal(self.xdata, temp):
+            print('Rearrange present data')
+            _, indtemp = _intersecting_index(self.xdata, temp)
+            self.xdata = temp
+            for ydx, col in enumerate(self.ydata):
+                coln = np.full(self.xdata.size, np.nan)
+                coln[indtemp] = col
+                self.ydata[ydx] = coln
+
+        # return list of indices where to place new ydata in the existing
+        # (higher-resolution) notation
+        indold, indnew = _intersecting_index(self.xdata, xdata)
+        assert(len(indold) == len(xdata))
+
+        return indold
+
+    def set_xdata_old(self, xdata=None):
         # this needs to be improve, for now only fits can be redrawn
         if xdata is None: xdata = np.arange(1501)
         if len(self.rks) == 0: self.xdata = xdata
@@ -1395,7 +1566,9 @@ class OutputHandler:
 
     def add_coefficients(self, data, **kwargs):
         """
-            Add an individual CoefficientResult.
+            Add an individual CoefficientResult. Note that it is not possible
+            to add the same data twice, instead it will be redrawn with
+            the new arguments/style options provided.
 
             Parameters
             ----------
@@ -1407,8 +1580,8 @@ class OutputHandler:
                 :obj:`matplotlib.axes.Axes.plot`. Use to customise the
                 plots. If a `label` is set via `kwargs`, it will be used to
                 overwrite the description of `data` in the meta file.
-                If an alpha value is set, the shaded error region will
-                be omitted.
+                If an alpha value is or linestyle is set, the shaded error
+                region will be omitted.
 
             Example
             -------
@@ -1451,80 +1624,112 @@ class OutputHandler:
                 label = desc
                 labelerr = desc + ' Errors'
 
-            # dont put errors in the legend. this should become a user choice
-            labelerr = ''
-
         if desc != '':
             desc += ' '
 
+        # dont put errors in the legend. this should become a user choice
+        labelerr = ''
+
+        # no previous coefficients present
         if len(self.rks) == 0:
-            self.dt       = data.dt
-            self.dtunit   = data.dtunit
-            self.set_xdata(data.steps)
-            self.xlabel   = 'steps[{}{}]'.format(data.dt, data.dtunit)
-            self.ydata    = np.zeros(shape=(1,len(data.coefficients)))
-            self.ydata[0] = data.coefficients;
-            self.ylabels  = [desc+'coefficients']
-            prec=0
-            while(not (data.dt*10**(prec)).is_integer() and prec <5):
-                prec+=1
-            self.ax.set_xlabel('k [{:.{p}f}{}]'
-                .format(data.dt, data.dtunit, p=prec))
+            self.dt     = data.dt
+            self.dtunit = data.dtunit
+            self.xlabel = \
+                'steps[{}{}]'.format(_printeger(data.dt, 5), data.dtunit)
+            self.ax.set_xlabel(
+                'k [{}{}]'.format(_printeger(data.dt, 5), data.dtunit))
             self.ax.set_ylabel('$r_{k}$')
             self.ax.set_title('Correlation')
-            indnew = np.arange(0, data.steps.size)
-            indold = np.arange(0, self.xdata.size)
+
+        # we dont support adding duplicates
+        oldcurves=[]
+        if data in self.rks:
+            indrk = self.rks.index(data)
+            print('Warning: coefficients ({}/{}) ' \
+                .format(self.rklabels[indrk],label) +
+                'have already been added.\nOverwriting with new style')
+            del self.rks[indrk]
+            del self.rklabels[indrk]
+            oldcurves = self.rkcurves[indrk]
+            del self.rkcurves[indrk]
+            del self.rkkwargs[indrk]
+
+        # add to meta data
         else:
-            if self.dt != data.dt:
-                print('Warning: dt does not match')
-                self.ax.set_xlabel('k [different units]')
-            if self.dtunit != data.dtunit:
-                print('Warning: dtunit does not match')
-                self.ax.set_xlabel('k [different git]')
-            if not np.array_equal(self.xdata, data.steps):
-                # raise ValueError('\nSteps of new CoefficientResult do not ' +
-                    # 'match\n')
-                indold, indnew = _intersecting_index(self.xdata, data.steps)
-                if indnew.size < self.xdata.size/10:
-                    print('Warning: Steps of new coefficients intersect ' +
-                        ' with less than 10 % of the existing plot range')
-                if data.steps[indnew[-1]] < data.steps[-1]:
-                    print('Warning: The new coefficients are only plotted ' +
-                        'over the presend (smaller) range')
-
-                ydata = np.full(self.xdata.size, np.nan)
-                ydata[indold] = data.coefficients[indnew]
-
-                self.ydata = np.vstack((self.ydata, ydata))
-                self.ylabels.append(desc+'coefficients')
-
-        if data.stderrs is not None:
-            indold, indnew = _intersecting_index(self.xdata, data.steps)
+            inds = self.set_xdata(data.steps, dt=data.dt, dtunit=data.dtunit)
             ydata = np.full(self.xdata.size, np.nan)
-            ydata[indold] = data.stderrs[indnew]
-            self.ydata = np.vstack((self.ydata, ydata))
-            self.ylabels.append(desc+'stderrs')
+            ydata[inds] = data.coefficients
+            self.ydata.append(ydata)
+            self.ylabels.append(desc+'coefficients')
+
+            if data.stderrs is not None:
+                ydata = np.full(self.xdata.size, np.nan)
+                ydata[inds] = data.stderrs
+                self.ydata.append(ydata)
+                self.ylabels.append(desc+'stderrs')
+
 
         self.rks.append(data)
+        self.rklabels.append([label, labelerr])
+        self.rkcurves.append(oldcurves)
+        self.rkkwargs.append(kwargs)
 
-        # update plot
-        p, = self.ax.plot(data.steps[indnew], data.coefficients[indnew],
-            label=label)
+        # refresh coefficients
+        for r in self.rks:
+            self._render_coefficients(r)
 
-        if data.stderrs is not None and 'alpha' not in kwargs:
-            err1 = data.coefficients[indnew]-data.stderrs[indnew]
-            err2 = data.coefficients[indnew]+data.stderrs[indnew]
-            self.ax.fill_between(data.steps[indnew], err1, err2,
-                alpha = 0.2, facecolor=p.get_color(), label=labelerr)
+        # refresh fits
+        for f in self.fits:
+            self._render_fit(f)
+
+    # need to implement using kwargs
+    def _render_coefficients(self, rk):
+        # (re)draw over (possibly) new xrange/dt
+        indrk = self.rks.index(rk)
+        label, labelerr = self.rklabels[indrk]
+        kwargs = self.rkkwargs[indrk].copy()
+
+        # reset curves and recover color
+        color = None
+        for idx, curve in enumerate(self.rkcurves[indrk]):
+            if idx==0:
+                color = curve.get_color()
+            curve.remove()
+        self.rkcurves[indrk] = []
+
+        if 'color' not in kwargs:
+            kwargs = dict(kwargs, color=color)
+
+        kwargs = dict(kwargs, label=label)
+
+        # redraw plot
+        p, = self.ax.plot(rk.steps*rk.dt/self.dt, rk.coefficients, **kwargs)
+        self.rkcurves[indrk].append(p)
+
+        try:
+            if rk.stderrs is not None and 'alpha' not in kwargs:
+                err1 = rk.coefficients-rk.stderrs
+                err2 = rk.coefficients+rk.stderrs
+                kwargs.pop('color')
+                kwargs = dict(kwargs,
+                    label=labelerr, alpha=0.2, facecolor=p.get_color())
+                d = self.ax.fill_between(rk.steps*rk.dt/self.dt, err1, err2,
+                    **kwargs)
+                self.rkcurves[indrk].append(d)
+        # not all kwargs are compaible with fill_between
+        except AttributeError:
+            pass
 
         if label is not None:
             self.ax.legend()
 
     def add_fit(self, data, **kwargs):
         """
-            Add an individual FitResult. The part of the fit that
+            Add an individual FitResult. By default, the part of the fit that
             contributed to the fitting is drawn solid, the remaining range
-            is dashed.
+            is dashed. Note that it is not possible
+            to add the same data twice, instead it will be redrawn with
+            the new arguments/style options provided.
 
             Parameters
             ----------
@@ -1535,7 +1740,9 @@ class OutputHandler:
                 Keyword arguments passed to
                 :obj:`matplotlib.axes.Axes.plot`. Use to customise the
                 plots. If a `label` is set via `kwargs`, it will be added
-                as a note in the meta data.
+                as a note in the meta data. If `linestyle` is set, the
+                dashed plot of the region not contributing to the fit is
+                omitted.
         """
         if not isinstance(data, FitResult):
             raise ValueError
@@ -1543,21 +1750,13 @@ class OutputHandler:
             raise ValueError
         self.type = 'correlation'
 
-
         if self.xdata is None:
-            self.set_xdata()
             self.dt     = data.dt
             self.dtunit = data.dtunit
             self.ax.set_xlabel('k [{}{}]'.format(data.dt, data.dtunit))
             self.ax.set_ylabel('$r_{k}$')
             self.ax.set_title('Correlation')
-        else:
-            if self.dt != data.dt:
-                print('Warning: dt does not match')
-                self.ax.set_xlabel('k [different units]')
-            if self.dtunit != data.dtunit:
-                print('Warning: dtunit does not match')
-                self.ax.set_xlabel('k [different units]')
+        inds = self.set_xdata(data.steps, dt=data.dt, dtunit=data.dtunit)
 
         # description for fallback
         desc = str(data.desc)
@@ -1576,16 +1775,61 @@ class OutputHandler:
             if desc != '':
                 label = desc + ' ' + label
 
+        # we dont support adding duplicates
+        oldcurves=[]
+        if data in self.fits:
+            indfit = self.fits.index(data)
+            print('Warning: fit was already added ({})\n' \
+                .format(self.fitlabels[indfit]) +
+                'Overwriting with new style')
+            del self.fits[indfit]
+            del self.fitlabels[indfit]
+            oldcurves = self.fitcurves[indfit]
+            del self.fitcurves[indfit]
+            del self.fitkwargs[indfit]
+
         self.fits.append(data)
         self.fitlabels.append(label)
+        self.fitcurves.append(oldcurves)
+        self.fitkwargs.append(kwargs)
+
+        # refresh coefficients
+        for r in self.rks:
+            self._render_coefficients(r)
+
+        # refresh fits
+        for f in self.fits:
+            self._render_fit(f)
+
+    def _render_fit(self, fit):
+        # (re)draw fit over (possibly) new xrange
+        indfit = self.fits.index(fit)
+        label = self.fitlabels[indfit]
+        kwargs = self.fitkwargs[indfit].copy()
+        color = None
+        for curve in self.fitcurves[indfit]:
+            color = curve.get_color()
+            curve.remove()
+        self.fitcurves[indfit] = []
+
+        if 'color' not in kwargs:
+            kwargs = dict(kwargs, color=color)
+
+        kwargs = dict(kwargs, label=label)
 
         # update plot
-        p, = self.ax.plot(data.steps,
-            data.fitfunc(data.steps*data.dt, *data.popt), label=label)
-        if data.steps[0] > self.xdata[0] or data.steps[-1] < self.xdata[-1]:
-            self.ax.plot(self.xdata,
-                data.fitfunc(self.xdata*data.dt, *data.popt),
-                label=None, color=p.get_color(), ls='dashed')
+        p, = self.ax.plot(fit.steps*fit.dt,
+            fit.fitfunc(fit.steps*fit.dt, *fit.popt), **kwargs)
+        self.fitcurves[indfit].append(p)
+        if fit.steps[0] > self.xdata[0] or fit.steps[-1] < self.xdata[-1]:
+            # only draw dashed not-fitted range if no linestyle is specified
+            if 'linestyle' not in kwargs and 'ls' not in kwargs:
+                kwargs.pop('label')
+                kwargs = dict(kwargs, ls='dashed', color=p.get_color())
+                d, = self.ax.plot(self.xdata*self.dt,
+                    fit.fitfunc(self.xdata*self.dt, *fit.popt),
+                    **kwargs)
+                self.fitcurves[indfit].append(d)
         if label is not None:
             self.ax.legend()
 
@@ -1649,11 +1893,12 @@ class OutputHandler:
                 self.ax.set_title('Time Series')
             elif len(self.xdata) != len(dat):
                 raise ValueError('\nTime series have different length\n')
-            if self.ydata is None:
-                self.ydata = np.full((1, len(self.xdata)), np.nan)
-                self.ydata[0] = dat
-            else:
-                self.ydata = np.vstack((self.ydata, dat))
+            # if self.ydata is None:
+            #     self.ydata = np.full((1, len(self.xdata)), np.nan)
+            #     self.ydata[0] = dat
+            # else:
+            #     self.ydata = np.vstack((self.ydata, dat))
+            self.ydata.append(dat)
 
             self.ylabels.append(desc+'[{}]'.format(idx)
                 if len(data) > 1 else desc)
@@ -1683,7 +1928,7 @@ class OutputHandler:
         self.save_plot(fname)
         self.save_meta(fname)
 
-    def save_plot(self, fname='', ftype='pdf', ax=None):
+    def save_plot(self, fname='', ftype='pdf'):
         """
             Only saves plots (ignoring the source) to the specified location.
 
@@ -1695,7 +1940,6 @@ class OutputHandler:
             ftype: str, optional
                 So far, only 'pdf' is implemented.
         """
-        ax = ax if ax is not None else self.ax
         if not isinstance(fname, str): fname = str(fname)
         if fname == '': fname = './mre'
         fname = os.path.expanduser(fname)
@@ -1704,7 +1948,7 @@ class OutputHandler:
         for t in list(ftype):
             print('Saving plot to {}.{}'.format(fname, t))
             if t == 'pdf':
-                ax.figure.savefig(fname+'.pdf')
+                self.ax.figure.savefig(fname+'.pdf')
 
     def save_meta(self, fname=''):
         """
@@ -1743,12 +1987,12 @@ class OutputHandler:
         # rks / ts
         labels = ''
         dat = []
-        if self.ydata is not None:
+        if self.ydata is not None and len(self.ydata) != 0:
             labels += '1_'+self.xlabel
             for ldx, label in enumerate(self.ylabels):
                 labels += '\t'+str(ldx+2)+'_'+label
             labels = labels.replace(' ', '_')
-            dat = np.vstack((self.xdata, self.ydata))
+            dat = np.vstack((self.xdata, np.asarray(self.ydata)))
         np.savetxt(fname+'.tsv', np.transpose(dat), delimiter='\t', header=hdr+labels)
 
 
@@ -1798,6 +2042,11 @@ def _at_index(data, indices, keepdim=None, padding=np.nan):
             res[0:indices.size-1] = data[i]
         return res
 
+def _printeger(f, maxprec=5):
+    prec=0
+    while(not float(f*10**(prec)).is_integer() and prec <maxprec):
+        prec+=1
+    return str('{:.{p}f}'.format(f, p=prec))
 
 
 

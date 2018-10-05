@@ -1,11 +1,14 @@
 Changelog
 =========
 
-(2018_09_21)
-------------
-* Fixed: Calling `fit()` with only one trial does not crash anymore due to missing errors
+`0.0.4 <https://pypi.org/project/mrestimator/0.0.4>`_ (2018_10_05)
+------------------------------------------------------------------
+
+* Changed: OutputHandlers set_xdata() now adjusts existing data and is slightly smarter. Now returns an array containing the indices where the x axis value is right for the provided data (wrt the existing context). See the example in the documentation.
+* Changed: When calling OutputHanlders `add_coefficients()` or `add_ts()`, the meta data and plot range will be extended using `set_xdata`. Trying to add duplicates only changes their style to the new provided values (without adding meta).
+* Changed: The parameters of `simulate_branching()` are different. `activity` is now `a`, `m` is no longer optional and it is possible to set a (time dependent) drive using `h`.
+* Fixed: Calling `fit()` with only one trial does not crash anymore due to missing uncertainties
 * Fixed: Calling `fit()` without specifying `steps` now uses the range used in `coefficients()`.
-* Changed: The parameters of `simulate_branching()` are different. `activity` is now `a`, `m` is no longer optional and a (time dependent) drive can be set using `h`.
 * New: `simulate_subsampling()`
 * New: Whenn adding time series to the `OutputHandler` in trial structure with more than one trial via `add_ts()`, they are drawn slightly transparent by default. Setting `alpha` overwrites this.
 * New: Mr. Estimator came up with his logo.
@@ -26,7 +29,7 @@ Changelog
 
 (2018_09_13)
 ------------
-* Renamed: module from ``mre`` to ``mrestimator``, use ``import mrestimator as mre``
-* Renamed: ``correlation_coefficients()`` to ``coefficients()``
-* Renamed: ``correlation_fit()`` to ``fit()``
-* Renamed: ``CorrelationFitResult`` to ``FitResult``
+* Renamed: module from `mre` to `mrestimator`, use `import mrestimator as mre`
+* Renamed: `correlation_coefficients()` to `coefficients()`
+* Renamed: `correlation_fit()` to `fit()`
+* Renamed: `CorrelationFitResult` to `FitResult`
