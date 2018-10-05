@@ -10,11 +10,14 @@ import scipy
 import scipy.stats
 import scipy.optimize
 import re
-# import neo
+import logging
 import time
 import glob
 import inspect
 
+
+log = logging.getLogger(__name__)
+_targetdir = None
 
 # ------------------------------------------------------------------ #
 # Input
@@ -2074,14 +2077,44 @@ def _printeger(f, maxprec=5):
 
 def wrapper(data, dt, dtunit, savetofolder, fitfunctions, methodslopes, numboots, substracttrialaverage):
 
-    # coefficients bs for ts, too
     # logging module + log file, beware only import/manipulate logging module for our module
-    # function call parameters as dict in result of wrapper, coefficients and fit
-    # replace member samples with bootsamples and trials
-    # just do the bootstrapping for coefficients and make bs of fit optional (fitting takes ages)
-    # fit use numboots from wrapper, if none only do bs for ceoffs
-    # results file mit function pars of all called steps
+    # use python 3.5 for development
+    # test suite to check min dependencies through to latest
+
+    # 0. plot
+    # 1. replace member samples with bootsamples and trials
+    #    function call parameters as dict in result of wrapper, coefficients and fit
+    # 2. coefficients(): bootstra for ts method, too
+    # 3. just do the bootstrapping for coefficients and make bs of fit optional (fitting takes ages)
+    #    fit use numboots from wrapper, if none only do bs for ceoffs
+    # 5. results file mit function pars of all called steps
 
     pass
 
 
+def main():
+    _targetdir = '{}/mre_output/'.format(os.getcwd())
+    try:
+        os.mkdir(_targetdir)
+    except FileExistsError:
+        pass
+
+    # set default level to debug so we catch everything
+    log.setLevel(logging.DEBUG)
+    # create file handler which logs even debug messages
+    fh = logging.FileHandler(_targetdir+'mre.log', 'w')
+    fh.setLevel(logging.DEBUG)
+    # create console handler with a higher log level
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.WARNING)
+    # create formatter and add it to the handlers
+    formatter = logging.Formatter('%(levelname)8s: %(message)s')
+    ch.setFormatter(formatter)
+    fh.setFormatter(formatter)
+    # add the handlers to logger
+    log.addHandler(ch)
+    log.addHandler(fh)
+
+    log.info('Target directory set to %s', _targetdir)
+
+main()
