@@ -11,6 +11,8 @@ import scipy.stats
 import scipy.optimize
 import re
 import logging
+import tempfile
+import platform
 import time
 import glob
 import inspect
@@ -2075,9 +2077,17 @@ def _printeger(f, maxprec=5):
 # Wrapper function
 # ------------------------------------------------------------------ #
 
-def wrapper(data, dt, dtunit, savetofolder, fitfunctions, methodslopes, numboots, substracttrialaverage):
+def wrapper(
+    data,
+    dt, dtunit,
+    fname,
+    fitfunctions,
+    coefficientmethods,
+    numboots,
+    substracttrialaverage):
 
-    # logging module + log file, beware only import/manipulate logging module for our module
+    # x logging module + log file, beware only import/manipulate logging module for our module
+    #   change logging to load config from file -> here take care not to overwrite existing loggers
     # use python 3.5 for development
     # test suite to check min dependencies through to latest
 
@@ -2091,22 +2101,38 @@ def wrapper(data, dt, dtunit, savetofolder, fitfunctions, methodslopes, numboots
 
     pass
 
+def set_targetdir(fname):
 
-def main():
-    _targetdir = '{}/mre_output/'.format(os.getcwd())
+    log.info('Setting target directory to %s, log file might change',
+        os.path.abspath(os.path.expanduser(fname)))
+
+    global _targetdir
+    _targetdir = os.path.abspath(os.path.expanduser(fname))+'/'
     try:
-        os.mkdir(_targetdir)
+        os.makedirs(_targetdir, exist_ok=True)
     except FileExistsError:
         pass
+
+    for hdlr in log.handlers[:]:  # remove the existing file handlers
+        if isinstance(hdlr, logging.FileHandler):
+            hdlr.close()
+            hdlr.baseFilename = os.path.abspath(_targetdir+'mre.log')
+
+    log.info('Target directory set to %s', _targetdir)
+
+
+def main():
+    set_targetdir('{}/mre_output/'.format(
+        '/tmp' if platform.system() == 'Darwin' else tempfile.gettempdir()))
 
     # set default level to debug so we catch everything
     log.setLevel(logging.DEBUG)
     # create file handler which logs even debug messages
-    fh = logging.FileHandler(_targetdir+'mre.log', 'w')
+    fh = logging.FileHandler(_targetdir+'mre.log', 'a')
     fh.setLevel(logging.DEBUG)
     # create console handler with a higher log level
     ch = logging.StreamHandler()
-    ch.setLevel(logging.WARNING)
+    ch.setLevel(logging.DEBUG)
     # create formatter and add it to the handlers
     formatter = logging.Formatter('%(levelname)8s: %(message)s')
     ch.setFormatter(formatter)
@@ -2115,6 +2141,7 @@ def main():
     log.addHandler(ch)
     log.addHandler(fh)
 
-    log.info('Target directory set to %s', _targetdir)
+    log.info('Loaded mrestimator, writing to %s', _targetdir)
+    ch.setLevel(logging.WARNING)
 
 main()
