@@ -445,6 +445,16 @@ class CoefficientResult(namedtuple('CoefficientResult',
                 trialacts, samples,
                 desc)
 
+    def __repr__(self):
+        return '<%s.%s object at %s>' % (
+        self.__class__.__module__,
+        self.__class__.__name__,
+        hex(id(self))
+    )
+
+    def __eq__(self, other):
+        return self is other
+
 def coefficients(
     data,
     steps=None,
@@ -927,6 +937,16 @@ class FitResult(namedtuple('FitResult',
                 popt, pcov, ssres,
                 steps, dt, dtunit,
                 desc)
+
+    def __repr__(self):
+        return '<%s.%s object at %s>' % (
+        self.__class__.__module__,
+        self.__class__.__name__,
+        hex(id(self))
+    )
+
+    def __eq__(self, other):
+        return self is other
 
 def fit(
     data,
@@ -1593,7 +1613,6 @@ class OutputHandler:
                 mout.add_coefficients(rk, color='C1', label='test')
             ..
         """
-        # the description supplied here only affects the plot legend
         if not isinstance(data, CoefficientResult):
             raise ValueError
         if not (self.type is None or self.type == 'correlation'):
@@ -1646,7 +1665,7 @@ class OutputHandler:
         if data in self.rks:
             indrk = self.rks.index(data)
             print('Warning: coefficients ({}/{}) ' \
-                .format(self.rklabels[indrk],label) +
+                .format(self.rklabels[indrk][0],label) +
                 'have already been added.\nOverwriting with new style')
             del self.rks[indrk]
             del self.rklabels[indrk]
