@@ -2049,5 +2049,20 @@ def _printeger(f, maxprec=5):
     return str('{:.{p}f}'.format(f, p=prec))
 
 
+# ------------------------------------------------------------------ #
+# Wrapper function
+# ------------------------------------------------------------------ #
+
+def wrapper(data, dt, dtunit, savetofolder, fitfunctions, methodslopes, numboots, substracttrialaverage):
+
+    # coefficients bs for ts, too
+    # logging module + log file, beware only import/manipulate logging module for our module
+    # function call parameters as dict in result of wrapper, coefficients and fit
+    # replace member samples with bootsamples and trials
+    # just do the bootstrapping for coefficients and make bs of fit optional (fitting takes ages)
+    # fit use numboots from wrapper, if none only do bs for ceoffs
+    # results file mit function pars of all called steps
+
+    pass
 
 
