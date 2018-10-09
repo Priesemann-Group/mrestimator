@@ -1842,7 +1842,7 @@ class OutputHandler:
         kwargs = dict(kwargs, label=label)
 
         # update plot
-        p, = self.ax.plot(fit.steps*fit.dt,
+        p, = self.ax.plot(fit.steps*fit.dt/self.dt,
             fit.fitfunc(fit.steps*fit.dt, *fit.popt), **kwargs)
         self.fitcurves[indfit].append(p)
         if fit.steps[0] > self.xdata[0] or fit.steps[-1] < self.xdata[-1]:
@@ -1850,7 +1850,7 @@ class OutputHandler:
             if 'linestyle' not in kwargs and 'ls' not in kwargs:
                 kwargs.pop('label')
                 kwargs = dict(kwargs, ls='dashed', color=p.get_color())
-                d, = self.ax.plot(self.xdata*self.dt,
+                d, = self.ax.plot(self.xdata,
                     fit.fitfunc(self.xdata*self.dt, *fit.popt),
                     **kwargs)
                 self.fitcurves[indfit].append(d)
