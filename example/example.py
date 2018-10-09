@@ -1,9 +1,7 @@
 import os
 import matplotlib
 import numpy as np
-matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
-plt.ion()
 
 # import mre last to use specified pyplot backend
 import mrestimator as mre
@@ -45,6 +43,24 @@ avgful = np.mean(srcful, axis=0)
 avgsub = np.mean(srcsub, axis=0)
 
 # ------------------------------------------------------------------ #
+# use the wrapper function to do all needed steps in the right order
+# ------------------------------------------------------------------ #
+
+# this function will change in the next weeks until we decide on a
+# final interface
+# here called with all required(!) arguments
+auto = mre.full_analysis(
+    data='./data/sub_*.tsv',
+    targetdir='./output',
+    title='Full Analysis',
+    dt=4, dtunit='ms',
+    tmin=0, tmax=8000,
+    fitfunctions=['exp', 'exp_offs', 'complex'],
+    )
+
+plt.show()
+
+# ------------------------------------------------------------------ #
 # plotting time series
 # ------------------------------------------------------------------ #
 
@@ -67,6 +83,8 @@ oful.add_ts(avgsub, ls='dashed', color='C1', label='average (subs.)')
 # add the drive
 oful.add_ts(srcdrv, color='C2', label='drive')
 
+plt.show()
+
 # ------------------------------------------------------------------ #
 # analyzing
 # ------------------------------------------------------------------ #
@@ -76,7 +94,7 @@ rkdefault = mre.coefficients(srcful)
 
 # specify the range of time steps (from, to) for which coefficients are wanted
 # also, set the unit and the number of time steps per bin e.g. 4ms per k:
-rk = mre.coefficients(srcsub, steps=(1, 5000), dt=4, dtunit='ms')
+rk = mre.coefficients(srcsub, steps=(1, 5000), dt=4, dtunit='ms', desc='mydat')
 
 # fit with defaults: exponential over the full range of rk
 m = mre.fit(rk)
@@ -84,12 +102,14 @@ m = mre.fit(rk)
 # specify a custom fit range and fitfunction.
 m2 = mre.fit(rk, steps=np.arange(1, 3000), fitfunc='offset')
 
-ores = mre.OutputHandler([rk, m, m2])
-ores.add_coefficients(mre.coefficients(srcful, steps=np.arange(1,6000,100)))
+# Plot with a new handler
+# Note the different time scales
+# The description provided to mre.coefficients is automatically used for
+# subsequent steps and becomes the axis label
+ores = mre.OutputHandler([rkdefault, rk, m, m2])
 
-ores.save('./output/result')
-
-
+# save the plot and its meta data
+ores.save('./output/custom')
 
 plt.show()
 

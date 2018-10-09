@@ -7,4 +7,4 @@ MR Estimation
     fitfunctions
 
 .. automodule:: mrestimator
-   :members: coefficients, CoefficientResult, fit, FitResult
+   :members: full_analysis, coefficients, CoefficientResult, fit, FitResult

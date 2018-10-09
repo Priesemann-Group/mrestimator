@@ -48,7 +48,8 @@ extensions = [
     # 'numpydoc',
     'sphinx.ext.intersphinx',
     'sphinx.ext.viewcode',
-    'm2r'
+    'm2r',
+    # 'sphinx_autorun'
 ]
 
 

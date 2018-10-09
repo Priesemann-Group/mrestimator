@@ -464,7 +464,7 @@ def coefficients(
     data,
     steps=None,
     dt=1, dtunit='ms',
-    method='trialseparated',
+    method=None,
     numboot=100,
     seed=3141,
     desc=''):
@@ -536,6 +536,8 @@ def coefficients(
     # Check arguments to offer some more convenience
     # ------------------------------------------------------------------ #
 
+    if method is None:
+        method = 'ts'
     if method not in ['trialseparated', 'ts', 'stationarymean', 'sm']:
         raise NotImplementedError('Unknown method: "{}"'.format(method))
     if method == 'ts':
@@ -835,18 +837,19 @@ def math_from_doc(fitfunc, maxlen=np.inf):
     res = res.replace(':math:', '')
     res = res.replace('`', '$')
     if len(res) > maxlen:
-        # res = fitfunc.__name__
         term = res.find(" + ", 0, len(res))
         res = res[:term+2]+' ...$'
-        # terms = []
-        # beg=0
-        # while beg != -1:
-        #     beg = res.find(" + ", beg+1, len(res))
-        #     if (beg != 0) and (beg != -1):
-        #         terms.append(beg)
 
-    # if len(res) > maxlen:
-    #     res = res[:maxlen-3]+'...'
+    if len(res) > maxlen:
+        if fitfunc == f_complex:
+            res = 'Complex'
+        elif fitfunc == f_exponential_offset:
+            res = 'Exp+Offset'
+        elif fitfunc == f_exponential:
+            res = 'Exponential'
+        else:
+            res = fitfunc.__name__
+
     return res
 
 # ------------------------------------------------------------------ #
@@ -1258,6 +1261,8 @@ def fit(
             .format(steps[0]*dt, dtunit, steps[-1]*dt, dtunit,
                 fulres.tau, dtunit) +
             '\t\tConsider fitting with a larger \'maxstep\'')
+
+    # add check for amplitudes A>B, A>C, A>O
 
     if fulres.tau <= 0.01*(steps[-1]*dt) or fulres.tau <= steps[0]*dt:
         print('\tWarning: The obtained autocorrelationtime is small compared '+
@@ -1795,7 +1800,7 @@ class OutputHandler:
                 label = str(label)
         else:
             # user has not set anything, copy from desc if set
-            label = math_from_doc(data.fitfunc)
+            label = 'Fit '+math_from_doc(data.fitfunc, 0)
             if desc != '':
                 label = desc + ' ' + label
 
@@ -1911,7 +1916,7 @@ class OutputHandler:
         for idx, dat in enumerate(data):
             if self.xdata is None:
                 self.set_xdata(np.arange(1, data.shape[1]+1))
-                self.xlabel = 'steps'
+                self.xlabel = 'timesteps'
                 self.ax.set_xlabel('t')
                 self.ax.set_ylabel('$A_{t}$')
                 self.ax.set_title('Time Series')
@@ -2077,43 +2082,223 @@ def _printeger(f, maxprec=5):
 # Wrapper function
 # ------------------------------------------------------------------ #
 
-def wrapper(
+# x logging module + log file, beware only import/manipulate logging module for our module
+#   change logging to load config from file -> here take care not to overwrite existing loggers
+# use python 3.5 for development
+# test suite to check min dependencies through to latest
+# import modules into _variables? No: check what numpy does via __all__
+# check that input_handler is fast when getting data in the right format
+# log add date
+
+
+# 0. plot
+# 1. replace member samples with bootsamples and trials
+#    function call parameters as dict in result of wrapper, coefficients and fit
+# 2. coefficients(): bootstra for ts method, too
+# 3. just do the bootstrapping for coefficients and make bs of fit optional (fitting takes ages)
+#    fit use numboots from wrapper, if none only do bs for ceoffs
+# 5. results file mit function pars of all called steps
+
+def full_analysis(
     data,
-    dt, dtunit,
-    fname,
+    targetdir,                      # function output into target dir, naming ?
+    title,                          # plot title and file name, beare this overwrites
+    dt,
+    dtunit,
     fitfunctions,
-    coefficientmethods,
-    numboots,
-    substracttrialaverage):
+    tmin=None,
+    tmax=None,
+    coefficientmethod=None,       # only accept one ?!?! optional?
+    substracttrialaverage=False,      # optional? default=? mre treff
+    numboot=0,                       # optional, default 0
+    loglevel='INFO',                   # optional
+    steps=None,                      # dt conversion? optional? tmin/tmax?
+    targetplot=None,
+    ):
+    # For now, I think we should type check the arguments for the wrapper
+    # function. This avoids users running into scenarios we have not tested yet
+    # lieber pingelig als flexibel und buggy
 
-    # x logging module + log file, beware only import/manipulate logging module for our module
-    #   change logging to load config from file -> here take care not to overwrite existing loggers
-    # use python 3.5 for development
-    # test suite to check min dependencies through to latest
+    # ------------------------------------------------------------------ #
+    # check arguments
+    # ------------------------------------------------------------------ #
 
-    # 0. plot
-    # 1. replace member samples with bootsamples and trials
-    #    function call parameters as dict in result of wrapper, coefficients and fit
-    # 2. coefficients(): bootstra for ts method, too
-    # 3. just do the bootstrapping for coefficients and make bs of fit optional (fitting takes ages)
-    #    fit use numboots from wrapper, if none only do bs for ceoffs
-    # 5. results file mit function pars of all called steps
+    if isinstance(targetdir, str):
+        targetdir += '/'
+        td=os.path.abspath(os.path.expanduser(targetdir))
+        os.makedirs(td, exist_ok=True)
+    else:
+        log.error("Argument 'targetdir' needs to be of type 'str'")
+        raise TypeError
+    if not isinstance(title, str):
+        log.error("Argument 'title' needs to be of type 'str'")
+        raise TypeError
 
-    pass
+    # setup log early so argument errors appear in the logfile
+    if not loglevel.upper() in ['ERROR', 'WARNING', 'INFO', 'DEBUG']:
+        loglevel = 'INFO'
+    loghandler = logging.FileHandler(targetdir+title+'.log', 'w')
+    loghandler.setLevel(logging.getLevelName(loglevel))
+    loghandler.setFormatter(logging.Formatter(
+        '%(asctime)s %(levelname)8s: %(message)s', "%Y-%m-%d %H:%M:%S"))
+    log.addHandler(loghandler)
+
+    # todo: add arguments to log
+    log.info("full_analysis()")
+
+    try:
+        dt = float(dt)
+        assert(dt>0)
+    except Exception as e:
+        log.error("Argument 'dt' needs to be a float > 0")
+        raise
+    if not isinstance(dtunit, str):
+        log.error("Argument 'dtunit' needs to be of type 'str'")
+        raise TypeError
+
+    if steps is None:
+        try:
+            tmin=float(tmin)
+            tmax=float(tmax)
+            assert(tmin>=0 and tmax>tmin)
+        except Exception as e:
+            log.error("Required arguments: 'tmax' and 'tmin' " +
+                "need to be floats with 'tmax' > 'tmin' >= 0")
+            raise
+        steps = (int(tmin/dt), int(tmax/dt))
+    else:
+        log.info("Argument 'steps' was provided, ignoring 'tmin' and 'tmax'")
+
+    if fitfunctions is None:
+        log.error("Missing required argument 'fitfunctions'")
+        raise TypeError
+    elif not isinstance(fitfunctions, list):
+        log.error("Argument 'fitfunctions' needs to be a list e.g. " +
+            "['exponential', 'exponential_offset']")
+        raise TypeError
+
+    try:
+        numboot = int(numboot)
+        assert(numboot >= 0)
+    except Exception as e:
+        log.error("Optional argument 'numboot' needs to be an int >= 0")
+        raise
+
+    if coefficientmethod is not None and coefficientmethod not in [
+    'trialseparated', 'ts', 'stationarymean', 'sm']:
+        log.error("Optional argument 'coefficientmethod' needs " +
+            "to be either 'trialseparated' or 'stationarymean'")
+        raise TypeError
+
+    if targetplot is not None \
+    and not isinstance(targetplot, matplotlib.axes.Axes):
+        log.error("Optional argument 'targetplot' needs " +
+            "to an instance of 'matplotlib.axes.Axes'")
+        raise TypeError
+
+    # ------------------------------------------------------------------ #
+    # Continue with trusted arguments
+    # ------------------------------------------------------------------ #
+
+    src = input_handler(data)
+
+    # if targetdir is not None:
+        # set_targetdir(targetdir)
+
+    if substracttrialaverage:
+        src -= np.mean(src, axis=0)
+
+    rks = []
+    # dont like this. only advantage of giving multiple methods is that
+    # data does not need to go through input handler twice.
+    for c in [coefficientmethod]:
+        rks.append(coefficients(
+            src, steps, dt, dtunit, method=c, numboot=numboot))
+
+    fits = []
+    for f in fitfunctions:
+        for rk in rks:
+            fits.append(fit(rk, f, steps))
+
+    ratios = np.ones(4)*.75
+    ratios[3] = 0.25
+    fig, axes = plt.subplots(nrows=4, figsize=(6, 8),
+        constrained_layout=True,
+        gridspec_kw={"height_ratios":ratios})
+
+    tsout = OutputHandler(ax=axes[0])
+    tsout.add_ts(src, label='Trials')
+    tsout.add_ts(np.mean(src, axis=0), color='C0', label='Average')
+    tsout.ax.set_title('Time Series (Input Data)')
+
+    taout = OutputHandler(rks[0].trialacts, ax=axes[1])
+    taout.ax.set_title('Mean Trial Activity')
+    taout.ax.set_xlabel('Trial i')
+    taout.ax.set_ylabel('$\\bar{A}_i$')
+
+    cout = OutputHandler(rks+fits, ax=axes[2])
+
+    # get some visiual results
+    fitcurves = []
+    fitlabels = []
+    # fitm = []
+    # fittau = []
+    for i, f in enumerate(cout.fits):
+        fitcurves.append(cout.fitcurves[i][0])
+        label = '\n'
+        # label = cout.fitlabels[i]
+        label = math_from_doc(f.fitfunc, 5)
+        label += '\n$\\tau={:.2f}${}\n$m={:.5f}$'.format(
+            f.tau, f.dtunit, f.mre)
+        fitlabels.append(label)
+
+
+    axes[3].legend(fitcurves, fitlabels,
+        # title='Fitresults',
+        ncol=len(fitlabels),
+        loc='upper center',
+        mode='expand',
+        frameon=True,
+        markerfirst=True,
+        fancybox=False,
+        # framealpha=1,
+        borderaxespad=0,
+        edgecolor='black',
+        )
+    axes[3].get_legend().get_frame().set_linewidth(0.5)
+    axes[3].axis('off')
+    axes[3].set_title('Fitresults')
+    for a in axes:
+        a.xaxis.set_tick_params(width=0.5)
+        a.yaxis.set_tick_params(width=0.5)
+        for s in a.spines:
+            a.spines[s].set_linewidth(0.5)
+
+    # fig.tight_layout()
+    if (title is not None and title != ''):
+        fig.suptitle(title+'\n', fontsize=14)
+    else:
+        title = 'Results_auto'
+
+    cout.save(targetdir+title)
+
+    # return a handler only containing the result
+    res = OutputHandler(rks+fits, ax=targetplot)
+    log.info("full_analysis() done")
+    return res
+
+
+
 
 def set_targetdir(fname):
-
-    log.info('Setting target directory to %s, log file might change',
+    log.info('Setting global target directory to %s, log file might change',
         os.path.abspath(os.path.expanduser(fname)))
 
     global _targetdir
     _targetdir = os.path.abspath(os.path.expanduser(fname))+'/'
-    try:
-        os.makedirs(_targetdir, exist_ok=True)
-    except FileExistsError:
-        pass
+    os.makedirs(_targetdir, exist_ok=True)
 
-    for hdlr in log.handlers[:]:  # remove the existing file handlers
+    for hdlr in log.handlers[:]:
         if isinstance(hdlr, logging.FileHandler):
             hdlr.close()
             hdlr.baseFilename = os.path.abspath(_targetdir+'mre.log')
@@ -2125,20 +2310,21 @@ def main():
     set_targetdir('{}/mre_output/'.format(
         '/tmp' if platform.system() == 'Darwin' else tempfile.gettempdir()))
 
-    # set default level to debug so we catch everything
+
     log.setLevel(logging.DEBUG)
-    # create file handler which logs even debug messages
-    fh = logging.FileHandler(_targetdir+'mre.log', 'a')
-    fh.setLevel(logging.DEBUG)
+
     # create console handler with a higher log level
     ch = logging.StreamHandler()
     ch.setLevel(logging.DEBUG)
-    # create formatter and add it to the handlers
-    formatter = logging.Formatter('%(levelname)8s: %(message)s')
-    ch.setFormatter(formatter)
-    fh.setFormatter(formatter)
-    # add the handlers to logger
+    ch.setFormatter(logging.Formatter(
+        '%(levelname)-8s %(message)s'))
     log.addHandler(ch)
+
+    # create file handler which logs even debug messages
+    fh = logging.FileHandler(_targetdir+'mre.log', 'w')
+    fh.setLevel(logging.DEBUG)
+    fh.setFormatter(logging.Formatter(
+        '%(asctime)s %(levelname)8s: %(message)s', "%Y-%m-%d %H:%M:%S"))
     log.addHandler(fh)
 
     log.info('Loaded mrestimator, writing to %s', _targetdir)
