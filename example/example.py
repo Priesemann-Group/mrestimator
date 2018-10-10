@@ -1,9 +1,8 @@
 import os
-import matplotlib
 import numpy as np
 import matplotlib.pyplot as plt
 
-# import mre last to use specified pyplot backend
+# import mre last to use (possibly) specified pyplot backend
 import mrestimator as mre
 
 # ------------------------------------------------------------------ #
@@ -14,18 +13,17 @@ import mrestimator as mre
 os.chdir(os.path.dirname(__file__))
 
 # create an output directory to save results
-try:
-    os.mkdir('./output')
-except FileExistsError:
-    pass
+os.makedirs('./output', exist_ok=True)
 
 filepath = './data/full.tsv'
 
 # import all columns of the file, each column is a trial
 srcful = mre.input_handler(filepath)
+print('srcful has shape: ', srcful.shape)
 
 # import selected columns of a file, here the second column
 srcdrv = mre.input_handler('./data/drive.tsv', usecols=1)
+print('drive has shape: ', srcdrv.shape)
 
 # or pass a list of files to import, every column of each file becomes a trial
 filelist = [
@@ -33,9 +31,11 @@ filelist = [
     './data/sub_02.tsv',
     './data/sub_03.tsv']
 srcsub = mre.input_handler(filelist)
+print('imported trials from list: ', srcsub.shape[0])
 
 # alternatively, you can use a wildcard to match the file pattern
 srcsub = mre.input_handler('./data/sub_*.tsv')
+print('imported trials from wildcard: ', srcsub.shape[0])
 
 # use np.mean along axis 0 to get the average activity across all trials
 # of the trial structure
@@ -91,6 +91,8 @@ plt.show()
 
 # correlation coefficients with default settings, assumes 1ms time bins
 rkdefault = mre.coefficients(srcful)
+print(rkdefault)
+print('this guy has the following attributes: ', rkdefault._fields)
 
 # specify the range of time steps (from, to) for which coefficients are wanted
 # also, set the unit and the number of time steps per bin e.g. 4ms per k:
@@ -100,13 +102,19 @@ rk = mre.coefficients(srcsub, steps=(1, 5000), dt=4, dtunit='ms', desc='mydat')
 m = mre.fit(rk)
 
 # specify a custom fit range and fitfunction.
-m2 = mre.fit(rk, steps=np.arange(1, 3000), fitfunc='offset')
+m2 = mre.fit(rk, steps=(1, 3000), fitfunc='offset')
+# you could also provide an np array containing all the steps you want to
+# use, e.g. with strides other than one
+# m2 = mre.fit(rk, steps=np.arange(1, 3000, 100), fitfunc='offset')
 
-# Plot with a new handler
+# Plot with a new handler, you can provide multiple things to add
+ores = mre.OutputHandler([rkdefault, m])
+# or add them individually, later
+ores.add_coefficients(rk)
+ores.add_fit(m2)
 # Note the different time scales
 # The description provided to mre.coefficients is automatically used for
 # subsequent steps and becomes the axis label
-ores = mre.OutputHandler([rkdefault, rk, m, m2])
 
 # save the plot and its meta data
 ores.save('./output/custom')

@@ -20,13 +20,13 @@ sys.path.insert(0, os.path.abspath('../'))
 # -- Project information -----------------------------------------------------
 
 project = 'Mr. Estimator'
-copyright = '2018, Paul Spitzner, Jonas Dehning, Jens Wilting, Viola Priesemann'
-author = 'Paul Spitzner, Jonas Dehning, Jens Wilting, Viola Priesemann'
+copyright = '2018, Paul Spitzner, Jonas Dehning, Annika Hagemann, Jens Wilting, Viola Priesemann'
+author = 'Paul Spitzner, Jonas Dehning, Annika Hagemann, Jens Wilting, Viola Priesemann'
 
 # The short X.Y version
-version = '0.0.3'
+version = '0.1.0'
 # The full version, including alpha/beta/rc tags
-release = '0.0.3'
+release = '0.1.0'
 
 
 # -- General configuration ---------------------------------------------------

@@ -1,11 +1,6 @@
 import os
-import matplotlib
 import numpy as np
-matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
-plt.ion()
-
-# import mre last to use specified pyplot backend
 import mrestimator as mre
 
 # set  working directory to use relative paths
@@ -18,8 +13,8 @@ except FileExistsError:
 h = np.ones(10000)
 h[int(len(h)/3):int(len(h)/3+10)] += 100
 h*=2
-foo = mre.simulate_branching(m=0.995, h=h, numtrials=10)
-sub = mre.simulate_subsampling(foo, prob=0.1)
+foo = mre.simulate_branching(m=0.995, h=h, numtrials=10, seed=314)
+sub = mre.simulate_subsampling(foo, prob=0.1, seed=271)
 
 h = np.vstack((np.arange(0, len(h)), h))
 

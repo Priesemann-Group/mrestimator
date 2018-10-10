@@ -1,7 +1,7 @@
 Changelog
 =========
 
-`0.0.4 <https://pypi.org/project/mrestimator/0.0.4>`_ (2018_10_05)
+`0.1.0 <https://pypi.org/project/mrestimator/0.1.0>`_ (2018_10_05)
 ------------------------------------------------------------------
 
 * Changed: OutputHandlers set_xdata() now adjusts existing data and is slightly smarter. Now returns an array containing the indices where the x axis value is right for the provided data (wrt the existing context). See the example in the documentation.
@@ -9,8 +9,10 @@ Changelog
 * Changed: The parameters of `simulate_branching()` are different. `activity` is now `a`, `m` is no longer optional and it is possible to set a (time dependent) drive using `h`.
 * Fixed: Calling `fit()` with only one trial does not crash anymore due to missing uncertainties
 * Fixed: Calling `fit()` without specifying `steps` now uses the range used in `coefficients()`.
-* New: `simulate_subsampling()`
-* New: Whenn adding time series to the `OutputHandler` in trial structure with more than one trial via `add_ts()`, they are drawn slightly transparent by default. Setting `alpha` overwrites this.
+* New: added `full_analysis()`, the wrapper function to chain individual tasks together.
+* New: added `simulate_subsampling()`
+* New: Whenn adding time series to the `OutputHandler` in trial structure with more than one trial via `add_ts()`, they are drawn slightly transparent by default. Setting `alpha` overwrites this. `add_ts` does not use the new `set_xdata()` yet.
+* New: Versionbump so we have the last digit for bugfixes :)
 * New: Mr. Estimator came up with his logo.
 
 

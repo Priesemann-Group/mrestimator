@@ -1,3 +1,6 @@
+.. _fitfunctions_label:
+
+
 Fitfunctions
 ============
 
@@ -28,7 +31,7 @@ The builtin fitfunctions all follow this form:
         print(mre.f_exponential(1, 1, 1))
 
         # test data
-        rk = mre.correlation_coefficients(mre.simulate_branching(numtrials=3))
+        rk = mre.coefficients(mre.simulate_branching(m=0.9, h=10, numtrials=10))
 
         # pass builtin function to fit
         f = mre.f_exponential_offset

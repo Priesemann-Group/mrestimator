@@ -279,6 +279,7 @@ def simulate_branching(
         else:
             length = h.size
 
+    np.random.seed(seed)
     print('Generating branching process:')
 
     if h[0] == 0 and a != 0:
@@ -311,7 +312,7 @@ def simulate_branching(
             pass
     return A_t
 
-def simulate_subsampling(data=None, prob=0.1):
+def simulate_subsampling(data, prob=0.1, seed=None):
     """
         Apply binomial subsampling.
 
@@ -320,18 +321,19 @@ def simulate_subsampling(data=None, prob=0.1):
         data : ~numpy.ndarray
             Data (in trial structre) to subsample. Note that `data` will be
             cast to integers. For instance, if your activity is normalised
-            consider multiplying with a constant. If `data` is not provided,
-            `simulate_branching()` is used with default parameters.
+            consider multiplying with a constant.
 
         prob : float
             Subsample to probability `prob`. Default is 0.1.
+
+        seed : int, optional
+            Initialise the random number generator with a seed. Per default it
+            is seeded randomly (hence each call to `simulate_branching()`
+            returns different results).
     """
     if prob <= 0 or prob > 1:
         raise ValueError(
             '\nSubsampling probability should be between 0 and 1\n')
-
-    if data is None:
-        data = simulate_branching()
 
     data = np.asarray(data)
     if len(data.shape) != 2:
@@ -341,7 +343,7 @@ def simulate_subsampling(data=None, prob=0.1):
     # a_t = np.empty_like(data)
 
     # binomial subsampling
-    return scipy.stats.binom.rvs(data.astype(int), prob)
+    return scipy.stats.binom.rvs(data.astype(int), prob, random_state=seed)
 
 # ------------------------------------------------------------------ #
 # Coefficients
@@ -2082,45 +2084,153 @@ def _printeger(f, maxprec=5):
 # Wrapper function
 # ------------------------------------------------------------------ #
 
-# x logging module + log file, beware only import/manipulate logging module for our module
-#   change logging to load config from file -> here take care not to overwrite existing loggers
-# use python 3.5 for development
-# test suite to check min dependencies through to latest
-# import modules into _variables? No: check what numpy does via __all__
-# check that input_handler is fast when getting data in the right format
-# log add date
-
-
-# 0. plot
-# 1. replace member samples with bootsamples and trials
-#    function call parameters as dict in result of wrapper, coefficients and fit
-# 2. coefficients(): bootstra for ts method, too
-# 3. just do the bootstrapping for coefficients and make bs of fit optional (fitting takes ages)
-#    fit use numboots from wrapper, if none only do bs for ceoffs
-# 5. results file mit function pars of all called steps
 
 def full_analysis(
     data,
-    targetdir,                      # function output into target dir, naming ?
-    title,                          # plot title and file name, beare this overwrites
+    targetdir,                      # function output into target dir? optional
+    title,                          # this overwrites, makes sense
     dt,
     dtunit,
     fitfunctions,
-    tmin=None,
+    tmin=None,                      # include somehow into 'missing' req. arg
     tmax=None,
-    coefficientmethod=None,       # only accept one ?!?! optional?
-    substracttrialaverage=False,      # optional? default=? mre treff
-    numboot=0,                       # optional, default 0
-    loglevel='INFO',                   # optional
-    steps=None,                      # dt conversion? optional? tmin/tmax?
+    coefficientmethod=None,
+    substracttrialaverage=False,    # optional. default=? mre treff
+    numboot=0,                      # optional. default 0
+    loglevel='INFO',                # optional. file and/or console? elsewhere!
+    steps=None,                     # dt conversion? optional replace tmin/tmax
     targetplot=None,
     ):
-    # For now, I think we should type check the arguments for the wrapper
-    # function. This avoids users running into scenarios we have not tested yet
-    # lieber pingelig als flexibel und buggy
+    """
+        Wrapper function that performs the following four steps:
+
+        - check `data` with `input_handler()`
+        - calculate correlation coefficients via `coefficients()`
+        - fit autocorrelation function with `fit()`
+        - export/plot using the `OutputHandler`
+
+        Usually it should suffice to tweak the arguments and call the
+        wrapper function (multiple times).
+        Calling the underlying functions individually
+        gives slightly more control, though.
+
+        Parameters
+        ----------
+
+        data: str, list or numpy.ndarray
+            Passed to `input_handler()`. Ideally, import and check data first.
+            A `string` is assumed to be the path
+            to file(s) that is then imported as pickle or plain text.
+            Alternatively, you can provide a `list` or `ndarray` containing
+            strings or already imported data. In the latter case,
+            `input_handler()` attempts to convert it to the right format.
+
+        targetdir: str
+            String containing the path to the target directory where files
+            are saved with the filename `title`
+
+        title: str
+            String for the filenames. Also sets the main title of the
+            results figure.
+
+        dt: float
+            How many `dtunits` separate the measurements of the provided data.
+            For example, if measurements are taken every 4ms:
+            `dt=4`, `dtunit=\'ms\'`.
+
+        dtunit: str
+            Unit description/name of the time steps of the provided data.
+
+        tmin: float
+            Smallest time separation to use for coefficients, in units of
+            `dtunit`.
+
+        tmax: float
+            Maximum time separation to use for coefficients.
+            For example, to fit the autocorrelation between 8ms and
+            2s set: `tmin=8`, `tmax=2000`, `dtunit=\'ms\'`
+            (independent of `dt`).
+
+        coefficientmethod: str, optional
+            `ts` or `sm`, method used for determining the correlation
+            coefficients. See the :func:`coefficients` function for details.
+            Default is `ts`.
+
+        substracttrialaverage: bool, optional
+            Substract the average across all trials before calculating
+            correlation coefficients.
+            Default is `False`.
+
+        numboot: int, optional
+            Number of bootstrap samples to draw.
+            This repeats every fit `numboot` times so that we can
+            provide an uncertainty estimate of the resulting branching
+            parameter and autocorrelation time.
+            Per default, bootstrapping is only applied in
+            `coefficeints()` as most of computing time is needed for the
+            fitting. Thereby we have uncertainties on the :math:`r_k`
+            (which helps the fitting routine) but each fit is only
+            done once.
+            Default is `numboot=0`.
+            *not implemented yet*
+
+        loglevel: str
+            The loglevel to use for the logfile that will be created
+            in as `title.log` in the `targetdir`.
+            ERROR', 'WARNING', 'INFO' or 'DEBUG'.
+            Default is 'INFO'.
+
+        steps : ~numpy.array, optional
+            Overwrites `tmin` and `tmax`.
+            Specify the fitrange in steps :math:`k` for which to compute
+            coefficients :math:`r_k`.
+            Note that :math:`k` provided here would need
+            to be multiplied with units of [`dt` * `dtunit`] to convert
+            back to (real) time.
+            If an array of length two is provided, e.g.
+            ``steps=(minstep, maxstep)``, all enclosed integer values will be
+            used.
+            Arrays larger than two are assumed to contain a manual choice of
+            steps. Strides other than one are possible.
+            Default is `None`.
+
+        targetplot: `matplotlib.axes.Axes`, optional
+            You can provide a matplotlib axes element (i.e. a subplot of an
+            existing figure) to plot the correlations into.
+            The axis will be passed to the `OutputHandler`
+            and all plotting will happen within that axes.
+            Per default, a new figure is created - that cannot be added
+            as a subplot to any other figure later on. This is due to
+            the way matplotlib handles subplots.
+
+        Returns: OutputHandler
+            Returns an instance of `OutputHandler` that is associated
+            with the correlation plot, fits and coefficients.
+            Also saves meta data and plotted pdfs to `targetdir`.
+
+        Example
+        -------
+
+        .. code-block:: python
+
+            # test data, subsampled branching process
+            bp = mre.simulate_branching(m=0.95, h=10, subp=0.1, numtrials=10)
+
+            mre.full_analysis(
+                data=bp,
+                targetdir='./output',
+                title='Branching Process',
+                dt=1, dtunit='step',
+                tmin=0, tmax=1500,
+                fitfunctions=['exp', 'exp_offs', 'complex'],
+                )
+
+            plt.show()
+        ..
+    """
 
     # ------------------------------------------------------------------ #
-    # check arguments
+    # check arguments: rather strictly until we tested more cases
     # ------------------------------------------------------------------ #
 
     if isinstance(targetdir, str):
@@ -2143,7 +2253,6 @@ def full_analysis(
         '%(asctime)s %(levelname)8s: %(message)s', "%Y-%m-%d %H:%M:%S"))
     log.addHandler(loghandler)
 
-    # todo: add arguments to log
     log.info("full_analysis()")
 
     try:
@@ -2230,6 +2339,7 @@ def full_analysis(
     tsout.add_ts(src, label='Trials')
     tsout.add_ts(np.mean(src, axis=0), color='C0', label='Average')
     tsout.ax.set_title('Time Series (Input Data)')
+    tsout.ax.set_xlabel('t [{}{}]'.format(_printeger(dt), dtunit))
 
     taout = OutputHandler(rks[0].trialacts, ax=axes[1])
     taout.ax.set_title('Mean Trial Activity')
@@ -2329,5 +2439,6 @@ def main():
 
     log.info('Loaded mrestimator, writing to %s', _targetdir)
     ch.setLevel(logging.WARNING)
+
 
 main()
