@@ -2249,7 +2249,7 @@ def full_analysis(
         loglevel = 'INFO'
     loghandler = logging.FileHandler(targetdir+title+'.log', 'w')
     loghandler.setLevel(logging.getLevelName(loglevel))
-    loghandler.setFormatter(logging.Formatter(
+    loghandler.setFormatter(CustomExceptionFormatter(
         '%(asctime)s %(levelname)8s: %(message)s', "%Y-%m-%d %H:%M:%S"))
     log.addHandler(loghandler)
 
@@ -2259,10 +2259,10 @@ def full_analysis(
         dt = float(dt)
         assert(dt>0)
     except Exception as e:
-        log.error("Argument 'dt' needs to be a float > 0")
+        log.exception("Argument 'dt' needs to be a float > 0")
         raise
     if not isinstance(dtunit, str):
-        log.error("Argument 'dtunit' needs to be of type 'str'")
+        log.exception("Argument 'dtunit' needs to be of type 'str'")
         raise TypeError
 
     if steps is None:
@@ -2271,7 +2271,7 @@ def full_analysis(
             tmax=float(tmax)
             assert(tmin>=0 and tmax>tmin)
         except Exception as e:
-            log.error("Required arguments: 'tmax' and 'tmin' " +
+            log.exception("Required arguments: 'tmax' and 'tmin' " +
                 "need to be floats with 'tmax' > 'tmin' >= 0")
             raise
         steps = (int(tmin/dt), int(tmax/dt))
@@ -2279,10 +2279,10 @@ def full_analysis(
         log.info("Argument 'steps' was provided, ignoring 'tmin' and 'tmax'")
 
     if fitfunctions is None:
-        log.error("Missing required argument 'fitfunctions'")
+        log.exception("Missing required argument 'fitfunctions'")
         raise TypeError
     elif not isinstance(fitfunctions, list):
-        log.error("Argument 'fitfunctions' needs to be a list e.g. " +
+        log.exception("Argument 'fitfunctions' needs to be a list e.g. " +
             "['exponential', 'exponential_offset']")
         raise TypeError
 
@@ -2290,18 +2290,18 @@ def full_analysis(
         numboot = int(numboot)
         assert(numboot >= 0)
     except Exception as e:
-        log.error("Optional argument 'numboot' needs to be an int >= 0")
+        log.exception("Optional argument 'numboot' needs to be an int >= 0")
         raise
 
     if coefficientmethod is not None and coefficientmethod not in [
     'trialseparated', 'ts', 'stationarymean', 'sm']:
-        log.error("Optional argument 'coefficientmethod' needs " +
+        log.exception("Optional argument 'coefficientmethod' needs " +
             "to be either 'trialseparated' or 'stationarymean'")
         raise TypeError
 
     if targetplot is not None \
     and not isinstance(targetplot, matplotlib.axes.Axes):
-        log.error("Optional argument 'targetplot' needs " +
+        log.exception("Optional argument 'targetplot' needs " +
             "to an instance of 'matplotlib.axes.Axes'")
         raise TypeError
 
@@ -2398,7 +2398,44 @@ def full_analysis(
     return res
 
 
+# ------------------------------------------------------------------ #
+# Logging customization
+# ------------------------------------------------------------------ #
 
+class CustomExceptionFormatter(logging.Formatter, object):
+
+    def __init__(self,
+        *args,
+        log_locals_on_exception=True,
+        log_trace_on_exception=True,
+        **kwargs):
+            self._log_locals = log_locals_on_exception
+            self._log_trace  = log_trace_on_exception
+            super(CustomExceptionFormatter, self).__init__(*args, **kwargs)
+
+    def formatException(self, exc_info):
+        # original formatted exception
+        exc_text = \
+            super(CustomExceptionFormatter, self).formatException(exc_info)
+        if not self._log_locals:
+            # avoid printing 'NoneType' calling log.exception wihout try
+            if exc_info[0] is None:
+                return ''
+            return exc_text if self._log_trace else ''
+        res = []
+        # outermost frame of the traceback
+        tb = exc_info[2]
+        try:
+            while tb.tb_next:
+                tb = tb.tb_next  # Zoom to the innermost frame.
+            res.append('Locals:')
+            for k, v in tb.tb_frame.f_locals.items():
+                res.append('  \'{}\': {}'.format(k, v))
+            if self._log_trace:
+                res.append(exc_text)
+            return '\n'.join(res)
+        except:
+            return ''
 
 def set_targetdir(fname):
     log.info('Setting global target directory to %s, log file might change',
@@ -2426,15 +2463,19 @@ def main():
     # create console handler with a higher log level
     ch = logging.StreamHandler()
     ch.setLevel(logging.DEBUG)
-    ch.setFormatter(logging.Formatter(
-        '%(levelname)-8s %(message)s'))
+    # ch.setFormatter(logging.Formatter(
+    ch.setFormatter(CustomExceptionFormatter(
+        '%(levelname)-8s %(message)s',
+        log_locals_on_exception=False, log_trace_on_exception=False))
     log.addHandler(ch)
 
     # create file handler which logs even debug messages
     fh = logging.FileHandler(_targetdir+'mre.log', 'w')
     fh.setLevel(logging.DEBUG)
-    fh.setFormatter(logging.Formatter(
-        '%(asctime)s %(levelname)8s: %(message)s', "%Y-%m-%d %H:%M:%S"))
+    # fh.setFormatter(logging.Formatter(
+    fh.setFormatter(CustomExceptionFormatter(
+        '%(asctime)s %(levelname)8s: %(message)s', "%Y-%m-%d %H:%M:%S",
+        log_locals_on_exception=True, log_trace_on_exception=True))
     log.addHandler(fh)
 
     log.info('Loaded mrestimator, writing to %s', _targetdir)
