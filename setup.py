@@ -12,7 +12,7 @@ setup(
     author='Paul Spitzner, Jonas Dehning, Annika Hagemann, Jens Wilting, Viola Priesemann',
     author_email='paul.spitzner@ds.mpg.de',
     packages=['mrestimator'],
-    url='https://github.com/pSpitzner/mrestimator',
+    url='https://github.com/Priesemann-Group/mrestimator',
     license='LICENSE',
     description='Toolbox for the Multistep Regression Estimator.',
     long_description=long_description,

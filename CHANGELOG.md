@@ -1,7 +1,7 @@
 Changelog
 =========
 
-`0.1.0 <https://pypi.org/project/mrestimator/0.1.0>`_ (2018_10_05)
+`0.1.0 <https://pypi.org/project/mrestimator/0.1.0>`_ (2018_10_11)
 ------------------------------------------------------------------
 
 * Changed: OutputHandlers set_xdata() now adjusts existing data and is slightly smarter. Now returns an array containing the indices where the x axis value is right for the provided data (wrt the existing context). See the example in the documentation.

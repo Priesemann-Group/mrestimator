@@ -13,6 +13,7 @@ General
 - [x] add date to log file
 - [ ] draw fits behind coefficients but in legend data still first, matplotlib z-index?
 - [ ] add all function arguments to log/resulting container
+- [ ] ask Jens to link our repo from nat comm url
 
 Wrapper Function
 ----------------
