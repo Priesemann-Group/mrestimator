@@ -20,6 +20,8 @@ import inspect
 
 log = logging.getLogger(__name__)
 _targetdir = None
+_logfilehandler = None
+_logstreamhandler = None
 
 # ------------------------------------------------------------------ #
 # Input
@@ -964,7 +966,7 @@ def fit(
     steps=None,
     fitpars=None,
     fitbnds=None,
-    maxfev=100000,
+    maxfev=None,
     desc=''):
     """
         Estimate the Multistep Regression Estimator by fitting the provided
@@ -1029,7 +1031,8 @@ def fit(
     # Check arguments and prepare
     # ------------------------------------------------------------------ #
 
-    print('fit() calculating the MR Estimator...')
+    log.info('fit()')
+    log.debug('Locals: {}'.format(locals()))
     mnaive = 'not calculated in your step range'
 
     if fitfunc in ['f_exponential', 'exponential', 'exp']:
@@ -1046,16 +1049,18 @@ def fit(
         steps = np.array(steps)
         assert len(steps.shape) == 1
     except Exception as e:
-        raise ValueError('{}\nPlease provide steps as '.format(e) +
-            'steps=(minstep, maxstep)\nor as one dimensional numpy '+
-            'array containing all desired step values\n')
+        log.exception('Please provide steps as ' +
+            'steps=(minstep, maxstep) or as one dimensional numpy ' +
+            'array containing all desired step values')
+        raise ValueError from e
     if len(steps) == 2:
         minstep=steps[0]
         maxstep=steps[1]
     if steps.size < 2:
-        raise ValueError('\nPlease provide steps as ' +
-            'steps=(minstep, maxstep)\nor as one dimensional numpy '+
-            'array containing all desired step values\n')
+        log.exception('Please provide steps as ' +
+            'steps=(minstep, maxstep) or as one dimensional numpy ' +
+            'array containing all desired step values')
+        raise ValueError
     #     minstep=1
     #     maxstep=1500
     #     if steps[0] is not None:
@@ -1068,7 +1073,7 @@ def fit(
     #         minstep = 1
 
     if isinstance(data, CoefficientResult):
-        print('\tCoefficients given in default format')
+        log.info('Coefficients given in default format')
         if data.steps[0] == 1: mnaive = data.coefficients[0]
         if len(steps) == 2:
             # check that coefficients for this range are there, else adjust
@@ -1076,16 +1081,16 @@ def fit(
             if minstep is not None:
                 beg = np.argmax(data.steps>=minstep)
                 if minstep < data.steps[0]:
-                    print('\tWarning: minstep lower than provided steps')
+                    log.warning('minstep lower than provided steps')
             end=len(data.steps)
             if maxstep is not None:
                 end = np.argmin(data.steps<=maxstep)
                 if end == 0:
                     end = len(data.steps)
-                    print('\tWarning: maxstep larger than provided steps')
+                    log.warning('maxstep larger than provided steps')
             if data.coefficients.ndim != 1:
-                raise NotImplementedError(
-                    '\nAnalysing individual samples not supported yet\n')
+                log.exception('Analysing individual samples not supported yet')
+                raise NotImplementedError
             coefficients = data.coefficients[beg:end]
             # make sure this is data, no pointer, so we dont overwrite anything
             steps        = np.copy(data.steps[beg:end])
@@ -1120,16 +1125,17 @@ def fit(
         dtunit       = data.dtunit
     else:
         if minstep is not None or maxstep is not None:
-            raise TypeError('\nArgument \'steps\' only works when ' +
+            log.exception("Argument 'steps' only works when " +
                 'passing data as CoefficienResult from the coefficients() ' +
-                'function\n')
+                'function')
+            raise NotImplementedError
         try:
-            print('\tGuessing provided format:')
+            log.warning("Given data is no CoefficienResult. Guessing format")
             dt = 1
             dtunit = 'ms'
             data = np.asarray(data)
             if len(data.shape) == 1:
-                print('\t\t1d array, assuming this to be ' \
+                log.info('1d array, assuming this to be ' +
                       'coefficients with minstep=1')
                 coefficients = data
                 steps        = np.arange(1, len(coefficients)+1)
@@ -1138,30 +1144,32 @@ def fit(
             elif len(data.shape) == 2:
                 if data.shape[0] > data.shape[1]: data = np.transpose(data)
                 if data.shape[0] == 1:
-                    print('\t\tnested 1d array, assuming this to be ' \
+                    log.info('nested 1d array, assuming this to be ' +
                           'coefficients with minstep=1')
                     coefficients = data[0]
                     steps        = np.arange(1, len(coefficients))
                     stderrs      = None
                     mnaive       = coefficients[0]
                 elif data.shape[0] == 2:
-                    print('\t\t2d array, assuming this to be ' \
+                    log.info('2d array, assuming this to be ' +
                           'steps and coefficients')
                     steps        = data[0]
                     coefficients = data[1]
                     stderrs      = None
                     if steps[0] == 1: mnaive = coefficients[0]
                 elif data.shape[0] >= 3:
-                    print('\t\t2d array, assuming this to be ' \
+                    log.info('2d array, assuming this to be ' +
                           'steps, coefficients, stderrs')
                     steps        = data[0]
                     coefficients = data[1]
                     stderrs      = None
                     if steps[0] == 1: mnaive = coefficients[0]
                     if data.shape > 3: print('\t\tIgnoring further rows')
+            else:
+                raise TypeError
         except Exception as e:
-            raise Exception('{}\nProvided data has no known format\n'
-                .format(e))
+            log.exception('Provided data has no known format')
+            raise
 
     try:
         if desc == '': desc = data.desc
@@ -1177,7 +1185,7 @@ def fit(
         stderrs = None
 
     if fitfunc not in [f_exponential, f_exponential_offset, f_complex]:
-        print('\tCustom fitfunction specified {}'. format(fitfunc))
+        log.info('Custom fitfunction specified {}'.format(fitfunc))
 
     if fitpars is None: fitpars = default_fitpars(fitfunc)
     if fitbnds is None: fitbnds = default_fitbnds(fitfunc)
@@ -1187,59 +1195,82 @@ def fit(
 
     if fitbnds is None:
         bnds = np.array([-np.inf, np.inf])
-        print('\tUnbound fit to {}:'.format(math_from_doc(fitfunc)))
-        print('\t\tkmin = {}, kmax = {}'.format(steps[0], steps[-1]))
+        log.info('Unbound fit to {}:'.format(math_from_doc(fitfunc)))
+        log.info('kmin = {}, kmax = {}'.format(steps[0], steps[-1]))
         ic = list(inspect.signature(fitfunc).parameters)[1:]
         ic = ('{} = {:.3f}'.format(a, b) for a, b in zip(ic, fitpars[0]))
-        print('\t\tStarting parameters: [1/dt]', ', '.join(ic))
+        log.info('Starting parameters: '+', '.join(ic))
     else:
         bnds = fitbnds
-        print('\tBounded fit to {}'.format(math_from_doc(fitfunc)))
-        print('\t\tkmin = {}, kmax = {}'.format(steps[0], steps[-1]))
+        log.info('Bounded fit to {}'.format(math_from_doc(fitfunc)))
+        log.info('kmin = {}, kmax = {}'.format(steps[0], steps[-1]))
         ic = list(inspect.signature(fitfunc).parameters)[1:]
-        ic = ('\t{0:<6} = {1:8.3f} in ({2:9.4f}, {3:9.4f})'
+        ic = ('{0:<6} = {1:8.3f} in ({2:9.4f}, {3:9.4f})'
             .format(a, b, c, d) for a, b, c, d
                 in zip(ic, fitpars[0], fitbnds[0, :], fitbnds[1, :]))
-        print('\t\tFirst parameters [1/dt]:\n\t\t', '\n\t\t'.join(ic))
+        log.info('First parameters:\n\t'+'\n\t'.join(ic))
 
     if (fitpars.shape[0]>1):
-        print('\t\tRepeating fit with {} sets of initial parameters:'
+        log.info('Repeating fit with {} sets of initial parameters:'
             .format(fitpars.shape[0]))
 
     # ------------------------------------------------------------------ #
     # Fit via scipy.curve_fit
     # ------------------------------------------------------------------ #
 
-    ssresmin = np.inf
     # fitpars: 2d ndarray
     # fitbnds: matching scipy.curve_fit: [lowerbndslist, upperbndslist]
-    for idx, pars in enumerate(fitpars):
-        if len(fitpars)!=1:
-            print('\r\t\t\t{}/{} fits'.format(idx+1, len(fitpars)), end='')
-            if idx == len(fitpars)-1: print('\n', end='')
+    maxfev = 200*(len(fitpars[0])+1) if maxfev is None else int(maxfev)
+    def fitloop():
+        ssresmin = np.inf
+        fulpopt = None
+        fulpcov = None
+        _logstreamhandler.terminator = "\r"
+        for idx, pars in enumerate(fitpars):
+            if len(fitpars)!=1:
+                log.info('{}/{} fits'.format(idx+1, len(fitpars)))
 
-        try:
-            popt, pcov = scipy.optimize.curve_fit(
-                fitfunc, steps*dt, coefficients,
-                p0=pars, bounds=bnds, maxfev=int(maxfev), sigma=stderrs)
+            try:
+                popt, pcov = scipy.optimize.curve_fit(
+                    fitfunc, steps*dt, coefficients,
+                    p0=pars, bounds=bnds, maxfev=int(maxfev), sigma=stderrs)
 
-            residuals = coefficients - fitfunc(steps*dt, *popt)
-            ssres = np.sum(residuals**2)
+                residuals = coefficients - fitfunc(steps*dt, *popt)
+                ssres = np.sum(residuals**2)
 
-        except Exception as e:
-            ssres = np.inf
-            popt  = None
-            pcov  = None
-            if idx != len(fitpars)-1: print('\n', end='')
-            print('\t\tException: {}\n'.format(e), '\t\tIgnoring this fit')
+            except Exception as e:
+                ssres = np.inf
+                popt  = None
+                pcov  = None
+                _logstreamhandler.terminator = "\n"
+                log.info('Fit %d did not converge. Ignoring this fit', idx+1)
+                log.debug('Exception passed', exc_info=True)
+                _logstreamhandler.terminator = "\r"
 
-        if ssres < ssresmin:
-            ssresmin = ssres
-            fulpopt  = popt
-            fulpcov  = pcov
+            if ssres < ssresmin:
+                ssresmin = ssres
+                fulpopt  = popt
+                fulpcov  = pcov
 
-    if popt is None:
-        raise RuntimeError('All attempted fits failed\n')
+        _logstreamhandler.terminator = "\n"
+        log.info('Finished %d fit(s)', len(fitpars))
+
+        return fulpopt, fulpcov, ssresmin
+
+    fulpopt, fulpcov, ssresmin = fitloop()
+
+    if fulpopt is None:
+        if maxfev > 10000:
+            pass
+        else:
+            log.warning('No fit converged after {} '.format(maxfev) +
+                'iterations. Increasing to 10000')
+            maxfev = 10000
+            fulpopt, fulpcov, ssresmin = fitloop()
+
+    if fulpopt is None:
+        log.exception('No fit converged afer %d iterations', maxfev)
+        raise RuntimeError
 
     fulres = FitResult(
         tau     = fulpopt[0],
@@ -1253,25 +1284,36 @@ def fit(
         dtunit  = dtunit,
         desc    = desc)
 
-    print('\tFinished fitting {}, mre = {:.5f}, tau = {:.5f}{}, ssres = {:.5f}'
+    log.info(
+        'Finished fitting {}, mre = {:.5f}, tau = {:.5f}{}, ssres = {:.5f}' \
         .format('\''+desc+'\'' if desc != '' else fitfunc.__name__,
             fulres.mre, fulres.tau, fulres.dtunit, fulres.ssres))
 
     if fulres.tau >= 0.9*(steps[-1]*dt):
-        print('\tWarning: The obtained autocorrelationtime is large compared '+
-            'to the fitrange\n\t\tkmin~{:.0f}{}, kmax~{:.0f}{}, tau~{:.0f}{}\n'
+        log.warning('The obtained autocorrelationtime is large compared '+
+            'to the fitrange: tmin~{:.0f}{}, tmax~{:.0f}{}, tau~{:.0f}{}'
             .format(steps[0]*dt, dtunit, steps[-1]*dt, dtunit,
-                fulres.tau, dtunit) +
-            '\t\tConsider fitting with a larger \'maxstep\'')
-
-    # add check for amplitudes A>B, A>C, A>O
+                fulres.tau, dtunit))
+        log.warning('Consider fitting with a larger \'maxstep\'')
 
     if fulres.tau <= 0.01*(steps[-1]*dt) or fulres.tau <= steps[0]*dt:
-        print('\tWarning: The obtained autocorrelationtime is small compared '+
-            'to the fitrange\n\t\tkmin~{:.0f}{}, kmax~{:.0f}{}, tau~{:.0f}{}\n'
+        log.warning('The obtained autocorrelationtime is small compared '+
+            'to the fitrange: tmin~{:.0f}{}, tmax~{:.0f}{}, tau~{:.0f}{}'
             .format(steps[0]*dt, dtunit, steps[-1]*dt, dtunit,
-                fulres.tau, dtunit) +
-            '\t\tConsider fitting with smaller \'minstep\' and \'maxstep\'')
+                fulres.tau, dtunit))
+        log.warning("Consider fitting with smaller 'minstep' and 'maxstep'")
+
+    if fitfunc is f_complex:
+        # check for amplitudes A>B, A>C, A>O
+        # tau, A, O, tauosc, B, gamma, nu, taugs, C
+        try:
+            if fulpopt[1] <= fulpopt[4] or fulpopt[1] <= fulpopt[8]:
+                log.warning('The amplitude of the exponential decay is ' +
+                    'smaller than corrections: A=%f B=%f C=%f',
+                    fulpopt[1], fulpopt[4], fulpopt[8])
+        except:
+            log.debug('Exception passed', exc_info=True)
+
 
     return fulres
 
@@ -1290,6 +1332,14 @@ class OutputHandler:
         or, if not provided, creates a new figure.
         Most importantly, it also exports plaintext of the respective source
         material so figures are reproducible.
+
+        Attributes
+        ----------
+        rks: list
+            List of the :obj:`CoefficientResult`. Added with `add_coefficients()`
+
+        fits: list
+            List of the :obj:`FitResult`. Added with `add_fit()`
 
         Example
         -------
@@ -2423,22 +2473,24 @@ def main():
 
     log.setLevel(logging.DEBUG)
 
-    # create console handler with a higher log level
-    ch = logging.StreamHandler()
-    ch.setLevel(logging.DEBUG)
-    ch.setFormatter(logging.Formatter(
+    # create (global) console handler with a higher log level
+    global _logstreamhandler
+    _logstreamhandler = logging.StreamHandler()
+    _logstreamhandler.setLevel(logging.DEBUG)
+    _logstreamhandler.setFormatter(logging.Formatter(
         '%(levelname)-8s %(message)s'))
-    log.addHandler(ch)
+    log.addHandler(_logstreamhandler)
 
-    # create file handler which logs even debug messages
-    fh = logging.FileHandler(_targetdir+'mre.log', 'w')
-    fh.setLevel(logging.DEBUG)
-    fh.setFormatter(logging.Formatter(
+    # create (global) file handler which logs even debug messages
+    global _logfilehandler
+    _logfilehandler = logging.FileHandler(_targetdir+'mre.log', 'w')
+    _logfilehandler.setLevel(logging.INFO)
+    _logfilehandler.setFormatter(logging.Formatter(
         '%(asctime)s %(levelname)8s: %(message)s', "%Y-%m-%d %H:%M:%S"))
-    log.addHandler(fh)
+    log.addHandler(_logfilehandler)
 
     log.info('Loaded mrestimator, writing to %s', _targetdir)
-    ch.setLevel(logging.WARNING)
+    _logstreamhandler.setLevel(logging.WARNING)
 
 
 main()
