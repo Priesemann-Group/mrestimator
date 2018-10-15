@@ -10,6 +10,7 @@ Default loglevel to file is 'DEBUG' (logfile placed in temporary directory, that
 Undocumented way to change the respective loglevels is e.g. ``mre._logstreamhandler.setLevel('WARNING')`` for console and ``.mre._logfilehandler.setLevel('DEBUG')``
 * Changed: When providing no loglevel to `full_analysis()` it uses the currently set level of `mre._logstreamhandler`.
 * New: Custom Handler that does not log 'None Type' Traces if `log.exception()` is called without a `try` statement
+* New: ``set_logfile(fname, loglevel='DEBUG')`` to change the path of the global logfile + level. This should allow running the toolbox in parallel, with a seperate logfile per thread and relatively silent/no console output when combining with `mre._logstreamhandler.setLevel('ERROR')` or calling `full_analysis(..., loglevel='ERROR')`
 
 
 `0.1.0 <https://pypi.org/project/mrestimator/0.1.0>`_ (2018_10_11)

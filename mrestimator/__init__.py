@@ -2598,6 +2598,9 @@ class CustomExceptionFormatter(logging.Formatter, object):
             return ''
 
 def set_targetdir(fname):
+    """
+        set the global variable _targetdir. Not used for much yet.
+    """
     log.debug('Setting global target directory to %s, log file might change',
         os.path.abspath(os.path.expanduser(fname)))
 
@@ -2605,13 +2608,32 @@ def set_targetdir(fname):
     _targetdir = os.path.abspath(os.path.expanduser(fname))+'/'
     os.makedirs(_targetdir, exist_ok=True)
 
-    for hdlr in log.handlers[:]:
-        if isinstance(hdlr, logging.FileHandler):
-            hdlr.close()
-            hdlr.baseFilename = os.path.abspath(_targetdir+'mre.log')
+    # for hdlr in log.handlers[:]:
+    #     if isinstance(hdlr, logging.FileHandler):
+    #         hdlr.close()
+    #         hdlr.baseFilename = os.path.abspath(_targetdir+'mre.log')
+    try:
+        _logfilehandler.close()
+        _logfilehandler.baseFilename = os.path.abspath(_targetdir+'mre.log')
+    except AttributeError as e:
+        log.debug('_logfilehandler doesnt exist yet', exc_info=True)
 
     log.info('Target directory set to %s', _targetdir)
 
+def set_logfile(fname, loglevel='DEBUG'):
+    """
+        set the path where the global file logger writes the output.
+    """
+    _logfilehandler.setLevel(logging.getLevelName(loglevel))
+    log.debug('Setting log file to %s',
+        os.path.abspath(os.path.expanduser(fname)))
+
+    tempdir = os.path.abspath(os.path.expanduser(fname+"/../"))
+    os.makedirs(tempdir, exist_ok=True)
+
+    _logfilehandler.close()
+    _logfilehandler.baseFilename = os.path.abspath(os.path.expanduser(fname))
+    log.info('Log file set to %s', _logfilehandler.baseFilename)
 
 def main():
     set_targetdir('{}/mre_output/'.format(
