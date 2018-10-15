@@ -301,7 +301,7 @@ def simulate_branching(
     if h[0] == 0 and a == 0:
         log.warning('activity a=0 and initial h=0')
 
-    log.into('\t{:d} trials {:d} time steps\n'.format(numtrials, length) +
+    log.info('\t{:d} trials {:d} time steps\n'.format(numtrials, length) +
           '\tbranchign ratio m={}\n'.format(m) +
           '\t(initial) activity s={}\n'.format(a) +
           '\t(initial) drive rate h={}'.format(h[0]))
