@@ -294,17 +294,18 @@ def simulate_branching(
             length = h.size
 
     np.random.seed(seed)
-    log.info('Generating branching process:')
 
     if h[0] == 0 and a != 0:
         log.debug('Skipping thermalization since initial h=0')
     if h[0] == 0 and a == 0:
         log.warning('activity a=0 and initial h=0')
 
-    log.info('\t{:d} trials {:d} time steps\n'.format(numtrials, length) +
-          '\tbranchign ratio m={}\n'.format(m) +
-          '\t(initial) activity s={}\n'.format(a) +
-          '\t(initial) drive rate h={}'.format(h[0]))
+
+    log.info('Generating branching process:\n' +
+        '\t{:d} trials with {:d} time steps each\n'.format(numtrials, length) +
+        '\tbranchign ratio m={}\n'.format(m) +
+        '\t(initial) activity s={}\n'.format(a) +
+        '\t(initial) drive rate h={}'.format(h[0]))
 
     A_t = np.zeros(shape=(numtrials, length), dtype=int)
     a = np.ones_like(A_t[:, 0])*a
@@ -368,7 +369,9 @@ def simulate_subsampling(data, prob=0.1, seed=None):
 # this is equivalent to CoefficientResult = namedtuple(... but
 # we can provide documentation and set default values
 class CoefficientResult(namedtuple('CoefficientResult',
-    'coefficients steps dt dtunit offsets stderrs trialacts samples desc')):
+    'coefficients steps dt dtunit offsets stderrs trialacts ' +
+    'samples ' +   # keep this until version 0.2.0 to keep scripts in tact
+    'bootsamples trials desc')):
     """
         :obj:`~collections.namedtuple` returned by
         :func:`coefficients`. Attributes
@@ -460,12 +463,14 @@ class CoefficientResult(namedtuple('CoefficientResult',
         dt=1, dtunit='ms',
         offsets=None, stderrs=None,
         trialacts=None, samples=None,
+        bootsamples=None, trials=None,
         desc=''):
             return super(cls, CoefficientResult).__new__(cls,
                 coefficients, steps,
                 dt, dtunit,
                 offsets, stderrs,
                 trialacts, samples,
+                bootsamples, trials,
                 desc)
 
     def __repr__(self):
@@ -659,13 +664,52 @@ def coefficients(
         _logstreamhandler.terminator = "\n"
         log.info('{} time steps done'.format(numsteps))
 
-        if numtrials > 1:
-            stderrs = np.sqrt(
-                np.var(sepres.coefficients, axis=0, ddof=1)/numtrials)
-            if (stderrs == stderrs[0]).all():
+        # if numtrials > 1:
+        #     stderrs = np.sqrt(
+        #         np.var(sepres.coefficients, axis=0, ddof=1)/numtrials)
+        #     if (stderrs == stderrs[0]).all():
+        #         stderrs = None
+        # else :
+        #     stderrs = None
+
+        bootres = None
+        if numboot <= 1:
+            log.debug('Bootstrap needs at least numboot=2 replicas, ' +
+                'skipping the resampling')
+        if numboot>1:
+            log.info('Bootstrapping {} replicas'.format(numboot))
+            np.random.seed(seed)
+
+            bootres = CoefficientResult(
+                coefficients  = np.zeros(shape=(numboot, numsteps),
+                                         dtype='float64'),
+                steps         = steps,
+                trialacts     = np.zeros(numboot, dtype='float64'),
+                dt            = dt,
+                dtunit        = dtunit,
+                desc          = desc)
+
+            _logstreamhandler.terminator = "\r"
+            for tdx in range(numboot):
+                if tdx % 10 == 0:
+                    log.info('{}/{} replicas'.format(tdx+1, numboot))
+                trialchoices = np.random.choice(np.arange(0, numtrials),
+                    size=numtrials)
+
+                bootres.trialacts[tdx] = \
+                    np.mean(sepres.trialacts[trialchoices])
+                bootres.coefficients[tdx, :] = \
+                    np.mean(sepres.coefficients[trialchoices, :], axis=0)
+
+            _logstreamhandler.terminator = "\n"
+            log.info('{} bootstrap replicas done'.format(numboot))
+
+            if numboot > 1:
+                stderrs = np.sqrt(np.var(bootres.coefficients, axis=0, ddof=1))
+                if (stderrs == stderrs[0]).all():
+                    stderrs = None
+            else:
                 stderrs = None
-        else :
-            stderrs = None
 
         fulres = CoefficientResult(
             steps         = steps,
@@ -673,6 +717,8 @@ def coefficients(
             stderrs       = stderrs,
             trialacts     = np.mean(data, axis=1),
             samples       = sepres,
+            trials        = sepres,
+            bootsamples   = bootres,
             dt            = dt,
             dtunit        = dtunit,
             desc          = desc)
@@ -704,6 +750,7 @@ def coefficients(
                 (np.mean(xty[idx, :] - xpy[idx, :] * fulmean) \
                 + fulmean**2) / fulvar * ((numels-k)/(numels-k-1))
 
+        bootres = None
         if numboot <= 1:
             log.debug('Bootstrap needs at least numboot=2 replicas, ' +
                 'skipping the resampling')
@@ -711,7 +758,7 @@ def coefficients(
             log.info('Bootstrapping {} replicas'.format(numboot))
             np.random.seed(seed)
 
-            sepres = CoefficientResult(
+            bootres = CoefficientResult(
                 coefficients  = np.zeros(shape=(numboot, numsteps),
                                          dtype='float64'),
                 steps         = steps,
@@ -730,10 +777,10 @@ def coefficients(
                 bsvar = (np.mean(xtx[trialchoices])-bsmean**2) \
                     * (numels/(numels-1))
 
-                sepres.trialacts[tdx] = bsmean
+                bootres.trialacts[tdx] = bsmean
 
                 for idx, k in enumerate(steps):
-                    sepres.coefficients[tdx, idx] = \
+                    bootres.coefficients[tdx, idx] = \
                         (np.mean(xty[idx, trialchoices] - \
                                  xpy[idx, trialchoices] * bsmean) \
                         + bsmean**2) / bsvar * ((numels-k)/(numels-k-1))
@@ -742,7 +789,7 @@ def coefficients(
             log.info('{} bootstrap replicas done'.format(numboot))
 
             if numboot > 1:
-                stderrs = np.sqrt(np.var(sepres.coefficients, axis=0, ddof=1))
+                stderrs = np.sqrt(np.var(bootres.coefficients, axis=0, ddof=1))
                 if (stderrs == stderrs[0]).all():
                     stderrs = None
             else:
@@ -753,7 +800,8 @@ def coefficients(
             coefficients  = coefficients,
             stderrs       = stderrs,
             trialacts     = trialacts,
-            samples       = sepres,
+            samples       = bootres,
+            bootsamples   = bootres,
             dt            = dt,
             dtunit        = dtunit,
             desc          = desc)

@@ -9,7 +9,7 @@ General
 - [ ] use python 3.5 for development and minimal reqs check matplotlib
 - [ ] test suite to check min dependencies through to latest
 - [ ] import modules into _variables? No: check what numpy does via __all__
-- [ ] check that input_handler is fast when getting data in the right format
+- [x] check that input_handler is fast when getting data in the right format. Yeah: checked 1k trials with length 1e6 in the right format 100 times in 60sec
 - [x] add date to log file
 - [ ] draw fits behind coefficients but in legend data still first, matplotlib z-index?
 - [ ] add all function arguments to log/resulting container
