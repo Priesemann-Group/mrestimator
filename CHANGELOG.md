@@ -1,6 +1,17 @@
 Changelog
 =========
 
+`0.1.1 <https://pypi.org/project/mrestimator/0.1.1>`_ (2018_10_15)
+------------------------------------------------------------------
+
+* Fixed: Changed all prints to use the logging module. Hopefully nothing broke.
+* Changed: Default log level to console is now 'INFO', and some logs that one _could_ consider info go to 'DEBUG' to decrease the spam.
+Default loglevel to file is 'DEBUG' (logfile placed in temporary directory, that's printed when loading the toolbox).
+Undocumented way to change the respective loglevels is e.g. ``mre._logstreamhandler.setLevel('WARNING')`` for console and ``.mre._logfilehandler.setLevel('DEBUG')``
+* Changed: When providing no loglevel to `full_analysis()` it uses the currently set level of `mre._logstreamhandler`.
+* New: Custom Handler that does not log 'None Type' Traces if `log.exception()` is called without a `try` statement
+
+
 `0.1.0 <https://pypi.org/project/mrestimator/0.1.0>`_ (2018_10_11)
 ------------------------------------------------------------------
 

@@ -86,66 +86,71 @@ def input_handler(items, **kwargs):
             pt = prepared[3, 10]
         ..
     """
-    invstr = '\n\tInvalid input, please provide one of the following:\n' \
-        '\t\t- path to pickle or plain file as string,\n' \
-        '\t\t  wildcards should work "/path/to/filepattern*"\n' \
-        '\t\t- numpy array or list containing spike data or filenames\n'
+    invstr = '\nInvalid input, please provide one of the following:\n' \
+        '\t- path to pickle or plain file as string,\n' \
+        '\t  wildcards should work "/path/to/filepattern*"\n' \
+        '\t- numpy array or list containing spike data or filenames\n'
 
+    log.debug('input_handler()')
     situation = -1
     # cast tuple to list, maybe this can be done for other types in the future
     if isinstance(items, tuple):
-        print('input_handler() detected tuple, casting to list')
+        log.debug('input_handler() detected tuple, casting to list')
         items=list(items)
     if isinstance(items, np.ndarray):
         if items.dtype.kind in ['i', 'f', 'u']:
-            print('input_handler() detected ndarray of numbers')
+            log.info('input_handler() detected ndarray of numbers')
             situation = 0
         elif items.dtype.kind in ['S', 'U']:
-            print('input_handler() detected ndarray of strings')
+            log.info('input_handler() detected ndarray of strings')
             situation = 1
             temp = set()
             for item in items.astype('U'):
                 temp.update(glob.glob(os.path.expanduser(item)))
             if len(items) != len(temp):
-                print('\t{} duplicate files were excluded'
+                log.debug('{} duplicate files were excluded'
                     .format(len(items)-len(temp)))
             items = temp
         else:
-            raise ValueError('Numpy.ndarray is neither data nor file path.\n{}'
-                .format(invstr))
+            log.exception(
+                'Numpy.ndarray is neither data nor file path.%s', invstr)
+            raise ValueError
     elif isinstance(items, list):
         if all(isinstance(item, str) for item in items):
-            print('input_handler() detected list of strings')
+            log.info('input_handler() detected list of strings')
             try:
-                print('\tparsing to numpy ndarray as float')
+                log.debug('Parsing to numpy ndarray as float')
                 items = np.asarray(items, dtype=float)
                 situation = 0
             except Exception as e:
-                print('\t\t{}\n\tparsing as file path'.format(e))
+                log.debug('Exception caught, parsing as file path',
+                    exc_info=True)
             situation = 1
             temp = set()
             for item in items: temp.update(glob.glob(os.path.expanduser(item)))
             if len(items) != len(temp):
-                print('\t{} duplicate files were excluded'
+                log.debug('{} duplicate files were excluded'
                     .format(len(items)-len(temp)))
             items = temp
         elif all(isinstance(item, np.ndarray) for item in items):
-            print('input_handler() detected list of ndarrays')
+            log.info('input_handler() detected list of ndarrays')
             situation = 0
         else:
             try:
-                print('input_handler() detected list\n'
-                    '\tparsing to numpy ndarray as float')
+                log.info('input_handler() detected list, ' +
+                    'parsing to numpy ndarray as float')
                 situation = 0
                 items = np.asarray(items, dtype=float)
             except Exception as e:
-                raise Exception('{}\n{}'.format(e, invstr))
+                log.exception('%s', invstr)
+                raise
     elif isinstance(items, str):
-        print('input_handler() detected filepath \'{}\''.format(items))
+        log.info('input_handler() detected filepath \'{}\''.format(items))
         items = glob.glob(os.path.expanduser(items))
         situation = 1
     else:
-        raise Exception(invstr)
+        log.exception('Unknown argument type,%s', invstr)
+        raise TypeError
 
 
     if situation == 0:
@@ -154,29 +159,32 @@ def input_handler(items, **kwargs):
     elif situation == 1:
         if len(items) == 0:
             # glob of earlyier analysis returns nothing if file not found
-            raise FileNotFoundError(
-                '\nSpecifying absolute file path is recommended, ' +
+            log.exception('Specifying absolute file path is recommended, ' +
                 'input_handler() was looking in {}\n'.format(os.getcwd()) +
-                'Use \'os.chdir(os.path.dirname(__file__))\' to set the ' +
-                'working directory to the location of your script file\n')
+                '\tUse \'os.chdir(os.path.dirname(__file__))\' to set the ' +
+                'working directory to the location of your script file')
+            raise FileNotFoundError
+
         data = []
         for idx, item in enumerate(items):
             try:
-                print('\tLoading with np.loadtxt: {}'.format(item))
+                log.debug('Loading with np.loadtxt: {}'.format(item))
                 if 'unpack' in kwargs and not kwargs.get('unpack'):
-                    print('\tWarning: unpack=False is not recommended\n'
-                        '\tUsually data is stored in columns')
+                    log.warning("Argument 'unpack=False' is not recommended," +
+                        ' data is usually stored in columns')
                 else:
                     kwargs = dict(kwargs, unpack=True)
                 if 'ndmin' in kwargs and kwargs.get('ndmin') != 2:
-                    raise ValueError('ndmin other than 2 not supported')
+                    log.exception("Argument ndmin other than 2 not supported")
+                    raise ValueError
                 else:
                     kwargs = dict(kwargs, ndmin=2)
 
                 result = np.loadtxt(item, **kwargs)
                 data.append(result)
             except Exception as e:
-                print('\t\t{}\n\tLoading with np.load {}'.format(e, item))
+                log.debug('Exception caught, Loading with np.load ' +
+                    '{}'.format(item), exc_info=True)
                 result = np.load(item)
                 data.append(result)
 
@@ -186,23 +194,24 @@ def input_handler(items, **kwargs):
             minlenx = min(l.shape[0] for l in data)
             minleny = min(l.shape[1] for l in data)
 
-            print('\tFiles have different length, resizing to shortest '
-                'one ({}, {})'.format(minlenx, minleny))
+            log.debug('Files have different length, resizing to shortest '
+                'one ({}, {})'.format(minlenx, minleny), exc_info=True)
             for d, dat in enumerate(data):
                 data[d] = np.resize(dat, (minlenx, minleny))
             retdata = np.vstack(data)
 
     else:
-        raise Exception('\tUnknown situation!\n{}'.format(invstr))
+        log.exception('Unknown situation%s', invstr)
+        raise NotImplementedError
 
     # final check
     if len(retdata.shape) == 2:
-        print('\tReturning ndarray with {} trial(s) and {} datapoints'
-              .format(retdata.shape[0], retdata.shape[1]))
+        log.info('input_handler() returning ndarray with %d trial(s) and %d ' +
+            'datapoints', retdata.shape[0], retdata.shape[1])
         return retdata
     else:
-        print('\tWarning: Guessed data type incorrectly to shape {}, '
-            'please try something else'.format(retdata.shape))
+        log.warning('input_handler() guessed data type incorrectly to shape ' +
+            '{}, please try something else'.format(retdata.shape))
         return retdata
 
 def simulate_branching(
@@ -264,10 +273,12 @@ def simulate_branching(
             10000 measurements.
     """
 
+    log.debug('simulate_branching()')
     if h is None:
         if a is None:
-            raise TypeError('missing argument\n'+
-                'Either provide the activity a or drive h\n')
+            log.exception("Missing argument, either provide " +
+                "the activity 'a' or the drive 'h'")
+            raise TypeError
         else:
             h = np.full((length), a * (1 - m))
     else:
@@ -277,21 +288,22 @@ def simulate_branching(
         if h.size == 1:
             h = np.full((length), h)
         elif len(h.shape) != 1:
-            raise ValueError('\nProvide drive h as a float or 1d array\n')
+            log.exception("Argument drive 'h' needs to be a float or 1d array")
+            raise ValueError
         else:
             length = h.size
 
     np.random.seed(seed)
-    print('Generating branching process:')
+    log.info('Generating branching process:')
 
     if h[0] == 0 and a != 0:
-        print('\tSkipping thermalization since initial h=0')
+        log.debug('Skipping thermalization since initial h=0')
     if h[0] == 0 and a == 0:
-        print('\tWarning: a=0 and initial h=0')
+        log.warning('activity a=0 and initial h=0')
 
-    print('\t{:d} trials {:d} time steps\n'.format(numtrials, length)+
-          '\tbranchign ratio m={}\n'.format(m)+
-          '\t(initial) activity s={}\n'.format(a)+
+    log.into('\t{:d} trials {:d} time steps\n'.format(numtrials, length) +
+          '\tbranchign ratio m={}\n'.format(m) +
+          '\t(initial) activity s={}\n'.format(a) +
           '\t(initial) drive rate h={}'.format(h[0]))
 
     A_t = np.zeros(shape=(numtrials, length), dtype=int)
@@ -311,7 +323,7 @@ def simulate_branching(
         try:
             return simulate_subsampling(A_t, prob=subp)
         except ValueError:
-            pass
+            log.debug('Exception passed', exc_info=True)
     return A_t
 
 def simulate_subsampling(data, prob=0.1, seed=None):
@@ -333,13 +345,15 @@ def simulate_subsampling(data, prob=0.1, seed=None):
             is seeded randomly (hence each call to `simulate_branching()`
             returns different results).
     """
+    log.debug('simulate_subsampling()')
     if prob <= 0 or prob > 1:
-        raise ValueError(
-            '\nSubsampling probability should be between 0 and 1\n')
+        log.exception('Subsampling probability should be between 0 and 1')
+        raise ValueError
 
     data = np.asarray(data)
     if len(data.shape) != 2:
-        raise ValueError('\nProvide data as 2d ndarray (trial structure)\n')
+        log.exception('Provide data as 2d ndarray (trial structure)')
+        raise ValueError
 
     # activity = np.mean(data)
     # a_t = np.empty_like(data)
@@ -539,39 +553,41 @@ def coefficients(
     # ------------------------------------------------------------------ #
     # Check arguments to offer some more convenience
     # ------------------------------------------------------------------ #
-
+    log.debug('coefficients() using \'{}\' method:'.format(method))
     if method is None:
         method = 'ts'
     if method not in ['trialseparated', 'ts', 'stationarymean', 'sm']:
-        raise NotImplementedError('Unknown method: "{}"'.format(method))
+        log.exception('Unknown method: "{}"'.format(method))
+        raise NotImplementedError
     if method == 'ts':
         method = 'trialseparated'
     elif method == 'sm':
         method = 'stationarymean'
-    print('coefficients() using \'{}\' method:'.format(method))
 
     if not isinstance(desc, str): desc = str(desc)
 
     # check dt
     dt = float(dt)
     if dt <= 0:
-        raise ValueError('\nTimestep dt needs to be a float > 0\n')
+        log.exception('Timestep dt needs to be a float > 0.0')
+        raise ValueError
     dtunit = str(dtunit)
 
     dim = -1
     try:
         dim = len(data.shape)
         if dim == 1:
-            print('\tWarning: You should provide an ndarray of '
-                'shape(numtrials, datalength)\n'
+            log.warning('You should provide an ndarray of ' +
+                'shape(numtrials, datalength)\n' +
                 '\tContinuing with one trial, reshaping your input')
             data = np.reshape(data, (1, len(data)))
         elif dim >= 3:
-            raise ValueError('\nProvided ndarray is of dim {}\n'.format(dim),
-                  'Please provide a two dimensional ndarray\n')
+            log.exception('Provided ndarray is of dim {}\n'.format(dim) +
+                  '\tPlease provide a two dimensional ndarray')
+            raise ValueError
     except Exception as e:
-        raise ValueError('{}\nPlease provide a two dimensional ndarray\n'
-            .format(e))
+        log.exception('Please provide a two dimensional ndarray')
+        raise ValueError from e
 
     if steps is None:
         steps = (None, None)
@@ -579,9 +595,10 @@ def coefficients(
         steps = np.array(steps)
         assert len(steps.shape) == 1
     except Exception as e:
-        raise ValueError('{}\nPlease provide steps as '.format(e) +
-            'steps=(minstep, maxstep)\nor as one dimensional numpy '+
-            'array containing all desired step values\n')
+        log.exception('Please provide steps as ' +
+            'steps=(minstep, maxstep) or as one dimensional numpy ' +
+            'array containing all desired step values')
+        raise ValueError from e
     if len(steps) == 2:
         minstep=1
         maxstep=1500
@@ -590,20 +607,20 @@ def coefficients(
         if steps[1] is not None:
             maxstep = steps[1]
         if minstep > maxstep or minstep < 1:
-            print('\tWarning: minstep={} is invalid, setting to 1'
-                .format(minstep))
+            log.debug('minstep={} is invalid, setting to 1'.format(minstep))
             minstep = 1
 
         if maxstep > data.shape[1] or maxstep < minstep:
-            print('\tWarning: maxstep={} is invalid, '.format(maxstep), end='')
+            log.debug('maxstep={} is invalid'.format(maxstep))
             maxstep = int(data.shape[1]-2)
-            print('adjusting to {}'.format(maxstep))
+            log.debug('Adjusting maxstep to {}'.format(maxstep))
         steps     = np.arange(minstep, maxstep+1)
-        print('\tUsing steps between {} and {}'.format(minstep, maxstep))
+        log.debug('Using steps between {} and {}'.format(minstep, maxstep))
     else:
         if (steps<1).any():
-            raise ValueError('\nAll provided steps must be >= 1\n')
-        print('\tUsing provided custom steps')
+            log.exception('All provided steps must be >= 1')
+            raise ValueError
+        log.debug('Using provided custom steps')
 
 
 
@@ -615,7 +632,8 @@ def coefficients(
     numtrials = data.shape[0]     # number of trials
     numels    = data.shape[1]     # number of measurements per trial
 
-    print('\t{} trials, length {}'.format(numtrials, numels))
+    log.info("coefficients() with '{}' method for {} trials of length {}" \
+        .format(method, numtrials, numels))
 
     if method == 'trialseparated':
         sepres = CoefficientResult(
@@ -628,16 +646,18 @@ def coefficients(
         trialmeans = np.mean(data, axis=1, keepdims=True)  # (numtrials, 1)
         trialvars  = np.var(data, axis=1, ddof=1)          # (numtrials)
 
+        _logstreamhandler.terminator = "\r"
         for idx, k in enumerate(steps):
             if not idx%100:
-                print('\r\t{}/{} steps'.format(idx+1, numsteps), end="")
+                log.info('{}/{} time steps'.format(idx+1, numsteps))
 
             sepres.coefficients[:, idx] = \
                 np.mean((data[:,  :-k] - trialmeans) * \
                         (data[:, k:  ] - trialmeans), axis=1) \
                 * ((numels-k)/(numels-k-1)) / trialvars
 
-        print('\x1b[2K\r\t{} steps: done'.format(numsteps))
+        _logstreamhandler.terminator = "\n"
+        log.info('{} time steps done'.format(numsteps))
 
         if numtrials > 1:
             stderrs = np.sqrt(
@@ -685,10 +705,10 @@ def coefficients(
                 + fulmean**2) / fulvar * ((numels-k)/(numels-k-1))
 
         if numboot <= 1:
-            print('\tWarning: Bootstrap needs at least numboot=2 replicas, '
-                'skipped resampling')
+            log.debug('Bootstrap needs at least numboot=2 replicas, ' +
+                'skipping the resampling')
         if numboot>1:
-            print('\tBootstrapping...')
+            log.info('Bootstrapping {} replicas'.format(numboot))
             np.random.seed(seed)
 
             sepres = CoefficientResult(
@@ -700,8 +720,10 @@ def coefficients(
                 dtunit        = dtunit,
                 desc          = desc)
 
+            _logstreamhandler.terminator = "\r"
             for tdx in range(numboot):
-                print('\r\t{}/{} samples'.format(tdx+1, numboot), end="")
+                if tdx % 10 == 0:
+                    log.info('{}/{} replicas'.format(tdx+1, numboot))
                 trialchoices = np.random.choice(np.arange(0, numtrials),
                     size=numtrials)
                 bsmean = np.mean(trialacts[trialchoices])
@@ -716,7 +738,8 @@ def coefficients(
                                  xpy[idx, trialchoices] * bsmean) \
                         + bsmean**2) / bsvar * ((numels-k)/(numels-k-1))
 
-            print('\x1b[2K\r\t{} bootstrap samples: done'.format(numboot))
+            _logstreamhandler.terminator = "\n"
+            log.info('{} bootstrap replicas done'.format(numboot))
 
             if numboot > 1:
                 stderrs = np.sqrt(np.var(sepres.coefficients, axis=0, ddof=1))
@@ -1031,7 +1054,7 @@ def fit(
     # Check arguments and prepare
     # ------------------------------------------------------------------ #
 
-    log.info('fit()')
+    log.debug('fit()')
     log.debug('Locals: {}'.format(locals()))
     mnaive = 'not calculated in your step range'
 
@@ -1073,21 +1096,24 @@ def fit(
     #         minstep = 1
 
     if isinstance(data, CoefficientResult):
-        log.info('Coefficients given in default format')
+        log.debug('Coefficients given in default format')
         if data.steps[0] == 1: mnaive = data.coefficients[0]
         if len(steps) == 2:
             # check that coefficients for this range are there, else adjust
+            # needs to be cleaned: use helper functions
             beg=0
             if minstep is not None:
                 beg = np.argmax(data.steps>=minstep)
                 if minstep < data.steps[0]:
-                    log.warning('minstep lower than provided steps')
+                    log.debug('minstep lower than in provided coefficients ' +
+                        '{} adjusted to {}'.format(minstep, data.steps[beg]))
             end=len(data.steps)
-            if maxstep is not None:
+            if maxstep is not None and maxstep != data.steps[-1]:
                 end = np.argmin(data.steps<=maxstep)
                 if end == 0:
                     end = len(data.steps)
-                    log.warning('maxstep larger than provided steps')
+                    log.debug('maxstep larger than in provided coefficients ' +
+                        '{} adjusted to {}'.format(maxstep, data.steps[end-1]))
             if data.coefficients.ndim != 1:
                 log.exception('Analysing individual samples not supported yet')
                 raise NotImplementedError
@@ -1135,7 +1161,7 @@ def fit(
             dtunit = 'ms'
             data = np.asarray(data)
             if len(data.shape) == 1:
-                log.info('1d array, assuming this to be ' +
+                log.debug('1d array, assuming this to be ' +
                       'coefficients with minstep=1')
                 coefficients = data
                 steps        = np.arange(1, len(coefficients)+1)
@@ -1144,27 +1170,29 @@ def fit(
             elif len(data.shape) == 2:
                 if data.shape[0] > data.shape[1]: data = np.transpose(data)
                 if data.shape[0] == 1:
-                    log.info('nested 1d array, assuming this to be ' +
+                    log.debug('nested 1d array, assuming this to be ' +
                           'coefficients with minstep=1')
                     coefficients = data[0]
                     steps        = np.arange(1, len(coefficients))
                     stderrs      = None
                     mnaive       = coefficients[0]
                 elif data.shape[0] == 2:
-                    log.info('2d array, assuming this to be ' +
+                    log.debug('2d array, assuming this to be ' +
                           'steps and coefficients')
                     steps        = data[0]
                     coefficients = data[1]
                     stderrs      = None
                     if steps[0] == 1: mnaive = coefficients[0]
                 elif data.shape[0] >= 3:
-                    log.info('2d array, assuming this to be ' +
+                    log.debug('2d array, assuming this to be ' +
                           'steps, coefficients, stderrs')
                     steps        = data[0]
                     coefficients = data[1]
                     stderrs      = None
-                    if steps[0] == 1: mnaive = coefficients[0]
-                    if data.shape > 3: print('\t\tIgnoring further rows')
+                    if steps[0] == 1:
+                        mnaive = coefficients[0]
+                    if data.shape > 3:
+                        log.debug('Ignoring further rows')
             else:
                 raise TypeError
         except Exception as e:
@@ -1195,23 +1223,23 @@ def fit(
 
     if fitbnds is None:
         bnds = np.array([-np.inf, np.inf])
-        log.info('Unbound fit to {}:'.format(math_from_doc(fitfunc)))
-        log.info('kmin = {}, kmax = {}'.format(steps[0], steps[-1]))
+        log.info('Unbound fit to {}'.format(math_from_doc(fitfunc)))
+        log.debug('kmin = {}, kmax = {}'.format(steps[0], steps[-1]))
         ic = list(inspect.signature(fitfunc).parameters)[1:]
         ic = ('{} = {:.3f}'.format(a, b) for a, b in zip(ic, fitpars[0]))
-        log.info('Starting parameters: '+', '.join(ic))
+        log.debug('Starting parameters: '+', '.join(ic))
     else:
         bnds = fitbnds
         log.info('Bounded fit to {}'.format(math_from_doc(fitfunc)))
-        log.info('kmin = {}, kmax = {}'.format(steps[0], steps[-1]))
+        log.debug('kmin = {}, kmax = {}'.format(steps[0], steps[-1]))
         ic = list(inspect.signature(fitfunc).parameters)[1:]
         ic = ('{0:<6} = {1:8.3f} in ({2:9.4f}, {3:9.4f})'
             .format(a, b, c, d) for a, b, c, d
                 in zip(ic, fitpars[0], fitbnds[0, :], fitbnds[1, :]))
-        log.info('First parameters:\n\t'+'\n\t'.join(ic))
+        log.debug('First parameters:\n\t'+'\n\t'.join(ic))
 
     if (fitpars.shape[0]>1):
-        log.info('Repeating fit with {} sets of initial parameters:'
+        log.debug('Repeating fit with {} sets of initial parameters:'
             .format(fitpars.shape[0]))
 
     # ------------------------------------------------------------------ #
@@ -1253,7 +1281,7 @@ def fit(
                 fulpcov  = pcov
 
         _logstreamhandler.terminator = "\n"
-        log.info('Finished %d fit(s)', len(fitpars))
+        log.debug('Finished %d fit(s)', len(fitpars))
 
         return fulpopt, fulpcov, ssresmin
 
@@ -1284,9 +1312,10 @@ def fit(
         dtunit  = dtunit,
         desc    = desc)
 
-    log.info(
-        'Finished fitting {}, mre = {:.5f}, tau = {:.5f}{}, ssres = {:.5f}' \
-        .format('\''+desc+'\'' if desc != '' else fitfunc.__name__,
+    log.info('Finished fitting ' +
+        '{} to {}, mre = {:.5f}, tau = {:.5f}{}, ssres = {:.5f}' \
+        .format("'"+desc+"'" if desc != '' else 'the data',
+            fitfunc.__name__,
             fulres.mre, fulres.tau, fulres.dtunit, fulres.ssres))
 
     if fulres.tau >= 0.9*(steps[-1]*dt):
@@ -1416,12 +1445,16 @@ class OutputHandler:
             ax : ~matplotlib.axes.Axes, optional
                 The an instance of a matplotlib axes (a subplot) to plot into.
         """
-        if isinstance(ax, matplotlib.axes.Axes): self.ax = ax
-        elif ax is None: _, self.ax = plt.subplots()
-        else: raise TypeError(
-            'ax is not a matplotlib.axes.Axes\n'+
-            'If you want to add multiple items, pass them as a list as the '+
-            'first argument\n')
+        if isinstance(ax, matplotlib.axes.Axes):
+            self.ax = ax
+        elif ax is None:
+            _, self.ax = plt.subplots()
+        else:
+            log.exception("Argument 'ax' provided to OutputHandler is not " +
+            " an instance of matplotlib.axes.Axes\n"+
+            '\tIn case you want to add multiple items, pass them in a list ' +
+            'as the first argument')
+            raise TypeError
 
         self.rks = []
         self.rklabels = []
@@ -1453,8 +1486,9 @@ class OutputHandler:
             elif isinstance(d, np.ndarray):
                 self.add_ts(d)
             else:
-                raise ValueError('\nPlease provide a list containing '
-                    'CoefficientResults and/or FitResults\n')
+                log.exception('Please provide a list containing '
+                    '\tCoefficientResults and/or FitResults\n')
+                raise ValueError
 
     def set_xdata(self, data=None, dt=1, dtunit=None):
         """
@@ -1519,6 +1553,7 @@ class OutputHandler:
 
             ..
         """
+        log.debug('OutputHandler.set_xdata()')
         # make sure data is not altered
         xdata = np.copy(data.astype('float64'))
         # xdata = data
@@ -1539,13 +1574,14 @@ class OutputHandler:
 
         # no new data provided, no need to call this
         elif xdata is None:
-            print("Warning: calling set_xdata() without argument when " +
-                "xdata is already set. Nothing to overwrite\n")
+            log.debug("set_xdata() called without argument when " +
+                "xdata is already set. Nothing to adjust")
             return np.arange(0, self.xdata.size)
 
         # compare dtunits
         elif dtunit != self.dtunit and dtunit is not None:
-            print('Warning: dtunit does not match, adjusting axis label\n')
+            log.warning("'dtunit' does not match across added elements, " +
+                "adjusting axis label to '[different units]'")
             regex = r'\[.*?\]'
             oldlabel = self.ax.get_xlabel()
             self.ax.set_xlabel(re.sub(regex, '[different units]', oldlabel))
@@ -1560,18 +1596,22 @@ class OutputHandler:
 
         # compare timescales dt
         elif self.dt < dt:
-            print('Warning: dt does not match,')
+            log.debug('dt does not match,')
             scd = dt / self.dt
             if float(scd).is_integer():
-                print('Changing axis values of new data (dt={})\n'.format(dt) +
+                log.debug(
+                    'Changing axis values of new data (dt={})'.format(dt) +
                     'to match higher resolution of ' +
-                    'old xaxis (dt={})\n'.format(self.dt))
+                    'old xaxis (dt={})'.format(self.dt))
                 scd = dt / self.dt
                 xdata *= scd
             else:
-                print('New dt={} is not an integer multiple of '.format(dt) +
-                    'the previous dt={}\n'.format(self.dt) +
-                    'Plotting with \'[different units]\'\n')
+                log.warning(
+                    "New 'dt={}' is not an integer multiple of ".format(dt) +
+                    "the previous 'dt={}\n".format(self.dt) +
+                    "\tPlotting with '[different units]'\n" +
+                    "\tAs a workaround, try adding the data with the " +
+                    "smallest 'dt' first")
                 try:
                     regex = r'\[.*?\]'
                     oldlabel = self.ax.get_xlabel()
@@ -1580,13 +1620,13 @@ class OutputHandler:
                     self.xlabel = re.sub(
                         regex, '[different units]', self.xlabel)
                 except TypeError:
-                    pass
+                    log.debug('Exception passed', exc_info=True)
 
         elif self.dt > dt:
             scd = self.dt / dt
             if float(scd).is_integer():
-                print('Changing dt to new value dt={}\n'.format(dt) +
-                    'Adjusting existing axis values (dt={})\n'.format(self.dt))
+                log.debug("Changing 'dt' to new value 'dt={}'\n".format(dt) +
+                    "\tAdjusting existing axis values (dt={})".format(self.dt))
                 self.xdata *= scd
                 self.dt = dt
                 try:
@@ -1599,9 +1639,10 @@ class OutputHandler:
                 except TypeError:
                     pass
             else:
-                print('old dt={} is not an integer multiple '.format(self.dt) +
-                    'of the new value dt={}\n'.format(self.dt) +
-                    'Plotting with \'[different units]\'\n')
+                log.warning(
+                    "old 'dt={}' is not an integer multiple ".format(self.dt) +
+                    "of the new value 'dt={}'\n".format(self.dt) +
+                    "\tPlotting with '[different units]'\n")
                 try:
                     regex = r'\[.*?\]'
                     oldlabel = self.ax.get_xlabel()
@@ -1615,7 +1656,7 @@ class OutputHandler:
         # check if new is subset of old
         temp = np.union1d(self.xdata, xdata)
         if not np.array_equal(self.xdata, temp):
-            print('Rearrange present data')
+            log.debug('Rearranging present data')
             _, indtemp = _intersecting_index(self.xdata, temp)
             self.xdata = temp
             for ydx, col in enumerate(self.ydata):
@@ -1630,21 +1671,6 @@ class OutputHandler:
 
         return indold
 
-    def set_xdata_old(self, xdata=None):
-        # this needs to be improve, for now only fits can be redrawn
-        if xdata is None: xdata = np.arange(1501)
-        if len(self.rks) == 0: self.xdata = xdata
-        else: raise NotImplementedError('Overwriting xdata when it was set ' \
-            'by add_coefficients() is not supported yet')
-
-        _, labels = self.ax.get_legend_handles_labels()
-        self.ax.clear()
-        for fdx, mre in enumerate(self.fits):
-            self.ax.plot(self.xdata, mre.fitfunc(self.xdata, *mre.popt),
-                label=labels[fdx])
-            self.ax.legend()
-            self.ax.relim()
-            self.ax.autoscale_view()
 
     def add_coefficients(self, data, **kwargs):
         """
@@ -1676,8 +1702,12 @@ class OutputHandler:
             ..
         """
         if not isinstance(data, CoefficientResult):
+            log.exception("'data' needs to be of type CoefficientResult")
             raise ValueError
         if not (self.type is None or self.type == 'correlation'):
+            log.exception("It is not possible to 'add_coefficients()' to " +
+                "an OutputHandler containing a time series\n" +
+                "\tHave you previously called 'add_ts()' on this handler?")
             raise ValueError
         self.type = 'correlation'
 
@@ -1726,9 +1756,9 @@ class OutputHandler:
         oldcurves=[]
         if data in self.rks:
             indrk = self.rks.index(data)
-            print('Warning: coefficients ({}/{}) ' \
-                .format(self.rklabels[indrk][0],label) +
-                'have already been added.\nOverwriting with new style')
+            log.warning(
+                'Coefficients ({}/{}) '.format(self.rklabels[indrk][0],label) +
+                'have already been added\n\tOverwriting with new style')
             del self.rks[indrk]
             del self.rklabels[indrk]
             oldcurves = self.rkcurves[indrk]
@@ -1826,8 +1856,12 @@ class OutputHandler:
                 omitted.
         """
         if not isinstance(data, FitResult):
+            log.exception("'data' needs to be of type FitResult")
             raise ValueError
         if not (self.type is None or self.type == 'correlation'):
+            log.exception("It is not possible to 'add_fit()' to " +
+                "an OutputHandler containing a time series\n" +
+                "\tHave you previously called 'add_ts()' on this handler?")
             raise ValueError
         self.type = 'correlation'
 
@@ -1860,9 +1894,9 @@ class OutputHandler:
         oldcurves=[]
         if data in self.fits:
             indfit = self.fits.index(data)
-            print('Warning: fit was already added ({})\n' \
-                .format(self.fitlabels[indfit]) +
-                'Overwriting with new style')
+            log.warning(
+                'Fit was already added ({})\n'.format(self.fitlabels[indfit]) +
+                '\tOverwriting with new style')
             del self.fits[indfit]
             del self.fitlabels[indfit]
             oldcurves = self.fitcurves[indfit]
@@ -1947,15 +1981,19 @@ class OutputHandler:
             ..
         """
         if not (self.type is None or self.type == 'timeseries'):
-            raise ValueError('\nTime series are not compatible with '
-                'a coefficients plot\n')
+            log.exception("Adding time series 'add_ts()' is not " +
+                "compatible with an OutputHandler that has coefficients\n" +
+                "\tHave you previously called 'add_coefficients()' or " +
+                "'add_fit()' on this handler?")
+            raise ValueError
         self.type = 'timeseries'
         if not isinstance(data, np.ndarray):
             data = np.array(data)
         if len(data.shape) < 2:
             data = data.reshape((1, len(data)))
         elif len(data.shape) > 2:
-            raise ValueError('\nOnly compatible with up to two dimensions\n')
+            log.exception('Only compatible with up to two dimensions')
+            raise NotImplementedError
 
         desc = kwargs.get('label') if 'label' in kwargs else 'ts'
         color = kwargs.get('color') if 'color' in kwargs else None
@@ -1973,7 +2011,8 @@ class OutputHandler:
                 self.ax.set_ylabel('$A_{t}$')
                 self.ax.set_title('Time Series')
             elif len(self.xdata) != len(dat):
-                raise ValueError('\nTime series have different length\n')
+                log.exception('Time series have different length')
+                raise NotImplementedError
             # if self.ydata is None:
             #     self.ydata = np.full((1, len(self.xdata)), np.nan)
             #     self.ydata[0] = dat
@@ -2027,7 +2066,7 @@ class OutputHandler:
 
         if isinstance(ftype, str): ftype = [ftype]
         for t in list(ftype):
-            print('Saving plot to {}.{}'.format(fname, t))
+            log.info('Saving plot to {}.{}'.format(fname, t))
             if t == 'pdf':
                 self.ax.figure.savefig(fname+'.pdf')
 
@@ -2045,7 +2084,7 @@ class OutputHandler:
         if not isinstance(fname, str): fname = str(fname)
         if fname == '': fname = './mre'
         fname = os.path.expanduser(fname)
-        print('Saving meta to {}.tsv'.format(fname))
+        log.info('Saving meta to {}.tsv'.format(fname))
         # fits
         hdr = ''
         try:
@@ -2063,7 +2102,7 @@ class OutputHandler:
                     hdr += '\t\t{} = {}\n'.format(parname[pdx], par)
                 hdr += '\n'
         except Exception as e:
-            print(e)
+            log.debug('Exception passed', exc_info=True)
 
         # rks / ts
         labels = ''
@@ -2074,7 +2113,8 @@ class OutputHandler:
                 labels += '\t'+str(ldx+2)+'_'+label
             labels = labels.replace(' ', '_')
             dat = np.vstack((self.xdata, np.asarray(self.ydata)))
-        np.savetxt(fname+'.tsv', np.transpose(dat), delimiter='\t', header=hdr+labels)
+        np.savetxt(
+            fname+'.tsv', np.transpose(dat), delimiter='\t', header=hdr+labels)
 
 
 def _intersecting_index(ar1, ar2):
@@ -2110,7 +2150,7 @@ def _at_index(data, indices, keepdim=None, padding=np.nan):
     data    = np.asarray(data)
     indices = np.asarray(indices)
     i       = indices[indices < data.size]
-    print('i:', i, i.size)
+
     if keepdim is None:
         return data[i]
     elif keepdim == 'data':
@@ -2147,7 +2187,7 @@ def full_analysis(
     coefficientmethod=None,
     substracttrialaverage=False,    # optional. default=? mre treff
     numboot=0,                      # optional. default 0
-    loglevel='INFO',                # optional. file and/or console? elsewhere!
+    loglevel=None,                  # optional. local file and console
     steps=None,                     # dt conversion? optional replace tmin/tmax
     targetplot=None,
     ):
@@ -2225,10 +2265,11 @@ def full_analysis(
             *not implemented yet*
 
         loglevel: str
-            The loglevel to use for the logfile that will be created
-            in as `title.log` in the `targetdir`.
-            ERROR', 'WARNING', 'INFO' or 'DEBUG'.
-            Default is 'INFO'.
+            The loglevel to use for console output and the logfile created
+            as `title.log` in the `targetdir`.
+            'ERROR', 'WARNING', 'INFO' or 'DEBUG'.
+            Per default inherited from the current mre console level,
+            (usually 'INFO', if not changed by the user).
 
         steps : ~numpy.array, optional
             Overwrites `tmin` and `tmax`.
@@ -2288,23 +2329,41 @@ def full_analysis(
         td=os.path.abspath(os.path.expanduser(targetdir))
         os.makedirs(td, exist_ok=True)
     else:
-        log.error("Argument 'targetdir' needs to be of type 'str'")
+        log.exception("Argument 'targetdir' needs to be of type 'str'")
         raise TypeError
     if not isinstance(title, str):
-        log.error("Argument 'title' needs to be of type 'str'")
+        log.exception("Argument 'title' needs to be of type 'str'")
         raise TypeError
 
     # setup log early so argument errors appear in the logfile
-    if not loglevel.upper() in ['ERROR', 'WARNING', 'INFO', 'DEBUG']:
+    oldloglevel = _logstreamhandler.level
+    if loglevel is None:
+        # use console level if no argument set
+        loglevel = oldloglevel
+    elif isinstance(loglevel, int) and loglevel > 0:
+        pass
+    elif str(loglevel).upper() in ['ERROR', 'WARNING', 'INFO', 'DEBUG']:
+        loglevel = str(loglevel).upper()
+    else:
+        log.debug("Unrecognized log level {}, using 'INFO'".format(loglevel))
         loglevel = 'INFO'
+
+    # workaround: if full_analysis() does not reach its end where we remove
+    # the local loghandler, it survives and keps logging with the old level
+    for hdlr in log.handlers:
+        if isinstance(hdlr, logging.FileHandler):
+            if hdlr != _logfilehandler:
+                hdlr.close()
+                log.removeHandler(hdlr)
+
+    _logstreamhandler.setLevel(logging.getLevelName(loglevel))
     loghandler = logging.FileHandler(targetdir+title+'.log', 'w')
     loghandler.setLevel(logging.getLevelName(loglevel))
     loghandler.setFormatter(CustomExceptionFormatter(
         '%(asctime)s %(levelname)8s: %(message)s', "%Y-%m-%d %H:%M:%S"))
     log.addHandler(loghandler)
 
-    log.info("full_analysis()")
-
+    log.debug("full_analysis()")
     try:
         dt = float(dt)
         assert(dt>0)
@@ -2326,7 +2385,8 @@ def full_analysis(
             raise
         steps = (int(tmin/dt), int(tmax/dt))
     else:
-        log.info("Argument 'steps' was provided, ignoring 'tmin' and 'tmax'")
+        log.info("Argument 'steps' was provided to full_analysis(), " +
+            "ignoring 'tmin' and 'tmax'")
 
     if fitfunctions is None:
         log.exception("Missing required argument 'fitfunctions'")
@@ -2445,6 +2505,8 @@ def full_analysis(
     # return a handler only containing the result
     res = OutputHandler(rks+fits, ax=targetplot)
     log.info("full_analysis() done")
+    _logstreamhandler.setLevel(oldloglevel)
+    log.removeHandler(loghandler)
     return res
 
 
@@ -2488,7 +2550,7 @@ class CustomExceptionFormatter(logging.Formatter, object):
             return ''
 
 def set_targetdir(fname):
-    log.info('Setting global target directory to %s, log file might change',
+    log.debug('Setting global target directory to %s, log file might change',
         os.path.abspath(os.path.expanduser(fname)))
 
     global _targetdir
@@ -2531,7 +2593,7 @@ def main():
     log.addHandler(_logfilehandler)
 
     log.info('Loaded mrestimator, writing to %s', _targetdir)
-    _logstreamhandler.setLevel(logging.WARNING)
+    _logstreamhandler.setLevel(logging.INFO)
 
 
 main()
