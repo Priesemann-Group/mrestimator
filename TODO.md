@@ -19,9 +19,19 @@ Wrapper Function
 ----------------
 
 - [x] plot
-- [ ] replace member samples with bootsamples and trials
-      function call parameters as dict in result of wrapper, coefficients and fit
-- [ ] coefficients(): bootstrap for ts method, too
+- [x] replace member samples with bootsamples and trials; kept samples for now
+- [ ] previous point has to change a bit more:
+	* trials -> trialcr: list of CoefficientResults 'cr';
+	* trialactivites: list of mean trial activities, always length 'numtrials'
+	* bootsamples -> bootstrapcr: list of 'cr'
+	* ndarray behaves a bit weird when adding objects (e.g. prints the sub arrays of the contained 'cr')
+	* this should allow to fit() and plot on resampled data and individual trials
+	* maybe drop 'namedtuple' inheritence for cr and fr, some functions we take over dont work well.
+		- reimplement useful ones _asdict (if child != None)
+		- _fields
+		- _index? no!
+- [ ] function call parameters as dict in result of wrapper, coefficients and fit
+- [x] coefficients(): bootstrap for ts method, too
 - [ ] just do the bootstrapping for coefficients and make bs of fit optional (fitting takes ages)
       fit use numboots from wrapper, if none only do bs for ceoffs
 - [ ] numboot doesnt do anything so far
