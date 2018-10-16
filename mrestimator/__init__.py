@@ -17,6 +17,10 @@ import time
 import glob
 import inspect
 
+__version__ = "unknown"
+
+from ._version import __version__
+
 
 log = logging.getLogger(__name__)
 _targetdir = None
@@ -179,7 +183,10 @@ def input_handler(items, **kwargs):
                     raise ValueError
                 else:
                     kwargs = dict(kwargs, ndmin=2)
-
+                # fix for numpy 1.11
+                if 'usecols' in kwargs \
+                and isinstance(kwargs.get('usecols'), int):
+                    kwargs = dict(kwargs, usecols=[kwargs.get('usecols')])
                 result = np.loadtxt(item, **kwargs)
                 data.append(result)
             except Exception as e:
@@ -673,6 +680,7 @@ def coefficients(
         #     stderrs = None
 
         bootres = None
+        stderrs = None
         if numboot <= 1:
             log.debug('Bootstrap needs at least numboot=2 replicas, ' +
                 'skipping the resampling')
@@ -2489,13 +2497,21 @@ def full_analysis(
 
     ratios = np.ones(4)*.75
     ratios[3] = 0.25
-    fig, axes = plt.subplots(nrows=4, figsize=(6, 8),
-        constrained_layout=True,
+    # A4 in inches, should check rc params in the future
+    # matplotlib changes the figure size when modifying subplots
+    topshift = 0.925
+    fig, axes = plt.subplots(nrows=4, figsize=(8.27, 11.69*topshift),
         gridspec_kw={"height_ratios":ratios})
 
     tsout = OutputHandler(ax=axes[0])
     tsout.add_ts(src, label='Trials')
-    tsout.add_ts(np.mean(src, axis=0), color='C0', label='Average')
+    try:
+        prevclr = plt.rcParams["axes.prop_cycle"].by_key()["color"][0]
+    except Exception:
+        prevclr = 'navy'
+        log.debug('Exception passed', exc_info=True)
+
+    tsout.add_ts(np.mean(src, axis=0), color=prevclr, label='Average')
     tsout.ax.set_title('Time Series (Input Data)')
     tsout.ax.set_xlabel('t [{}{}]'.format(_printeger(dt), dtunit))
 
@@ -2521,18 +2537,25 @@ def full_analysis(
         fitlabels.append(label)
 
 
-    axes[3].legend(fitcurves, fitlabels,
-        # title='Fitresults',
-        ncol=len(fitlabels),
-        loc='upper center',
-        mode='expand',
-        frameon=True,
-        markerfirst=True,
-        fancybox=False,
-        # framealpha=1,
-        borderaxespad=0,
-        edgecolor='black',
-        )
+    tempkwargs = {
+        # 'title': 'Fitresults',
+        'ncol': len(fitlabels),
+        'loc': 'upper center',
+        'mode': 'expand',
+        'frameon': True,
+        'markerfirst': True,
+        'fancybox': False,
+        # 'framealpha': 1,
+        'borderaxespad': 0,
+        'edgecolor': 'black',
+        }
+    try:
+        axes[3].legend(fitcurves, fitlabels, **tempkwargs)
+    except Exception:
+        log.debug('Exception passed', exc_info=True)
+        del tempkwargs['edgecolor']
+        axes[3].legend(fitcurves, fitlabels, **tempkwargs)
+
     axes[3].get_legend().get_frame().set_linewidth(0.5)
     axes[3].axis('off')
     axes[3].set_title('Fitresults')
@@ -2542,11 +2565,12 @@ def full_analysis(
         for s in a.spines:
             a.spines[s].set_linewidth(0.5)
 
-    # fig.tight_layout()
+    fig.tight_layout()
+    plt.subplots_adjust(top=topshift)
     if (title is not None and title != ''):
         fig.suptitle(title+'\n', fontsize=14)
     else:
-        title = 'Results_auto'
+        title = 'Results_auto\n'
 
     cout.save(targetdir+title)
 
@@ -2662,7 +2686,7 @@ def main():
         log_locals_on_exception=True, log_trace_on_exception=True))
     log.addHandler(_logfilehandler)
 
-    log.info('Loaded mrestimator, writing to %s', _targetdir)
+    log.info('Loaded mrestimator v%s, writing to %s', __version__, _targetdir)
     _logstreamhandler.setLevel(logging.INFO)
 
 

@@ -156,7 +156,7 @@ are the plotted results and the values calculated for
 :math:`\tau` and :math:`m`.
 
 So what did all the arguments to :func:`full_analysis` do?
-Firstyl, you will find the exact same plot with the specified
+First of all, you will find the exact same plot with the specified
 `title` as `Full Analysis.pdf` in the `targetdir` (here `output`).
 
 `dt` and `dtunit` set the time scale, how far masurementpoints are apart.
@@ -198,7 +198,7 @@ the plot color and a label.
 .. code-block:: python
 
     avgful = np.mean(srcful, axis=0)
-    oful.add_ts(avgful, color='C0', label='average (full)')
+    oful.add_ts(avgful, color='navy', label='average (full)')
 ..
 
 Any `kwargs` (keyword arguments, think named options) are passed to
@@ -209,15 +209,17 @@ options to specify in the `matplotlib documentation
 .. code-block:: python
 
     avgsub = np.mean(srcsub, axis=0)
-    oful.add_ts(srcsub, alpha=0.25, color='orange', label='trials (subs.)')
-    oful.add_ts(avgsub, ls='dashed', color='C1', label='average (subs.)')
-    oful.add_ts(srcdrv, color='C2', label='drive')
+    oful.add_ts(srcsub, alpha=0.25, color='yellow', label='trials (subs.)')
+    oful.add_ts(avgsub, ls='dashed', color='maroon', label='average (subs.)')
+    oful.add_ts(srcdrv, color='green', label='drive')
 
     plt.show()
 ..
 
 .. image:: ../media/gettingstarted/manual_01.png
     :width: 66%
+
+(Note: matplotlib's ability to deal with colors has increased a lot since version 1.5.3. The code above uses backwards compatible styling but we recommend using the newer syntax e.g. ``color='C0'``, if available. See the matplotlib api refernces `v2.2.3 <https://matplotlib.org/2.2.3/api/colors_api.html>`_ compared to `v1.5.3 <https://matplotlib.org/1.5.3/api/colors_api.html>`_)
 
 So far, so good. After checking that the input is indeed what we want, we
 calculate the correlation coefficients :math:`r_k` using
