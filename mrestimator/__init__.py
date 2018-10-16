@@ -2505,20 +2505,39 @@ def full_analysis(
 
     tsout = OutputHandler(ax=axes[0])
     tsout.add_ts(src, label='Trials')
-    try:
-        prevclr = plt.rcParams["axes.prop_cycle"].by_key()["color"][0]
-    except Exception:
-        prevclr = 'navy'
-        log.debug('Exception passed', exc_info=True)
-
-    tsout.add_ts(np.mean(src, axis=0), color=prevclr, label='Average')
+    if (src.shape[0] > 1):
+        try:
+            prevclr = plt.rcParams["axes.prop_cycle"].by_key()["color"][0]
+        except Exception:
+            prevclr = 'navy'
+            log.debug('Exception passed', exc_info=True)
+        tsout.add_ts(np.mean(src, axis=0), color=prevclr, label='Average')
+    else:
+        tsout.ax.legend().set_visible(False)
     tsout.ax.set_title('Time Series (Input Data)')
     tsout.ax.set_xlabel('t [{}{}]'.format(_printeger(dt), dtunit))
 
-    taout = OutputHandler(rks[0].trialacts, ax=axes[1])
-    taout.ax.set_title('Mean Trial Activity')
-    taout.ax.set_xlabel('Trial i')
-    taout.ax.set_ylabel('$\\bar{A}_i$')
+    if (src.shape[0] > 1):
+        # average trial activites as function of trial number
+        taout = OutputHandler(rks[0].trialacts, ax=axes[1])
+        taout.ax.set_title('Mean Trial Activity')
+        taout.ax.set_xlabel('Trial i')
+        taout.ax.set_ylabel('$\\bar{A}_i$')
+    else:
+        # running average over the one trial to see if stays stationary
+        numsegs = 50
+        ravg = np.zeros(numsegs)
+        seglen = int(src.shape[1]/numsegs)
+        for s in range(numsegs):
+            ravg[s] = np.mean(src[0][s*seglen : (s+1)*seglen])
+
+        taout = OutputHandler(ravg, ax=axes[1])
+        taout.ax.set_title(
+            'Average Activity for {} Intervals'.format(numsegs))
+        taout.ax.set_xlabel('Interval i')
+        taout.ax.set_ylabel('$\\bar{A}_i$')
+
+
 
     cout = OutputHandler(rks+fits, ax=axes[2])
 

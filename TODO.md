@@ -6,7 +6,7 @@ General
 
 - [x] logging module + log file, beware only import/manipulate logging module for our module
 - [ ] change logging to load config from file -> here take care not to overwrite existing loggers
-- [ ] use python 3.5 for development and minimal reqs check matplotlib
+- [x] use python 3.5 for development and minimal reqs check matplotlib
 - [ ] test suite to check min dependencies through to latest
 - [ ] import modules into _variables? No: check what numpy does via __all__
 - [x] check that input_handler is fast when getting data in the right format. Yeah: checked 1k trials with length 1e6 in the right format 100 times in 60sec
@@ -37,6 +37,6 @@ Wrapper Function
 - [ ] numboot doesnt do anything so far
 - [ ] results file mit function pars of all called steps
 - [ ] target dir optional and how to deal with log file/console/function isolated?
-- [ ] remove mean trial activity plot and 'average' if only a single trial
-- [ ] adaptive maxfev in fit()
-- [ ] loglevel argument should be the console handler, i would say. we have a default log file anyway.
+- [x] remove mean trial activity plot and 'average' if only a single trial
+- [x] adaptive maxfev in fit()
+- [x] loglevel argument should be the console handler, i would say. we have a default log file anyway.
