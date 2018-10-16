@@ -26,9 +26,41 @@ pip3 install -U mrestimator
 ```
 
 If you run into problems during installation, they are most likely due to numpy and scipy.
-You may check the [official scipy.org documentation](https://scipy.org/install.html).
+You may check the [official scipy.org documentation](https://scipy.org/install.html) or try using anaconda as outlined below.
 
-## Manual Installation
+### Install Using Anaconda
+
+We sincerely recommend using conda, more so if you are unsure about the dependencies on your system or lack administrator priviliges. It is easy to install, allows you to manage different versions of Python and if something breaks, you can role back and reinstall easily - all without leaving your user directory.
+
+Head over to [anaconda.com](https://www.anaconda.com/download/), and download the installer for Python 3.7.
+
+After following the installation instructions (default settings are fine for most users),
+start a new python session by typing ```python``` in a new terminal window.
+You will see something similar to the following:
+
+```
+Python 3.7.0 (default, Jun 28 2018, 07:39:16)
+[Clang 4.0.1 (tags/RELEASE_401/final)] :: Anaconda, Inc. on darwin
+Type "help", "copyright", "credits" or "license" for more information.
+>>>
+```
+
+End the session (```exit()``` or Ctrl-D) and type ```conda list```, which will output a list of the packages that came bundled with anaconda.
+All dependencies for Mr. Estimator are included.
+
+Optionally, you can create a new environment (e.g. named 'myenv') for the toolbox ```conda create --name myenv```
+and activate it with ``source activate myenv`` (``activate myenv`` on windows).
+For more details on managing environments with conda, see [here](https://conda.io/docs/user-guide/tasks/manage-environments.html).
+
+Now install using pip: ```pip install mrestimator``` and afterwards you should be able to import the module into any python3 session
+
+```
+python
+>>> import mrestimator as mre
+INFO     Loaded mrestimator v0.1.1b1, writing to /tmp/mre_output/
+```
+
+### Manual Installation
 
 Clone the repository via ssh or https
 
@@ -49,12 +81,5 @@ automatically when you login, you can add it to your `~/.bashrc` or `~/.profile`
 
 ```
 echo 'export PYTHONPATH="${PYTHONPATH}:'$(pwd)'/mrestimator"' >> ~/.bashrc
-```
-
-Then, you should be able to import the module into any python session
-
-```
-python3
->>> import mrestimator as mre
 ```
 
