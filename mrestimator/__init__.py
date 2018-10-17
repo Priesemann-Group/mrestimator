@@ -373,12 +373,10 @@ def simulate_subsampling(data, prob=0.1, seed=None):
 # Coefficients
 # ------------------------------------------------------------------ #
 
-# this is equivalent to CoefficientResult = namedtuple(... but
-# we can provide documentation and set default values
-class CoefficientResult(namedtuple('CoefficientResult',
-    'coefficients steps dt dtunit offsets stderrs trialacts ' +
-    'samples ' +   # keep this until version 0.2.0 to keep scripts in tact
-    'bootsamples trials desc')):
+# okay, so we might have to reevaluate if we want to use other container types
+# as baseclass. namedtuple felt inconsistent, maybe we try
+# collections.abc.MutableMapping, this should give the 'like dict' feeling
+class CoefficientResult:
     """
         :obj:`~collections.namedtuple` returned by
         :func:`coefficients`. Attributes
@@ -403,26 +401,14 @@ class CoefficientResult(namedtuple('CoefficientResult',
         stderrs : ~numpy.array or None
             Standard errors of the :math:`r_k`.
 
-        trialacts : ~numpy.array or None
+        trialactivities : ~numpy.array
             Mean activity of each trial in the provided data.
-            To get the global mean activity, use ``np.mean(trialacts)``.
+            To get the global mean activity, use ``np.mean(trialactivities)``.
 
-        desc : str
+        description : str
             Description (or name) of the data set, by default all results of
             functions working with this set inherit its description (e.g. plot
             legends).
-
-        samples : CoefficientResult or None
-            Contains the information on the separate (or resampled) trials,
-            grouped in the same.
-
-        samples.coefficients : ~numpy.array or None
-            Coefficients of each separate trial (or bootstrap sample). Access
-            via ``.samples.coefficients[trial, step]``
-
-        samples.trialacts : ~numpy.array or None
-            Individual activites of each trial. If `bootsrapping` was used,
-            this containts the `numboot` activities of the resampled replicas.
 
         Example
         -------
@@ -438,47 +424,60 @@ class CoefficientResult(namedtuple('CoefficientResult',
             # the bp returns data already in the right format
             rk = mre.coefficients(bp)
 
-            # list available fields
-            print(rk._fields)
-
             # print the coefficients
             print(rk.coefficients)
-
-            # print all entries as a dict
-            print(rk._asdict())
 
             # get the documentation
             print(help(rk))
 
-            # separate trials, swap indices to comply with the pyplot layout
-            plt.plot(rk.steps, np.transpose(rk.samples.coefficients),
-                     color='C0', alpha=0.1)
-
-            # estimated coefficients
-            plt.plot(rk.steps, rk.coefficients,
-                     color='C0', label='estimated r_k')
-
-            plt.xlabel(r'$k$')
-            plt.ylabel(r'$r_k$')
-            plt.legend(loc='upper right')
+            mre.OutputHandler(rk)
             plt.show()
         ..
     """
-    # set (some) default values
-    def __new__(cls,
-        coefficients, steps,
-        dt=1, dtunit='ms',
-        offsets=None, stderrs=None,
-        trialacts=None, samples=None,
-        bootsamples=None, trials=None,
-        desc=''):
-            return super(cls, CoefficientResult).__new__(cls,
-                coefficients, steps,
-                dt, dtunit,
-                offsets, stderrs,
-                trialacts, samples,
-                bootsamples, trials,
-                desc)
+    __slots__ = [
+        'coefficients',
+        'steps',
+        'dt',
+        'dtunit',
+        'stderrs',
+        'trialactivities',
+        'bootstrapcrs',
+        'trialcrs',
+        'desc',
+        'description',
+        'numtrials',
+        'numboot',
+        'numsteps']
+
+    def __init__(self,
+        coefficients,
+        steps,
+        dt=1,
+        dtunit='ms',
+        stderrs=None,
+        trialactivities=np.array([]),
+        bootstrapcrs=[],
+        trialcrs=[],
+        desc = '',
+        description=None):
+
+        self.coefficients = coefficients
+        self.steps = steps
+        self.stderrs = stderrs
+        self.trialactivities = np.array([]) \
+            if trialactivities is None else trialactivities
+        self.bootstrapcrs = [] \
+            if bootstrapcrs is None else bootstrapcrs
+        self.trialcrs = [] \
+            if trialcrs is None else trialcrs
+        self.desc = '' \
+            if desc is None else str(desc)
+        self.description = None \
+            if description is None else str(description)
+
+        self.numtrials = len(self.trialactivities)
+        self.numboot = len(self.bootstrapcrs)
+        self.numsteps = len(self.coefficients)
 
     def __repr__(self):
         return '<%s.%s object at %s>' % (
@@ -497,7 +496,9 @@ def coefficients(
     method=None,
     numboot=100,
     seed=3141,
-    desc=''):
+    description=None,
+    desc=None,
+    ):
     """
         Calculates the coefficients of correlation :math:`r_k`.
 
@@ -523,7 +524,7 @@ def coefficients(
         dtunit : str, optional
             Units of step size. Default is `'ms'`.
 
-        desc : str, optional
+        description : str, optional
             Set the description of the :class:`CoefficientResult`. By default
             all results of functions working with this set inherit its
             description (e.g. plot legends).
@@ -541,7 +542,6 @@ def coefficients(
             constant across all trials.
 
         numboot : int, optional
-            Only affects the `'stationarymean'` method.
             Enable bootstrapping to generate `numboot` (resampled)
             series of trials from the provided one. This allows to approximate
             statistical errors, returned in `stderrs`.
@@ -576,7 +576,10 @@ def coefficients(
     elif method == 'sm':
         method = 'stationarymean'
 
-    if not isinstance(desc, str): desc = str(desc)
+    if desc is not None and description is None:
+        description = str(desc);
+    if description is not None and not isinstance(description, str):
+        description = str(description)
 
     # check dt
     dt = float(dt)
@@ -634,8 +637,6 @@ def coefficients(
             raise ValueError
         log.debug('Using provided custom steps')
 
-
-
     # ------------------------------------------------------------------ #
     # Continue with trusted arguments
     # ------------------------------------------------------------------ #
@@ -647,106 +648,54 @@ def coefficients(
     log.info("coefficients() with '{}' method for {} trials of length {}" \
         .format(method, numtrials, numels))
 
-    if method == 'trialseparated':
-        sepres = CoefficientResult(
-            coefficients  = np.zeros(shape=(numtrials, numsteps),
-                                     dtype='float64'),
-            steps         = steps,
-            trialacts     = np.mean(data, axis=1),
-            desc          = desc)
+    trialcrs        = []
+    bootstrapcrs    = []
+    stderrs         = None
+    trialactivities = np.mean(data, axis=1)
+    coefficients    = None                    # set later
 
-        trialmeans = np.mean(data, axis=1, keepdims=True)  # (numtrials, 1)
-        trialvars  = np.var(data, axis=1, ddof=1)          # (numtrials)
+    if method == 'trialseparated':
+        tsmean         = np.mean(data, axis=1, keepdims=True)  # (numtrials, 1)
+        tsvar          = np.var(data, axis=1, ddof=1)          # (numtrials)
+        tscoefficients = np.zeros(shape=(numtrials, numsteps), dtype='float64')
 
         _logstreamhandler.terminator = "\r"
         for idx, k in enumerate(steps):
             if not idx%100:
                 log.info('{}/{} time steps'.format(idx+1, numsteps))
 
-            sepres.coefficients[:, idx] = \
-                np.mean((data[:,  :-k] - trialmeans) * \
-                        (data[:, k:  ] - trialmeans), axis=1) \
-                * ((numels-k)/(numels-k-1)) / trialvars
+            tscoefficients[:, idx] = \
+                np.mean((data[:,  :-k] - tsmean) * \
+                        (data[:, k:  ] - tsmean), axis=1) \
+                * ((numels-k)/(numels-k-1)) / tsvar
+
+        coefficients = np.mean(tscoefficients, axis=0)
 
         _logstreamhandler.terminator = "\n"
         log.info('{} time steps done'.format(numsteps))
 
-        # if numtrials > 1:
-        #     stderrs = np.sqrt(
-        #         np.var(sepres.coefficients, axis=0, ddof=1)/numtrials)
-        #     if (stderrs == stderrs[0]).all():
-        #         stderrs = None
-        # else :
-        #     stderrs = None
-
-        bootres = None
-        stderrs = None
-        if numboot <= 1:
-            log.debug('Bootstrap needs at least numboot=2 replicas, ' +
-                'skipping the resampling')
-        if numboot>1:
-            log.info('Bootstrapping {} replicas'.format(numboot))
-            np.random.seed(seed)
-
-            bootres = CoefficientResult(
-                coefficients  = np.zeros(shape=(numboot, numsteps),
-                                         dtype='float64'),
-                steps         = steps,
-                trialacts     = np.zeros(numboot, dtype='float64'),
-                dt            = dt,
-                dtunit        = dtunit,
-                desc          = desc)
-
-            _logstreamhandler.terminator = "\r"
-            for tdx in range(numboot):
-                if tdx % 10 == 0:
-                    log.info('{}/{} replicas'.format(tdx+1, numboot))
-                trialchoices = np.random.choice(np.arange(0, numtrials),
-                    size=numtrials)
-
-                bootres.trialacts[tdx] = \
-                    np.mean(sepres.trialacts[trialchoices])
-                bootres.coefficients[tdx, :] = \
-                    np.mean(sepres.coefficients[trialchoices, :], axis=0)
-
-            _logstreamhandler.terminator = "\n"
-            log.info('{} bootstrap replicas done'.format(numboot))
-
-            if numboot > 1:
-                stderrs = np.sqrt(np.var(bootres.coefficients, axis=0, ddof=1))
-                if (stderrs == stderrs[0]).all():
-                    stderrs = None
-            else:
-                stderrs = None
-
-        fulres = CoefficientResult(
-            steps         = steps,
-            coefficients  = np.mean(sepres.coefficients, axis=0),
-            stderrs       = stderrs,
-            trialacts     = np.mean(data, axis=1),
-            samples       = sepres,
-            trials        = sepres,
-            bootsamples   = bootres,
-            dt            = dt,
-            dtunit        = dtunit,
-            desc          = desc)
+        for tdx in range(numtrials):
+            tempdesc = 'Trial {}'.format(tdx)
+            if description is not None:
+                tempdesc = '{} ({})'.format(description, tempdesc)
+            temp = CoefficientResult(
+                coefficients    = tscoefficients[tdx],
+                trialactivities = np.array([trialactivities[tdx]]),
+                steps           = steps,
+                dt              = dt,
+                dtunit          = dtunit,
+                description     = tempdesc)
+            trialcrs.append(temp)
 
     elif method == 'stationarymean':
-        coefficients = np.zeros(numsteps, dtype='float64')
-        stderrs      = None
-        sepres       = None
-
-        # numbers this time, shape=(1)
-        # fulmean  = np.mean(data)
-        # fulvar   = np.var(data, ddof=numtrials)
-        trialacts = np.mean(data, axis=1)                # (numtrials)
-        fulmean   = np.mean(trialacts)                   # (1)
-        fulvar    = np.mean((data[:]-fulmean)**2)*(numels/(numels-1))
+        smcoefficients    = np.zeros(numsteps, dtype='float64')   # (numsteps)
+        smmean = np.mean(trialactivities)                         # (1)
+        smvar  = np.mean((data[:]-smmean)**2)*(numels/(numels-1)) # (1)
 
         # (x-mean)(y-mean) = x*y - mean(x+y) + mean*mean
         xty = np.empty(shape=(numsteps, numtrials))
         xpy = np.empty(shape=(numsteps, numtrials))
-        xtx = np.mean(data[:]*data[:], axis=1)           # (numtrials)
+        xtx = np.mean(data[:]*data[:], axis=1)                    # (numtrials)
         for idx, k in enumerate(steps):
             x = data[:, 0:-k]
             y = data[:, k:  ]
@@ -754,67 +703,76 @@ def coefficients(
             xpy[idx] = np.mean(x + y, axis=1)
 
         for idx, k in enumerate(steps):
-            coefficients[idx] = \
-                (np.mean(xty[idx, :] - xpy[idx, :] * fulmean) \
-                + fulmean**2) / fulvar * ((numels-k)/(numels-k-1))
+            smcoefficients[idx] = \
+                (np.mean(xty[idx, :] - xpy[idx, :] * smmean) \
+                + smmean**2) / smvar * ((numels-k)/(numels-k-1))
 
-        bootres = None
-        if numboot <= 1:
-            log.debug('Bootstrap needs at least numboot=2 replicas, ' +
-                'skipping the resampling')
-        if numboot>1:
-            log.info('Bootstrapping {} replicas'.format(numboot))
-            np.random.seed(seed)
+        coefficients = smcoefficients
 
-            bootres = CoefficientResult(
-                coefficients  = np.zeros(shape=(numboot, numsteps),
-                                         dtype='float64'),
-                steps         = steps,
-                trialacts     = np.zeros(numboot, dtype='float64'),
-                dt            = dt,
-                dtunit        = dtunit,
-                desc          = desc)
+    # ------------------------------------------------------------------ #
+    # Bootstrapping
+    # ------------------------------------------------------------------ #
 
-            _logstreamhandler.terminator = "\r"
-            for tdx in range(numboot):
-                if tdx % 10 == 0:
-                    log.info('{}/{} replicas'.format(tdx+1, numboot))
-                trialchoices = np.random.choice(np.arange(0, numtrials),
-                    size=numtrials)
-                bsmean = np.mean(trialacts[trialchoices])
-                bsvar = (np.mean(xtx[trialchoices])-bsmean**2) \
+    if numboot <= 1:
+        log.debug('Bootstrap needs at least numboot=2 replicas, ' +
+            'skipping the resampling')
+    if numboot>1:
+        log.info('Bootstrapping {} replicas'.format(numboot))
+        np.random.seed(seed)
+
+        bscoefficients    = np.zeros(shape=(numboot, numsteps), dtype='float64')
+
+        _logstreamhandler.terminator = "\r"
+        for tdx in range(numboot):
+            if tdx % 10 == 0:
+                log.info('{}/{} replicas'.format(tdx+1, numboot))
+            choices = np.random.choice(np.arange(0, numtrials),
+                size=numtrials)
+            bsmean = np.mean(trialactivities[choices])
+
+            if method == 'trialseparated':
+                bscoefficients[tdx, :] = \
+                    np.mean(tscoefficients[choices, :], axis=0)
+
+            elif method == 'stationarymean':
+                bsvar = (np.mean(xtx[choices])-bsmean**2) \
                     * (numels/(numels-1))
 
-                bootres.trialacts[tdx] = bsmean
-
                 for idx, k in enumerate(steps):
-                    bootres.coefficients[tdx, idx] = \
-                        (np.mean(xty[idx, trialchoices] - \
-                                 xpy[idx, trialchoices] * bsmean) \
+                    bscoefficients[tdx, idx] = \
+                        (np.mean(xty[idx, choices] - \
+                                 xpy[idx, choices] * bsmean) \
                         + bsmean**2) / bsvar * ((numels-k)/(numels-k-1))
 
-            _logstreamhandler.terminator = "\n"
-            log.info('{} bootstrap replicas done'.format(numboot))
+            tempdesc = 'Bootstrap Replica {}'.format(tdx)
+            if description is not None:
+                tempdesc = '{} ({})'.format(description, tempdesc)
+            temp = CoefficientResult(
+                coefficients    = bscoefficients[tdx],
+                trialactivities = np.array([bsmean]),
+                steps           = steps,
+                dt              = dt,
+                dtunit          = dtunit,
+                description     = tempdesc)
+            bootstrapcrs.append(temp)
 
-            if numboot > 1:
-                stderrs = np.sqrt(np.var(bootres.coefficients, axis=0, ddof=1))
-                if (stderrs == stderrs[0]).all():
-                    stderrs = None
-            else:
-                stderrs = None
+        _logstreamhandler.terminator = "\n"
+        log.info('{} bootstrap replicas done'.format(numboot))
 
-        fulres = CoefficientResult(
-            steps         = steps,
-            coefficients  = coefficients,
-            stderrs       = stderrs,
-            trialacts     = trialacts,
-            samples       = bootres,
-            bootsamples   = bootres,
-            dt            = dt,
-            dtunit        = dtunit,
-            desc          = desc)
+        stderrs = np.sqrt(np.var(bscoefficients, axis=0, ddof=1))
+        if (stderrs == stderrs[0]).all():
+            stderrs = None
 
-    return fulres
+    return CoefficientResult(
+        coefficients    = coefficients,
+        trialactivities = trialactivities,
+        steps           = steps,
+        stderrs         = stderrs,
+        trialcrs        = trialcrs,
+        bootstrapcrs    = bootstrapcrs,
+        dt              = dt,
+        dtunit          = dtunit,
+        description     = description)
 
 # ------------------------------------------------------------------ #
 # Fitting, Helper
@@ -2519,7 +2477,7 @@ def full_analysis(
 
     if (src.shape[0] > 1):
         # average trial activites as function of trial number
-        taout = OutputHandler(rks[0].trialacts, ax=axes[1])
+        taout = OutputHandler(rks[0].trialactivities, ax=axes[1])
         taout.ax.set_title('Mean Trial Activity')
         taout.ax.set_xlabel('Trial i')
         taout.ax.set_ylabel('$\\bar{A}_i$')

@@ -14,6 +14,7 @@ General
 - [ ] draw fits behind coefficients but in legend data still first, matplotlib z-index?
 - [ ] add all function arguments to log/resulting container
 - [ ] ask Jens to link our repo from nat comm url
+- [ ] How to we want to seed the rng per default?
 
 Wrapper Function
 ----------------
