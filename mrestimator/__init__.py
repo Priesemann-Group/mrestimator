@@ -6,9 +6,11 @@ if os.environ.get('DISPLAY', '') == '':
     matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from collections import namedtuple
+# import typing
 import scipy
 import scipy.stats
 import scipy.optimize
+import math
 import re
 import logging
 import tempfile
@@ -373,23 +375,34 @@ def simulate_subsampling(data, prob=0.1, seed=None):
 # Coefficients
 # ------------------------------------------------------------------ #
 
-# okay, so we might have to reevaluate if we want to use other container types
-# as baseclass. namedtuple felt inconsistent, maybe we try
-# collections.abc.MutableMapping, this should give the 'like dict' feeling
-class CoefficientResult:
+class CoefficientResult(namedtuple('CoefficientResultBase', [
+    'coefficients',
+    'steps',
+    'dt',
+    'dtunit',
+    'stderrs',
+    'trialactivities',
+    'bootstrapcrs',
+    'trialcrs',
+    'desc',
+    'description',
+    'numtrials',
+    'numboot',
+    'numsteps'])):
     """
-        :obj:`~collections.namedtuple` returned by
-        :func:`coefficients`. Attributes
-        are set to :obj:`None` if the specified method or input data do not provide them.
+        Result returned by `coefficients()`.
+
+        Attributes are set to `None` if the specified method or input
+        data do not provide them. All attributes of type :obj:`~numpy.ndarray`
+        are one-dimensional.
 
         Attributes
         ----------
-        coefficients : ~numpy.array or None
+        coefficients : ~numpy.ndarray
             Contains the coefficients :math:`r_k`, has length
-            ``maxstep - minstep + 1``. Access via
-            ``.coefficients[step]``
+            `numsteps`. Access via ``.coefficients[step]``
 
-        steps : ~numpy.array or None
+        steps : ~numpy.ndarray
             Array of the :math:`k` values matching `coefficients`.
 
         dt : float
@@ -398,17 +411,37 @@ class CoefficientResult:
         dtunit : str
             Units of step size. Default is `'ms'`.
 
-        stderrs : ~numpy.array or None
+        stderrs : ~numpy.ndarray or None
             Standard errors of the :math:`r_k`.
 
-        trialactivities : ~numpy.array
+        trialactivities : ~numpy.ndarray
             Mean activity of each trial in the provided data.
             To get the global mean activity, use ``np.mean(trialactivities)``.
+            Has lenght `numtrials`
 
         description : str
             Description (or name) of the data set, by default all results of
             functions working with this set inherit its description (e.g. plot
             legends).
+
+        numtrials : int,
+            Number of trials that contributed.
+
+        numboot : int,
+            Number of bootstrap replicas that were created.
+
+        numsteps : int,
+            Number of steps in `coefficients`, `steps` and `stderrs`.
+
+        bootstrapcrs : list
+            List containing the `numboot` :obj:`CoefficientResult` instances
+            that were calculated from the resampled input data. The List is
+            empty if bootstrapping was skipped (`numboot=0`).
+
+        trialcrs : list
+            List of the :obj:`CoefficientResult` instances calculated
+            from individual trials. Only has length `numtrials` if the
+            `trialseparated` method was used, otherwise it is empty.
 
         Example
         -------
@@ -434,51 +467,59 @@ class CoefficientResult:
             plt.show()
         ..
     """
-    __slots__ = [
-        'coefficients',
-        'steps',
-        'dt',
-        'dtunit',
-        'stderrs',
-        'trialactivities',
-        'bootstrapcrs',
-        'trialcrs',
-        'desc',
-        'description',
-        'numtrials',
-        'numboot',
-        'numsteps']
 
-    def __init__(self,
+    # prohibit adding attributes
+    __slots__ = ()
+
+    # custom constructor with default arguments and arg check
+    def __new__(cls,
         coefficients,
         steps,
-        dt=1,
-        dtunit='ms',
-        stderrs=None,
-        trialactivities=np.array([]),
-        bootstrapcrs=[],
-        trialcrs=[],
-        desc = '',
-        description=None):
+        dt              = 1.0,
+        dtunit          = 'ms',
+        stderrs         = None,
+        trialactivities = np.array([]),
+        bootstrapcrs    = np.array([]),
+        trialcrs        = np.array([]),
+        description     = None,
+        desc            = None):
 
-        self.coefficients = coefficients
-        self.steps = steps
-        self.stderrs = stderrs
-        self.trialactivities = np.array([]) \
-            if trialactivities is None else trialactivities
-        self.bootstrapcrs = [] \
-            if bootstrapcrs is None else bootstrapcrs
-        self.trialcrs = [] \
-            if trialcrs is None else trialcrs
-        self.desc = '' \
-            if desc is None else str(desc)
-        self.description = None \
-            if description is None else str(description)
+        # given attr check
+        coefficients    = np.asarray(coefficients)
+        steps           = np.asarray(steps)
+        dt              = float(dt)
+        dtunit          = str(dtunit)
+        stderrs         = None if stderrs is None else np.asarray(stderrs)
+        trialactivities = np.asarray(trialactivities)
+        bootstrapcrs    = bootstrapcrs if isinstance(bootstrapcrs, list) else \
+            [bootstrapcrs]
+        trialcrs        = trialcrs if isinstance(trialcrs, list) else \
+            [trialcrs]
+        description     = None if description is None else str(description)
+        desc            = '' if description is None else str(description)
 
-        self.numtrials = len(self.trialactivities)
-        self.numboot = len(self.bootstrapcrs)
-        self.numsteps = len(self.coefficients)
+        # derived attr
+        numtrials = len(trialactivities)
+        numboot   = len(bootstrapcrs)
+        numsteps  = len(coefficients)
 
+        # order of args has to match above!
+        return super(CoefficientResult, cls).__new__(cls,
+            coefficients,
+            steps,
+            dt,
+            dtunit,
+            stderrs,
+            trialactivities,
+            bootstrapcrs,
+            trialcrs,
+            desc,
+            description,
+            numtrials,
+            numboot,
+            numsteps)
+
+    # printed representation
     def __repr__(self):
         return '<%s.%s object at %s>' % (
         self.__class__.__module__,
@@ -486,8 +527,10 @@ class CoefficientResult:
         hex(id(self))
     )
 
+    # used to compare instances in lists
     def __eq__(self, other):
         return self is other
+
 
 def coefficients(
     data,
@@ -578,7 +621,7 @@ def coefficients(
 
     if desc is not None and description is None:
         description = str(desc);
-    if description is not None and not isinstance(description, str):
+    if description is not None:
         description = str(description)
 
     # check dt
@@ -756,6 +799,7 @@ def coefficients(
                 description     = tempdesc)
             bootstrapcrs.append(temp)
 
+
         _logstreamhandler.terminator = "\n"
         log.info('{} bootstrap replicas done'.format(numboot))
 
@@ -763,7 +807,7 @@ def coefficients(
         if (stderrs == stderrs[0]).all():
             stderrs = None
 
-    return CoefficientResult(
+    fulres =  CoefficientResult(
         coefficients    = coefficients,
         trialactivities = trialactivities,
         steps           = steps,
@@ -773,6 +817,8 @@ def coefficients(
         dt              = dt,
         dtunit          = dtunit,
         description     = description)
+
+    return fulres
 
 # ------------------------------------------------------------------ #
 # Fitting, Helper
@@ -897,11 +943,21 @@ def math_from_doc(fitfunc, maxlen=np.inf):
 # Fitting
 # ------------------------------------------------------------------ #
 
-class FitResult(namedtuple('FitResult',
-    'tau mre fitfunc popt pcov ssres steps dt dtunit desc')):
+class FitResult(namedtuple('FitResultBase', [
+    'tau',
+    'mre',
+    'fitfunc',
+    'stderrtau',
+    'stderrmre',
+    'popt',
+    'pcov',
+    'ssres',
+    'steps',
+    'dt',
+    'dtunit',
+    'desc',
+    'description'])):
     """
-        :obj:`~collections.namedtuple` returned by :func:`fit`
-
         Attributes
         ----------
         tau : float
@@ -943,9 +999,9 @@ class FitResult(namedtuple('FitResult',
             Overwrite by providing `data` from :func:`coefficients` and the
             desired values set there.
 
-        desc : str
+        description : str
             Description, inherited from :class:`CoefficientResult`.
-            `desc` provided to :func:`fit` takes priority, if set.
+            `description` provided to :func:`fit` takes priority, if set.
 
         Example
         -------
@@ -975,17 +1031,44 @@ class FitResult(namedtuple('FitResult',
             plt.show()
         ..
     """
-    # set (some) default values
+
+    # prohibit adding attributes
+    __slots__ = ()
+
     def __new__(cls,
-        tau, mre, fitfunc,
-        popt=None, pcov=None, ssres=None,
-        steps=None, dt=1, dtunit='ms',
-        desc=''):
-            return super(cls, FitResult).__new__(cls,
-                tau, mre, fitfunc,
-                popt, pcov, ssres,
-                steps, dt, dtunit,
-                desc)
+        tau,
+        mre,
+        fitfunc,
+        stderrtau   = None,
+        stderrmre   = None,
+        popt        = None,
+        pcov        = None,
+        ssres       = None,
+        steps       = None,
+        dt          = 1,
+        dtunit      = 'ms',
+        desc        = None,
+        description = None):
+
+        # given attr check
+        description     = None if description is None else str(description)
+        desc            = '' if description is None else str(description)
+
+        # order of args has to match above!
+        return super(FitResult, cls).__new__(cls,
+            tau,
+            mre,
+            fitfunc,
+            stderrtau,
+            stderrmre,
+            popt,
+            pcov,
+            ssres,
+            steps,
+            dt,
+            dtunit,
+            desc,
+            description)
 
     def __repr__(self):
         return '<%s.%s object at %s>' % (
@@ -1004,7 +1087,11 @@ def fit(
     fitpars=None,
     fitbnds=None,
     maxfev=None,
-    desc=''):
+    ignoreweights=True,
+    numboot=0,
+    seed=10815,
+    desc=None,
+    description=None):
     """
         Estimate the Multistep Regression Estimator by fitting the provided
         correlation coefficients :math:`r_k`. The fit is performed using
@@ -1070,7 +1157,6 @@ def fit(
 
     log.debug('fit()')
     log.debug('Locals: {}'.format(locals()))
-    mnaive = 'not calculated in your step range'
 
     if fitfunc in ['f_exponential', 'exponential', 'exp']:
         fitfunc = f_exponential
@@ -1080,6 +1166,58 @@ def fit(
     elif fitfunc in ['f_complex', 'complex']:
         fitfunc = f_complex
 
+    # check input data type
+    if isinstance(data, CoefficientResult):
+        log.debug('Coefficients given in default format')
+        src     = data
+        srcerrs = data.stderrs
+        dt      = data.dt
+        dtunit  = data.dtunit
+    else:
+        try:
+            log.warning("Given data is no CoefficienResult. Guessing format")
+            dt      = 1
+            dtunit  = 'ms'
+            srcerrs = None
+            data = np.asarray(data)
+            if len(data.shape) == 1:
+                log.debug('1d array, assuming this to be coefficients')
+                if steps is not None and len(steps) == len(data):
+                    log.debug("using steps provided in 'steps'")
+                    tempsteps = np.copy(steps)
+                else:
+                    log.debug("using steps linear steps starting at 1")
+                    tempsteps = np.arange(1, len(data)+1)
+                src = CoefficienResult(
+                    coefficients = data,
+                    steps        = tempsteps)
+            elif len(data.shape) == 2:
+                if data.shape[0] > data.shape[1]: data = np.transpose(data)
+                if data.shape[0] == 1:
+                    log.debug('nested 1d array, assuming coefficients')
+                    if steps is not None and len(steps) == len(data[0]):
+                        log.debug("using steps provided in 'steps'")
+                        tempsteps = np.copy(steps)
+                    else:
+                        log.debug("using steps linear steps starting at 1")
+                        tempsteps = np.arange(1, len(data[0])+1)
+                    src = CoefficienResult(
+                        coefficients = data[0],
+                        steps        = tempsteps)
+                elif data.shape[0] == 2:
+                    log.debug('2d array, assuming this to be ' +
+                          'steps and coefficients')
+                    tempsteps    = data[0]
+                    src = CoefficienResult(
+                        coefficients = data[1],
+                        steps        = tempsteps)
+            else:
+                raise TypeError
+        except Exception as e:
+            log.exception('Provided data has no compatible format')
+            raise
+
+    # check steps
     if steps is None:
         steps = (None, None)
     try:
@@ -1091,140 +1229,50 @@ def fit(
             'array containing all desired step values')
         raise ValueError from e
     if len(steps) == 2:
-        minstep=steps[0]
-        maxstep=steps[1]
-    if steps.size < 2:
-        log.exception('Please provide steps as ' +
-            'steps=(minstep, maxstep) or as one dimensional numpy ' +
-            'array containing all desired step values')
-        raise ValueError
-    #     minstep=1
-    #     maxstep=1500
-    #     if steps[0] is not None:
-    #         minstep = steps[0]
-    #     if steps[1] is not None:
-    #         maxstep = steps[1]
-    #     if minstep > maxstep or minstep < 1:
-    #         print('\tWarning: minstep={} is invalid, setting to 1'
-    #             .format(minstep))
-    #         minstep = 1
+        minstep = src.steps[0]        # default: use what is in the given data
+        maxstep = src.steps[-1]
+        if steps[0] is not None:
+            minstep = steps[0]
+        if steps[1] is not None:
+            maxstep = steps[1]
+        if minstep > maxstep or minstep < 1:
+            log.debug('minstep={} is invalid, setting to 1'.format(minstep))
+            minstep = 1
+        if maxstep > src.steps[-1] or maxstep < minstep:
+            log.debug('maxstep={} is invalid'.format(maxstep))
+            maxstep = src.steps[-1]
+            log.debug('Adjusting maxstep to {}'.format(maxstep))
 
-    if isinstance(data, CoefficientResult):
-        log.debug('Coefficients given in default format')
-        if data.steps[0] == 1: mnaive = data.coefficients[0]
-        if len(steps) == 2:
-            # check that coefficients for this range are there, else adjust
-            # needs to be cleaned: use helper functions
-            beg=0
-            if minstep is not None:
-                beg = np.argmax(data.steps>=minstep)
-                if minstep < data.steps[0]:
-                    log.debug('minstep lower than in provided coefficients ' +
-                        '{} adjusted to {}'.format(minstep, data.steps[beg]))
-            end=len(data.steps)
-            if maxstep is not None and maxstep != data.steps[-1]:
-                end = np.argmin(data.steps<=maxstep)
-                if end == 0:
-                    end = len(data.steps)
-                    log.debug('maxstep larger than in provided coefficients ' +
-                        '{} adjusted to {}'.format(maxstep, data.steps[end-1]))
-            if data.coefficients.ndim != 1:
-                log.exception('Analysing individual samples not supported yet')
-                raise NotImplementedError
-            coefficients = data.coefficients[beg:end]
-            # make sure this is data, no pointer, so we dont overwrite anything
-            steps        = np.copy(data.steps[beg:end])
-            try:
-                stderrs  = data.stderrs[beg:end]
-            except TypeError:
-                stderrs  = None
-        else:
-            # find occurences of steps in data.steps and use the indices
-            try:
-                _, stepind, _ = \
-                    np.intersect1d(data.steps, steps, return_indices=True)
-                # return_indices option needs numpy 1.15.0
-            except TypeError:
-                stepind = []
-                for i in steps:
-                    for j, _ in enumerate(data.steps):
-                        if i == data.steps[j]:
-                            stepind.append(j)
-                            break
-                stepind = np.sort(stepind)
-
-            coefficients = data.coefficients[stepind]
-            # make sure this is data, no pointer, so we dont overwrite anything
-            steps        = np.copy(data.steps[stepind])
-            try:
-                stderrs  = data.stderrs[stepind]
-            except TypeError:
-                stderrs  = None
-
-        dt           = data.dt
-        dtunit       = data.dtunit
+        steps = np.arange(minstep, maxstep+1)
+        log.debug('Checking steps between {} and {}'.format(minstep, maxstep))
     else:
-        if minstep is not None or maxstep is not None:
-            log.exception("Argument 'steps' only works when " +
-                'passing data as CoefficienResult from the coefficients() ' +
-                'function')
-            raise NotImplementedError
+        if (steps<1).any():
+            log.exception('All provided steps must be >= 1')
+            raise ValueError
+        log.debug('Using provided custom steps')
+
+    # make sure this is data, no pointer, so we dont overwrite anything
+    stepinds, _ = _intersecting_index(src.steps, steps)
+    srcsteps   = np.copy(src.steps[stepinds])
+
+    if desc is not None and description is None:
+        description = str(desc);
+    if description is None:
+        description = data.description
+    else:
+        description = str(description)
+
+    # ignoreweights, new default
+    if ignoreweights:
+        srcerrs = None
+    else:
+        # make sure srcerrs are not all equal and select right indices
         try:
-            log.warning("Given data is no CoefficienResult. Guessing format")
-            dt = 1
-            dtunit = 'ms'
-            data = np.asarray(data)
-            if len(data.shape) == 1:
-                log.debug('1d array, assuming this to be ' +
-                      'coefficients with minstep=1')
-                coefficients = data
-                steps        = np.arange(1, len(coefficients)+1)
-                stderrs      = None
-                mnaive       = coefficients[0]
-            elif len(data.shape) == 2:
-                if data.shape[0] > data.shape[1]: data = np.transpose(data)
-                if data.shape[0] == 1:
-                    log.debug('nested 1d array, assuming this to be ' +
-                          'coefficients with minstep=1')
-                    coefficients = data[0]
-                    steps        = np.arange(1, len(coefficients))
-                    stderrs      = None
-                    mnaive       = coefficients[0]
-                elif data.shape[0] == 2:
-                    log.debug('2d array, assuming this to be ' +
-                          'steps and coefficients')
-                    steps        = data[0]
-                    coefficients = data[1]
-                    stderrs      = None
-                    if steps[0] == 1: mnaive = coefficients[0]
-                elif data.shape[0] >= 3:
-                    log.debug('2d array, assuming this to be ' +
-                          'steps, coefficients, stderrs')
-                    steps        = data[0]
-                    coefficients = data[1]
-                    stderrs      = None
-                    if steps[0] == 1:
-                        mnaive = coefficients[0]
-                    if data.shape > 3:
-                        log.debug('Ignoring further rows')
-            else:
-                raise TypeError
-        except Exception as e:
-            log.exception('Provided data has no known format')
-            raise
-
-    try:
-        if desc == '': desc = data.desc
-        else: desc = str(desc)
-    except:
-        desc = ''
-
-    # make sure stderrs are not all equal
-    try:
-        if (stderrs == stderrs[0]).all():
-            stderrs = None
-    except:
-        stderrs = None
+            srcerrs = srcerrs[stepinds]
+            if (srcerrs == srcerrs[0]).all():
+                srcerrs = None
+        except:
+            srcerrs = None
 
     if fitfunc not in [f_exponential, f_exponential_offset, f_complex]:
         log.info('Custom fitfunction specified {}'.format(fitfunc))
@@ -1232,20 +1280,19 @@ def fit(
     if fitpars is None: fitpars = default_fitpars(fitfunc)
     if fitbnds is None: fitbnds = default_fitbnds(fitfunc)
 
-    # ToDo: make this more robust
     if (len(fitpars.shape)<2): fitpars = fitpars.reshape(1, len(fitpars))
 
     if fitbnds is None:
         bnds = np.array([-np.inf, np.inf])
         log.info('Unbound fit to {}'.format(math_from_doc(fitfunc)))
-        log.debug('kmin = {}, kmax = {}'.format(steps[0], steps[-1]))
+        log.debug('kmin = {}, kmax = {}'.format(srcsteps[0], srcsteps[-1]))
         ic = list(inspect.signature(fitfunc).parameters)[1:]
         ic = ('{} = {:.3f}'.format(a, b) for a, b in zip(ic, fitpars[0]))
         log.debug('Starting parameters: '+', '.join(ic))
     else:
         bnds = fitbnds
         log.info('Bounded fit to {}'.format(math_from_doc(fitfunc)))
-        log.debug('kmin = {}, kmax = {}'.format(steps[0], steps[-1]))
+        log.debug('kmin = {}, kmax = {}'.format(srcsteps[0], srcsteps[-1]))
         ic = list(inspect.signature(fitfunc).parameters)[1:]
         ic = ('{0:<6} = {1:8.3f} in ({2:9.4f}, {3:9.4f})'
             .format(a, b, c, d) for a, b, c, d
@@ -1263,43 +1310,48 @@ def fit(
     # fitpars: 2d ndarray
     # fitbnds: matching scipy.curve_fit: [lowerbndslist, upperbndslist]
     maxfev = 200*(len(fitpars[0])+1) if maxfev is None else int(maxfev)
-    def fitloop():
+    def fitloop(ftcoefficients, ftmaxfev, fitlog=True):
         ssresmin = np.inf
         fulpopt = None
         fulpcov = None
-        _logstreamhandler.terminator = "\r"
+        if fitlog:
+            _logstreamhandler.terminator = "\r"
         for idx, pars in enumerate(fitpars):
-            if len(fitpars)!=1:
+            if len(fitpars)!=1 and fitlog:
                 log.info('{}/{} fits'.format(idx+1, len(fitpars)))
 
             try:
                 popt, pcov = scipy.optimize.curve_fit(
-                    fitfunc, steps*dt, coefficients,
-                    p0=pars, bounds=bnds, maxfev=int(maxfev), sigma=stderrs)
+                    fitfunc, srcsteps*dt, ftcoefficients,
+                    p0=pars, bounds=bnds, maxfev=ftmaxfev, sigma=srcerrs)
 
-                residuals = coefficients - fitfunc(steps*dt, *popt)
+                residuals = ftcoefficients - fitfunc(srcsteps*dt, *popt)
                 ssres = np.sum(residuals**2)
 
             except Exception as e:
                 ssres = np.inf
                 popt  = None
                 pcov  = None
-                _logstreamhandler.terminator = "\n"
-                log.info('Fit %d did not converge. Ignoring this fit', idx+1)
-                log.debug('Exception passed', exc_info=True)
-                _logstreamhandler.terminator = "\r"
+                if fitlog:
+                    _logstreamhandler.terminator = "\n"
+                    log.debug(
+                        'Fit %d did not converge. Ignoring this fit', idx+1)
+                    log.debug('Exception passed', exc_info=True)
+                    _logstreamhandler.terminator = "\r"
 
             if ssres < ssresmin:
                 ssresmin = ssres
                 fulpopt  = popt
                 fulpcov  = pcov
 
-        _logstreamhandler.terminator = "\n"
-        log.debug('Finished %d fit(s)', len(fitpars))
+        if fitlog:
+            _logstreamhandler.terminator = "\n"
+            log.info('Finished %d fit(s)', len(fitpars))
 
         return fulpopt, fulpcov, ssresmin
 
-    fulpopt, fulpcov, ssresmin = fitloop()
+    fulpopt, fulpcov, ssresmin = fitloop(
+        src.coefficients[stepinds], int(maxfev))
 
     if fulpopt is None:
         if maxfev > 10000:
@@ -1308,29 +1360,83 @@ def fit(
             log.warning('No fit converged after {} '.format(maxfev) +
                 'iterations. Increasing to 10000')
             maxfev = 10000
-            fulpopt, fulpcov, ssresmin = fitloop()
+            fulpopt, fulpcov, ssresmin = fitloop(
+                src.coefficients[stepinds], int(maxfev))
 
     if fulpopt is None:
         log.exception('No fit converged afer %d iterations', maxfev)
         raise RuntimeError
 
+    # ------------------------------------------------------------------ #
+    # Bootstrapping
+    # ------------------------------------------------------------------ #
+    stderrtau = None
+    stderrmre = None
+    if numboot <= 1:
+        log.debug('Bootstrap needs at least numboot=2 replicas and the ' +
+            'default data type, skipping the resampling')
+    elif numboot>1:
+        if numboot > src.numboot:
+            log.exception("The provided data does not contain enough " +
+                "bootstrapsamples (%d) to do the requested " +
+                "'numboot=%d' fits.\n\tCall 'coefficeints()' and 'fit()' " +
+                "with the same 'numboot' argument to avoid this.",
+                numboot, src.numboot)
+            raise ValueError
+        log.info('Bootstrapping {} replicas ({} fits each)'.format(
+            numboot, len(fitpars)))
+        np.random.seed(seed)
+
+        bstau = np.full(numboot, np.nan)
+        bsmre = np.full(numboot, np.nan)
+
+        # use scipy default maxfev for errors
+        maxfev = 200*(len(fitpars[0])+1)
+        _logstreamhandler.terminator = "\r"
+        for tdx in range(numboot):
+            log.info('{}/{} replicas'.format(tdx+1, numboot))
+            bspopt, bspcov, bsres = fitloop(
+                src.bootstrapcrs[tdx].coefficients[stepinds],
+                int(maxfev), False)
+            try:
+                bstau[tdx] = bspopt[0]
+                bsmre[tdx] = np.exp(-1*dt/bspopt[0])
+            except TypeError:
+                log.debug('Exception passed', exc_info=True)
+                bstau[tdx] = np.nan
+                bsmre[tdx] = np.nan
+
+        _logstreamhandler.terminator = "\n"
+        log.info('{} Bootstrap replicas done'.format(numboot))
+
+        stderrtau = np.sqrt(np.nanvar(bstau, ddof=1))
+        stderrmre = np.sqrt(np.nanvar(bsmre, ddof=1))
+
     fulres = FitResult(
-        tau     = fulpopt[0],
-        mre     = np.exp(-1*dt/fulpopt[0]),
-        fitfunc = fitfunc,
-        popt    = fulpopt,
-        pcov    = fulpcov,
-        ssres   = ssresmin,
-        steps   = steps,
-        dt      = dt,
-        dtunit  = dtunit,
-        desc    = desc)
+        tau         = fulpopt[0],
+        mre         = np.exp(-1*dt/fulpopt[0]),
+        fitfunc     = fitfunc,
+        stderrmre   = stderrmre,
+        stderrtau   = stderrtau,
+        popt        = fulpopt,
+        pcov        = fulpcov,
+        ssres       = ssresmin,
+        steps       = steps,
+        dt          = dt,
+        dtunit      = dtunit,
+        description = description)
+
+    # ------------------------------------------------------------------ #
+    # consistency
+    # ------------------------------------------------------------------ #
 
     log.info('Finished fitting ' +
-        '{} to {}, mre = {:.5f}, tau = {:.5f}{}, ssres = {:.5f}' \
-        .format("'"+desc+"'" if desc != '' else 'the data',
+        '{} to {}, mre = {}, tau = {}{}, ssres = {:.5f}'.format(
+            'the data' if description is None else "'"+description+"'",
             fitfunc.__name__,
-            fulres.mre, fulres.tau, fulres.dtunit, fulres.ssres))
+            _prerror(fulres.mre, fulres.stderrmre),
+            _prerror(fulres.tau, fulres.stderrtau, 2, 2),
+            fulres.dtunit, fulres.ssres))
 
     if fulres.tau >= 0.9*(steps[-1]*dt):
         log.warning('The obtained autocorrelationtime is large compared '+
@@ -1356,7 +1462,6 @@ def fit(
                     fulpopt[1], fulpopt[4], fulpopt[8])
         except:
             log.debug('Exception passed', exc_info=True)
-
 
     return fulres
 
@@ -2182,6 +2287,18 @@ def _printeger(f, maxprec=5):
     while(not float(f*10**(prec)).is_integer() and prec <maxprec):
         prec+=1
     return str('{:.{p}f}'.format(f, p=prec))
+
+def _prerror(f, ferr, errprec=2, maxprec=5):
+    if ferr is None:
+        return _printeger(f, maxprec)
+    if ferr < 1:
+        prec = math.ceil(-math.log10(math.fabs(ferr) -
+            math.fabs(math.floor(ferr)))) - 1
+        return str('{:.{p}f}({:.0f})'.format(f, ferr*10**(prec+errprec),
+            p=prec+errprec))
+    else:
+        return str('{}({})'.format(
+            _printeger(f, errprec), _printeger(ferr, errprec)))
 
 
 # ------------------------------------------------------------------ #
