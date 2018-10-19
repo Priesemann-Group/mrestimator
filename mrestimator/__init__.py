@@ -939,6 +939,21 @@ def math_from_doc(fitfunc, maxlen=np.inf):
 
     return res
 
+def _fitfunc_check(f):
+    if f is f_exponential or \
+        str(f).lower() in ['f_exponential', 'exponential', 'exp',
+        'e']:
+            return f_exponential
+    elif f is f_exponential_offset or \
+        str(f).lower() in ['f_exponential_offset', 'exponentialoffset',
+        'exponential_offset','offset', 'exp_off', 'exp_offs', 'eo']:
+            return f_exponential_offset
+    elif f is f_complex or \
+        str(f).lower() in ['f_complex', 'complex', 'cplx', 'c']:
+            return f_complex
+    else:
+        return f
+
 # ------------------------------------------------------------------ #
 # Fitting
 # ------------------------------------------------------------------ #
@@ -947,8 +962,10 @@ class FitResult(namedtuple('FitResultBase', [
     'tau',
     'mre',
     'fitfunc',
-    'stderrtau',
-    'stderrmre',
+    'taustderr',
+    'mrestderr',
+    'tauquantiles',
+    'mrequantiles',
     'popt',
     'pcov',
     'ssres',
@@ -1039,16 +1056,18 @@ class FitResult(namedtuple('FitResultBase', [
         tau,
         mre,
         fitfunc,
-        stderrtau   = None,
-        stderrmre   = None,
-        popt        = None,
-        pcov        = None,
-        ssres       = None,
-        steps       = None,
-        dt          = 1,
-        dtunit      = 'ms',
-        desc        = None,
-        description = None):
+        taustderr    = None,
+        mrestderr    = None,
+        tauquantiles = None,
+        mrequantiles = None,
+        popt         = None,
+        pcov         = None,
+        ssres        = None,
+        steps        = None,
+        dt           = 1,
+        dtunit       = 'ms',
+        desc         = None,
+        description  = None):
 
         # given attr check
         description     = None if description is None else str(description)
@@ -1059,8 +1078,10 @@ class FitResult(namedtuple('FitResultBase', [
             tau,
             mre,
             fitfunc,
-            stderrtau,
-            stderrmre,
+            taustderr,
+            mrestderr,
+            tauquantiles,
+            mrequantiles,
             popt,
             pcov,
             ssres,
@@ -1158,13 +1179,15 @@ def fit(
     log.debug('fit()')
     log.debug('Locals: {}'.format(locals()))
 
-    if fitfunc in ['f_exponential', 'exponential', 'exp']:
-        fitfunc = f_exponential
-    elif fitfunc in ['f_exponential_offset', 'exponentialoffset',
-        'exponential_offset','offset', 'exp_off', 'exp_offs']:
-        fitfunc = f_exponential_offset
-    elif fitfunc in ['f_complex', 'complex']:
-        fitfunc = f_complex
+    # if fitfunc in ['f_exponential', 'exponential', 'exp']:
+    #     fitfunc = f_exponential
+    # elif fitfunc in ['f_exponential_offset', 'exponentialoffset',
+    #     'exponential_offset','offset', 'exp_off', 'exp_offs']:
+    #     fitfunc = f_exponential_offset
+    # elif fitfunc in ['f_complex', 'complex']:
+    #     fitfunc = f_complex
+
+    fitfunc = _fitfunc_check(fitfunc)
 
     # check input data type
     if isinstance(data, CoefficientResult):
@@ -1309,7 +1332,7 @@ def fit(
 
     # fitpars: 2d ndarray
     # fitbnds: matching scipy.curve_fit: [lowerbndslist, upperbndslist]
-    maxfev = 200*(len(fitpars[0])+1) if maxfev is None else int(maxfev)
+    maxfev = 100*(len(fitpars[0])+1) if maxfev is None else int(maxfev)
     def fitloop(ftcoefficients, ftmaxfev, fitlog=True):
         ssresmin = np.inf
         fulpopt = None
@@ -1323,7 +1346,8 @@ def fit(
             try:
                 popt, pcov = scipy.optimize.curve_fit(
                     fitfunc, srcsteps*dt, ftcoefficients,
-                    p0=pars, bounds=bnds, maxfev=ftmaxfev, sigma=srcerrs)
+                    p0=pars, bounds=bnds, maxfev=ftmaxfev,
+                    sigma=srcerrs)
 
                 residuals = ftcoefficients - fitfunc(srcsteps*dt, *popt)
                 ssres = np.sum(residuals**2)
@@ -1370,8 +1394,10 @@ def fit(
     # ------------------------------------------------------------------ #
     # Bootstrapping
     # ------------------------------------------------------------------ #
-    stderrtau = None
-    stderrmre = None
+    taustderr = None
+    mrestderr = None
+    tauquantiles = None
+    mrequantiles = None
     if numboot <= 1:
         log.debug('Bootstrap needs at least numboot=2 replicas and the ' +
             'default data type, skipping the resampling')
@@ -1387,11 +1413,12 @@ def fit(
             numboot, len(fitpars)))
         np.random.seed(seed)
 
-        bstau = np.full(numboot, np.nan)
-        bsmre = np.full(numboot, np.nan)
+        bstau = np.full(numboot+1, np.nan)
+        bsmre = np.full(numboot+1, np.nan)
 
         # use scipy default maxfev for errors
-        maxfev = 200*(len(fitpars[0])+1)
+        maxfev = 100*(len(fitpars[0])+1)
+
         _logstreamhandler.terminator = "\r"
         for tdx in range(numboot):
             log.info('{}/{} replicas'.format(tdx+1, numboot))
@@ -1409,22 +1436,34 @@ def fit(
         _logstreamhandler.terminator = "\n"
         log.info('{} Bootstrap replicas done'.format(numboot))
 
-        stderrtau = np.sqrt(np.nanvar(bstau, ddof=1))
-        stderrmre = np.sqrt(np.nanvar(bsmre, ddof=1))
+        # add source sample?
+        bstau[-1] = fulpopt[0]
+        bsmre[-1] = np.exp(-1*dt/fulpopt[0])
+
+        taustderr = np.sqrt(np.nanvar(bstau, ddof=1))
+        mrestderr = np.sqrt(np.nanvar(bsmre, ddof=1))
+        quantiles = [12.5, 25, 40, 50, 60, 75, 87.5]
+        tauquantiles = np.nanpercentile(bstau, quantiles)
+        mrequantiles = np.nanpercentile(bstau, quantiles)
+
+
+
 
     fulres = FitResult(
-        tau         = fulpopt[0],
-        mre         = np.exp(-1*dt/fulpopt[0]),
-        fitfunc     = fitfunc,
-        stderrmre   = stderrmre,
-        stderrtau   = stderrtau,
-        popt        = fulpopt,
-        pcov        = fulpcov,
-        ssres       = ssresmin,
-        steps       = steps,
-        dt          = dt,
-        dtunit      = dtunit,
-        description = description)
+        tau          = fulpopt[0],
+        mre          = np.exp(-1*dt/fulpopt[0]),
+        fitfunc      = fitfunc,
+        taustderr    = taustderr,
+        mrestderr    = mrestderr,
+        tauquantiles = tauquantiles,
+        mrequantiles = mrequantiles,
+        popt         = fulpopt,
+        pcov         = fulpcov,
+        ssres        = ssresmin,
+        steps        = steps,
+        dt           = dt,
+        dtunit       = dtunit,
+        description  = description)
 
     # ------------------------------------------------------------------ #
     # consistency
@@ -1434,8 +1473,8 @@ def fit(
         '{} to {}, mre = {}, tau = {}{}, ssres = {:.5f}'.format(
             'the data' if description is None else "'"+description+"'",
             fitfunc.__name__,
-            _prerror(fulres.mre, fulres.stderrmre),
-            _prerror(fulres.tau, fulres.stderrtau, 2, 2),
+            _prerror(fulres.mre, fulres.mrestderr),
+            _prerror(fulres.tau, fulres.taustderr, 2, 2),
             fulres.dtunit, fulres.ssres))
 
     if fulres.tau >= 0.9*(steps[-1]*dt):
@@ -1930,7 +1969,7 @@ class OutputHandler:
         if 'color' not in kwargs:
             kwargs = dict(kwargs, color=color)
 
-        kwargs = dict(kwargs, label=label)
+        kwargs = dict(kwargs, label=label, zorder=4+0.01*indrk)
 
         # redraw plot
         p, = self.ax.plot(rk.steps*rk.dt/self.dt, rk.coefficients, **kwargs)
@@ -1942,7 +1981,8 @@ class OutputHandler:
                 err2 = rk.coefficients+rk.stderrs
                 kwargs.pop('color')
                 kwargs = dict(kwargs,
-                    label=labelerr, alpha=0.2, facecolor=p.get_color())
+                    label=labelerr, alpha=0.2, facecolor=p.get_color(),
+                    zorder=3+0.01*indrk)
                 d = self.ax.fill_between(rk.steps*rk.dt/self.dt, err1, err2,
                     **kwargs)
                 self.rkcurves[indrk].append(d)
@@ -2041,15 +2081,16 @@ class OutputHandler:
         label = self.fitlabels[indfit]
         kwargs = self.fitkwargs[indfit].copy()
         color = None
-        for curve in self.fitcurves[indfit]:
-            color = curve.get_color()
+        for idx, curve in enumerate(self.fitcurves[indfit]):
+            if idx==0:
+                color = curve.get_color()
             curve.remove()
         self.fitcurves[indfit] = []
 
         if 'color' not in kwargs:
             kwargs = dict(kwargs, color=color)
 
-        kwargs = dict(kwargs, label=label)
+        kwargs = dict(kwargs, label=label, zorder=2+0.01*indfit)
 
         # update plot
         p, = self.ax.plot(fit.steps*fit.dt/self.dt,
@@ -2059,11 +2100,31 @@ class OutputHandler:
             # only draw dashed not-fitted range if no linestyle is specified
             if 'linestyle' not in kwargs and 'ls' not in kwargs:
                 kwargs.pop('label')
-                kwargs = dict(kwargs, ls='dashed', color=p.get_color())
+                kwargs = dict(kwargs, ls='dashed', color=p.get_color(),
+                    zorder=1+0.01*indfit)
                 d, = self.ax.plot(self.xdata,
                     fit.fitfunc(self.xdata*self.dt, *fit.popt),
                     **kwargs)
                 self.fitcurves[indfit].append(d)
+        # errors
+        try:
+            if fit.taustderr is not None and 'alpha' not in kwargs:
+                ptmp = np.copy(fit.popt)
+                ptmp[0] = fit.tau-fit.taustderr
+                err1    = fit.fitfunc(self.xdata*self.dt, *ptmp)
+                ptmp[0] = fit.tau+fit.taustderr
+                err2    = fit.fitfunc(self.xdata*self.dt, *ptmp)
+                kwargs.pop('color')
+                kwargs.pop('label')
+                kwargs = dict(kwargs, alpha=0.2, facecolor=p.get_color(),
+                    zorder=0+0.01*indfit)
+                s = self.ax.fill_between(self.xdata, err1, err2,
+                    **kwargs)
+                self.fitcurves[indfit].append(s)
+        # not all kwargs are compaible with fill_between
+        except AttributeError:
+            pass
+
         if label is not None:
             self.ax.legend()
 
@@ -2317,7 +2378,7 @@ def full_analysis(
     tmax=None,
     coefficientmethod=None,
     substracttrialaverage=False,    # optional. default=? mre treff
-    numboot=0,                      # optional. default 0
+    numboot='auto',                 # optional. default depends on fitfunc?
     loglevel=None,                  # optional. local file and console
     steps=None,                     # dt conversion? optional replace tmin/tmax
     targetplot=None,
@@ -2390,10 +2451,9 @@ def full_analysis(
             Per default, bootstrapping is only applied in
             `coefficeints()` as most of computing time is needed for the
             fitting. Thereby we have uncertainties on the :math:`r_k`
-            (which helps the fitting routine) but each fit is only
+            (which will be plotted) but each fit is only
             done once.
             Default is `numboot=0`.
-            *not implemented yet*
 
         loglevel: str
             The loglevel to use for console output and the logfile created
@@ -2527,12 +2587,14 @@ def full_analysis(
             "['exponential', 'exponential_offset']")
         raise TypeError
 
-    try:
-        numboot = int(numboot)
-        assert(numboot >= 0)
-    except Exception as e:
-        log.exception("Optional argument 'numboot' needs to be an int >= 0")
-        raise
+    if numboot != 'auto':
+        try:
+            numboot = int(numboot)
+            assert(numboot >= 0)
+        except Exception as e:
+            log.exception(
+                "Optional argument 'numboot' needs to be an int >= 0")
+            raise
 
     if coefficientmethod is not None and coefficientmethod not in [
     'trialseparated', 'ts', 'stationarymean', 'sm']:
@@ -2562,13 +2624,27 @@ def full_analysis(
     # dont like this. only advantage of giving multiple methods is that
     # data does not need to go through input handler twice.
     for c in [coefficientmethod]:
+        if numboot == 'auto':
+            nbt = 250
+        else:
+            nbt = numboot
         rks.append(coefficients(
-            src, steps, dt, dtunit, method=c, numboot=numboot))
+            src, steps, dt, dtunit, method=c, numboot=nbt))
 
     fits = []
     for f in fitfunctions:
+        if numboot == 'auto':
+            if _fitfunc_check(f) is f_exponential or \
+                _fitfunc_check(f) is f_exponential_offset:
+                nbt = 250
+            elif _fitfunc_check(f) is f_complex:
+                nbt = 0
+            else:
+                nbt = 250
+        else:
+            nbt = numboot
         for rk in rks:
-            fits.append(fit(rk, f, steps))
+            fits.append(fit(data=rk, fitfunc=f, steps=steps, numboot=nbt))
 
     ratios = np.ones(4)*.75
     ratios[3] = 0.25

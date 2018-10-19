@@ -41,3 +41,5 @@ Wrapper Function
 - [x] remove mean trial activity plot and 'average' if only a single trial
 - [x] adaptive maxfev in fit()
 - [x] loglevel argument should be the console handler, i would say. we have a default log file anyway.
+- [ ] plot zorder is hardcoded, check if args set. decrease alpha of shadet areas
+- [ ] add qunatil labels to fit results -> use 25% for fiterr instead of variance

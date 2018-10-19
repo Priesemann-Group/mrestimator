@@ -56,6 +56,7 @@ auto = mre.full_analysis(
     dt=4, dtunit='ms',
     tmin=0, tmax=8000,
     fitfunctions=['exp', 'exp_offs', 'complex'],
+    numboot='auto',
     )
 
 plt.show()
