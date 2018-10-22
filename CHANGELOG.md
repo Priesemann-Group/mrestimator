@@ -4,12 +4,16 @@ Changelog
 [v0.1.1](https://pypi.org/project/mrestimator/0.1.1) (15.10.2018)
 -----------------------------------------------------------------
 
+* __Changed__: We reworked the structure of `CoefficientResult` to be more consistent. This is now a completely _selfsimilar_ , where each child-entry has exactly the same structure as the parent. The new attributes `trialcrs` and `bootstrapcrs` replaced `samples`. Both are now lists containing again `CoefficientResults`, any multidmensional ndarrays are now 1d.
+* __New__: Added quantiles (and standard errors) to fit results if bootstrapping. The new default option, `numboot='auto'` calculates 250 bootstrap samples for the exponential and exp+offset fit functions (which are decently fast) and skips error estimation for the builtin complex (and custom) fits.
+* __New__: Per default, `full_analysis()` initialises the random number generator (used for bootstrapping) once per call and passes `None` to the seed arguments of lower functions so they do not reseed. We introduced the convention that `seed=None` tells that function to use the current state of the rng without seeding. (Added an `auto` option for seeding where needed)
 * __Changed__: All prints now use the logging module. Hopefully nothing broke.
-* __Changed__: Default log level to console is now 'INFO', and some logs that one _could_ consider info go to 'DEBUG' to decrease the spam. Default loglevel to file is 'DEBUG' (logfile placed in temporary directory, that's printed when loading the toolbox).
+* __Changed__: Default log level to console is now 'INFO', and some logs that one _could_ consider info go to 'DEBUG' to decrease the spam. Default loglevel to file is 'DEBUG' (logfile placed in temporary directory, that is printed when loading the toolbox).
 Undocumented way to change the respective loglevels is e.g. ``mre._logstreamhandler.setLevel('WARNING')`` for console and ``.mre._logfilehandler.setLevel('DEBUG')`` for file
 * __New__: Added function ``set_logfile(fname, loglevel='DEBUG')`` to change the path of the global logfile + level. This should allow running the toolbox in parallel, with a seperate logfile per thread and relatively silent/no console output when combining with `mre._logstreamhandler.setLevel('ERROR')` or calling `full_analysis(..., loglevel='ERROR')`
 * __Changed__: When providing no loglevel to `full_analysis()` it uses the currently set level of `mre._logstreamhandler`.
 * __New__: Added custom handler class that does not log 'None Type' Traces if `log.exception()` is called without a `try` statement
+* __Fixed__: When calling `full_analysis()` with one trial, are running average is shown instead of an empty plot.
 
 
 [v0.1.0](https://pypi.org/project/mrestimator/0.1.0) (11.10.2018)
