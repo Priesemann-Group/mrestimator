@@ -57,6 +57,7 @@ auto = mre.full_analysis(
     tmin=0, tmax=8000,
     fitfunctions=['exp', 'exp_offs', 'complex'],
     numboot='auto',
+    seed='auto',
     )
 
 plt.show()
@@ -127,6 +128,6 @@ ores.add_fit(m2)
 # save the plot and its meta data
 ores.save('./output/custom')
 
-plt.show()
+plt.show(block=True)
 
 

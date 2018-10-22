@@ -13,15 +13,15 @@ General
 - [x] add date to log file
 - [ ] draw fits behind coefficients but in legend data still first, matplotlib z-index?
 - [ ] add all function arguments to log/resulting container
-- [ ] ask Jens to link our repo from nat comm url
-- [ ] How to we want to seed the rng per default?
+- [x] ask Jens to link our repo from nat comm url
+- [x] How do we want to seed the rng per default?
 
 Wrapper Function
 ----------------
 
 - [x] plot
 - [x] replace member samples with bootsamples and trials; kept samples for now
-- [ ] previous point has to change a bit more:
+- [x] previous point has to change a bit more:
 	* trials -> trialcr: list of CoefficientResults 'cr';
 	* trialactivites: list of mean trial activities, always length 'numtrials'
 	* bootsamples -> bootstrapcr: list of 'cr'
@@ -33,13 +33,13 @@ Wrapper Function
 		- _index? no!
 - [ ] function call parameters as dict in result of wrapper, coefficients and fit
 - [x] coefficients(): bootstrap for ts method, too
-- [ ] just do the bootstrapping for coefficients and make bs of fit optional (fitting takes ages)
+- [x] just do the bootstrapping for coefficients and make bs of fit optional (fitting takes ages)
       fit use numboots from wrapper, if none only do bs for ceoffs
-- [ ] numboot doesnt do anything so far
+- [x] numboot doesnt do anything so far
 - [ ] results file mit function pars of all called steps
 - [ ] target dir optional and how to deal with log file/console/function isolated?
 - [x] remove mean trial activity plot and 'average' if only a single trial
 - [x] adaptive maxfev in fit()
 - [x] loglevel argument should be the console handler, i would say. we have a default log file anyway.
-- [ ] plot zorder is hardcoded, check if args set. decrease alpha of shadet areas
-- [ ] add qunatil labels to fit results -> use 25% for fiterr instead of variance
+- [x] plot zorder is hardcoded, check if args set.  removed shaded areas of fits
+- [x] add qunatil labels to fit results -> use 25% for fiterr instead of variance

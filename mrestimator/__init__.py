@@ -230,7 +230,7 @@ def simulate_branching(
     length=10000,
     numtrials=1,
     subp=1,
-    seed=None):
+    seed='auto'):
     """
         Simulates a branching process with Poisson input. Returns data
         in the trial structure.
@@ -265,9 +265,10 @@ def simulate_branching(
             Generate 'numtrials' trials. Default is 1.
 
         seed : int, optional
-            Initialise the random number generator with a seed. Per default it
-            is seeded randomly (hence each call to `simulate_branching()`
-            returns different results).
+            Initialise the random number generator with a seed. Per default,
+            ``seed='auto'`` and the generator is seeded randomly (hence each
+            call to `simulate_branching()` returns different results).
+            ``seed=None`` skips (re)seeding.
 
         subp : float, optional
             Subsample the activity with the probability `subp` (calls
@@ -302,7 +303,12 @@ def simulate_branching(
         else:
             length = h.size
 
-    np.random.seed(seed)
+    if seed == 'auto':
+        np.random.seed(None)
+        log.debug('seeding to {}'.format(seed))
+    elif seed is not None:
+        np.random.seed(seed)
+        log.debug('seeding to {}'.format(seed))
 
     if h[0] == 0 and a != 0:
         log.debug('Skipping thermalization since initial h=0')
@@ -336,7 +342,7 @@ def simulate_branching(
             log.debug('Exception passed', exc_info=True)
     return A_t
 
-def simulate_subsampling(data, prob=0.1, seed=None):
+def simulate_subsampling(data, prob=0.1, seed='auto'):
     """
         Apply binomial subsampling.
 
@@ -368,7 +374,12 @@ def simulate_subsampling(data, prob=0.1, seed=None):
     # activity = np.mean(data)
     # a_t = np.empty_like(data)
 
-    # binomial subsampling
+    if seed == 'auto':
+        log.debug('seeding to {}'.format(seed))
+        np.random.seed(None)
+        seed = None
+
+    # binomial subsampling, seed = None does not reseed global instance
     return scipy.stats.binom.rvs(data.astype(int), prob, random_state=seed)
 
 # ------------------------------------------------------------------ #
@@ -596,7 +607,7 @@ def coefficients(
             resampling. Per default, it is set to the *same* value every time
             `coefficients()` is called to return consistent results
             when repeating the analysis on the same data. Set to `None` to
-            change this behaviour. For more details, see
+            prevent (re)seeding. For more details, see
             :obj:`numpy.random.RandomState`.
 
         Returns
@@ -761,7 +772,9 @@ def coefficients(
             'skipping the resampling')
     if numboot>1:
         log.info('Bootstrapping {} replicas'.format(numboot))
-        np.random.seed(seed)
+        if seed is not None:
+            log.debug('seeding to {}'.format(seed))
+            np.random.seed(seed)
 
         bscoefficients    = np.zeros(shape=(numboot, numsteps), dtype='float64')
 
@@ -966,6 +979,7 @@ class FitResult(namedtuple('FitResultBase', [
     'mrestderr',
     'tauquantiles',
     'mrequantiles',
+    'quantiles',
     'popt',
     'pcov',
     'ssres',
@@ -1016,6 +1030,17 @@ class FitResult(namedtuple('FitResultBase', [
             Overwrite by providing `data` from :func:`coefficients` and the
             desired values set there.
 
+        quantiles: list or None
+            Quantile values (between 0 and 1, inclusive) calculated from
+            bootstrapping. See :obj:`numpy.quantile`.
+            Defaults are ``[.125, .25, .4, .5, .6, .75, .875]``
+
+        tauquantiles: list or None
+            Resulting :math:`\\tau` values for the respective quantiles above.
+
+        mrequantiles: list or None
+            Resulting :math:`m` values for the respective quantiles above.
+
         description : str
             Description, inherited from :class:`CoefficientResult`.
             `description` provided to :func:`fit` takes priority, if set.
@@ -1060,6 +1085,7 @@ class FitResult(namedtuple('FitResultBase', [
         mrestderr    = None,
         tauquantiles = None,
         mrequantiles = None,
+        quantiles    = None,
         popt         = None,
         pcov         = None,
         ssres        = None,
@@ -1082,6 +1108,7 @@ class FitResult(namedtuple('FitResultBase', [
             mrestderr,
             tauquantiles,
             mrequantiles,
+            quantiles,
             popt,
             pcov,
             ssres,
@@ -1110,6 +1137,7 @@ def fit(
     maxfev=None,
     ignoreweights=True,
     numboot=0,
+    quantiles=None,
     seed=10815,
     desc=None,
     description=None):
@@ -1160,10 +1188,24 @@ def fit(
             routine. Provide as numpy array of the form
             ``[[lowpar1, lowpar2, ...], [uppar1, uppar2, ...]]``
 
+        numboot : int, optional
+            Number of bootstrap samples to compute errors from. Default is 0
+
+        seed : int or None, optional
+            If `numboot` is not zero, provide a seed for the random number
+            generator. If ``seed=None``, seeding will be skipped.
+            Per default, the rng is (re)seeded everytime `fit()` is called so
+            that every repeated call returns the same error estimates.
+
+        quantiles: list, optional
+            If `numboot` is not zero, provide the quantiles to return
+            (between 0 and 1). See :obj:`numpy.quantile`.
+            Defaults are ``[.125, .25, .4, .5, .6, .75, .875]``
+
         maxfev : int, optional
             Maximum iterations for the fit.
 
-        desc : str, optional
+        description : str, optional
             Provide a custom description.
 
         Returns
@@ -1411,7 +1453,9 @@ def fit(
             raise ValueError
         log.info('Bootstrapping {} replicas ({} fits each)'.format(
             numboot, len(fitpars)))
-        np.random.seed(seed)
+        if seed is not None:
+            log.debug('seeding to {}'.format(seed))
+            np.random.seed(seed)
 
         bstau = np.full(numboot+1, np.nan)
         bsmre = np.full(numboot+1, np.nan)
@@ -1442,10 +1486,12 @@ def fit(
 
         taustderr = np.sqrt(np.nanvar(bstau, ddof=1))
         mrestderr = np.sqrt(np.nanvar(bsmre, ddof=1))
-        quantiles = [12.5, 25, 40, 50, 60, 75, 87.5]
-        tauquantiles = np.nanpercentile(bstau, quantiles)
-        mrequantiles = np.nanpercentile(bstau, quantiles)
-
+        if quantiles is None:
+            quantiles = np.array([.125, .25, .4, .5, .6, .75, .875])
+        else:
+            quantiles = np.array(quantiles)
+        tauquantiles = np.nanpercentile(bstau, quantiles*100.)
+        mrequantiles = np.nanpercentile(bsmre, quantiles*100.)
 
 
 
@@ -1457,6 +1503,7 @@ def fit(
         mrestderr    = mrestderr,
         tauquantiles = tauquantiles,
         mrequantiles = mrequantiles,
+        quantiles    = quantiles,
         popt         = fulpopt,
         pcov         = fulpcov,
         ssres        = ssresmin,
@@ -1968,8 +2015,11 @@ class OutputHandler:
 
         if 'color' not in kwargs:
             kwargs = dict(kwargs, color=color)
+        if 'zorder' not in kwargs:
+            kwargs = dict(kwargs, zorder=4+0.01*indrk)
 
-        kwargs = dict(kwargs, label=label, zorder=4+0.01*indrk)
+        kwargs = dict(kwargs, label=label)
+
 
         # redraw plot
         p, = self.ax.plot(rk.steps*rk.dt/self.dt, rk.coefficients, **kwargs)
@@ -1980,9 +2030,10 @@ class OutputHandler:
                 err1 = rk.coefficients-rk.stderrs
                 err2 = rk.coefficients+rk.stderrs
                 kwargs.pop('color')
+                kwargs.pop('zorder')
                 kwargs = dict(kwargs,
                     label=labelerr, alpha=0.2, facecolor=p.get_color(),
-                    zorder=3+0.01*indrk)
+                    zorder=p.get_zorder()-1)
                 d = self.ax.fill_between(rk.steps*rk.dt/self.dt, err1, err2,
                     **kwargs)
                 self.rkcurves[indrk].append(d)
@@ -2089,41 +2140,45 @@ class OutputHandler:
 
         if 'color' not in kwargs:
             kwargs = dict(kwargs, color=color)
+        if 'zorder' not in kwargs:
+            kwargs = dict(kwargs, zorder=1+0.01*indfit)
 
-        kwargs = dict(kwargs, label=label, zorder=2+0.01*indfit)
+        kwargs = dict(kwargs, label=label)
 
         # update plot
         p, = self.ax.plot(fit.steps*fit.dt/self.dt,
             fit.fitfunc(fit.steps*fit.dt, *fit.popt), **kwargs)
         self.fitcurves[indfit].append(p)
+
+        # only draw dashed not-fitted range if no linestyle is specified
         if fit.steps[0] > self.xdata[0] or fit.steps[-1] < self.xdata[-1]:
-            # only draw dashed not-fitted range if no linestyle is specified
             if 'linestyle' not in kwargs and 'ls' not in kwargs:
                 kwargs.pop('label')
-                kwargs = dict(kwargs, ls='dashed', color=p.get_color(),
-                    zorder=1+0.01*indfit)
+                kwargs = dict(kwargs, ls='dashed', color=p.get_color())
                 d, = self.ax.plot(self.xdata,
                     fit.fitfunc(self.xdata*self.dt, *fit.popt),
                     **kwargs)
                 self.fitcurves[indfit].append(d)
-        # errors
-        try:
-            if fit.taustderr is not None and 'alpha' not in kwargs:
-                ptmp = np.copy(fit.popt)
-                ptmp[0] = fit.tau-fit.taustderr
-                err1    = fit.fitfunc(self.xdata*self.dt, *ptmp)
-                ptmp[0] = fit.tau+fit.taustderr
-                err2    = fit.fitfunc(self.xdata*self.dt, *ptmp)
-                kwargs.pop('color')
-                kwargs.pop('label')
-                kwargs = dict(kwargs, alpha=0.2, facecolor=p.get_color(),
-                    zorder=0+0.01*indfit)
-                s = self.ax.fill_between(self.xdata, err1, err2,
-                    **kwargs)
-                self.fitcurves[indfit].append(s)
-        # not all kwargs are compaible with fill_between
-        except AttributeError:
-            pass
+
+        # errors as shaded area
+        if False:
+            try:
+                if fit.taustderr is not None and 'alpha' not in kwargs:
+                    ptmp = np.copy(fit.popt)
+                    ptmp[0] = fit.tau-fit.taustderr
+                    err1    = fit.fitfunc(self.xdata*self.dt, *ptmp)
+                    ptmp[0] = fit.tau+fit.taustderr
+                    err2    = fit.fitfunc(self.xdata*self.dt, *ptmp)
+                    kwargs.pop('color')
+                    kwargs.pop('label')
+                    kwargs = dict(kwargs, alpha=0.2, facecolor=p.get_color(),
+                        zorder=0+0.01*indfit)
+                    s = self.ax.fill_between(self.xdata, err1, err2,
+                        **kwargs)
+                    self.fitcurves[indfit].append(s)
+            # not all kwargs are compaible with fill_between
+            except AttributeError:
+                log.debug('Exception passed', exc_info=True)
 
         if label is not None:
             self.ax.legend()
@@ -2269,10 +2324,22 @@ class OutputHandler:
         hdr = ''
         try:
             for fdx, fit in enumerate(self.fits):
+                hdr += '{}\n'.format('-'*72)
                 hdr += 'legendlabel: ' + str(self.fitlabels[fdx]) + '\n'
+                hdr += '{}\n'.format('-'*72)
                 hdr += 'description: ' + str(fit.desc) + '\n'
                 hdr += 'm={}, tau={}[{}]\n' \
                     .format(fit.mre, fit.tau, fit.dtunit)
+                try:
+                    hdr += 'quantiles | tau [{}]| m:\n'.format(fit.dtunit)
+                    for i, q in enumerate(fit.quantiles):
+                        hdr += '{:6.3f} | '.format(fit.quantiles[i])
+                        hdr += '{:8.3f} | '.format(fit.tauquantiles[i])
+                        hdr += '{:8.8f}\n'.format(fit.mrequantiles[i])
+                    hdr += '\n'
+                except Exception as e:
+                    hdr += 'none\n'
+                    log.debug('Exception passed', exc_info=True)
                 hdr += 'fitrange: {} <= k <= {}[{}{}]\n' \
                     .format(fit.steps[0], fit.steps[-1], fit.dt, fit.dtunit)
                 hdr += 'function: ' + math_from_doc(fit.fitfunc) + '\n'
@@ -2280,7 +2347,7 @@ class OutputHandler:
                 parname = list(inspect.signature(fit.fitfunc).parameters)[1:]
                 for pdx, par in enumerate(self.fits[fdx].popt):
                     hdr += '\t\t{} = {}\n'.format(parname[pdx], par)
-                hdr += '\n'
+                hdr += '\n\n'
         except Exception as e:
             log.debug('Exception passed', exc_info=True)
 
@@ -2288,6 +2355,9 @@ class OutputHandler:
         labels = ''
         dat = []
         if self.ydata is not None and len(self.ydata) != 0:
+            hdr += '{}\n'.format('-'*72)
+            hdr += 'Data\n'
+            hdr += '{}\n'.format('-'*72)
             labels += '1_'+self.xlabel
             for ldx, label in enumerate(self.ylabels):
                 labels += '\t'+str(ldx+2)+'_'+label
@@ -2379,6 +2449,7 @@ def full_analysis(
     coefficientmethod=None,
     substracttrialaverage=False,    # optional. default=? mre treff
     numboot='auto',                 # optional. default depends on fitfunc?
+    seed='auto',                    # default: reseed to random on every call
     loglevel=None,                  # optional. local file and console
     steps=None,                     # dt conversion? optional replace tmin/tmax
     targetplot=None,
@@ -2620,6 +2691,17 @@ def full_analysis(
     if substracttrialaverage:
         src -= np.mean(src, axis=0)
 
+    # seed once and make sure subfunctions dont reseed by providing seed=None
+    log.debug('seeding to {}'.format(seed))
+    if seed == 'auto':
+        np.random.seed(None)
+    elif seed is None:
+        pass
+    else:
+        np.random.seed(seed)
+
+    seed = None
+
     rks = []
     # dont like this. only advantage of giving multiple methods is that
     # data does not need to go through input handler twice.
@@ -2629,7 +2711,7 @@ def full_analysis(
         else:
             nbt = numboot
         rks.append(coefficients(
-            src, steps, dt, dtunit, method=c, numboot=nbt))
+            src, steps, dt, dtunit, method=c, numboot=nbt, seed=seed))
 
     fits = []
     for f in fitfunctions:
@@ -2644,10 +2726,16 @@ def full_analysis(
         else:
             nbt = numboot
         for rk in rks:
-            fits.append(fit(data=rk, fitfunc=f, steps=steps, numboot=nbt))
+            fits.append(fit(data=rk, fitfunc=f, steps=steps, numboot=nbt,
+                seed=seed))
 
-    ratios = np.ones(4)*.75
-    ratios[3] = 0.25
+    # ------------------------------------------------------------------ #
+    # Plotting
+    # ------------------------------------------------------------------ #
+
+    # ratios = np.ones(4)*.75
+    # ratios[3] = 0.25
+    ratios=None
     # A4 in inches, should check rc params in the future
     # matplotlib changes the figure size when modifying subplots
     topshift = 0.925
@@ -2702,8 +2790,18 @@ def full_analysis(
         label = '\n'
         # label = cout.fitlabels[i]
         label = math_from_doc(f.fitfunc, 5)
-        label += '\n$\\tau={:.2f}${}\n$m={:.5f}$'.format(
-            f.tau, f.dtunit, f.mre)
+        label += '\n\n$\\tau={:.2f}${}\n'.format(f.tau, f.dtunit)
+        if f.tauquantiles is not None:
+            label += '$[{:.2f}:{:.2f}]$\n\n' \
+                .format(f.tauquantiles[1], f.tauquantiles[-2])
+        else:
+            label += '\n\n'
+        label += '$m={:.5f}$\n'.format(f.mre)
+        if f.mrequantiles is not None:
+            label +='$[{:.5f}:{:.5f}]$' \
+                .format(f.mrequantiles[1], f.mrequantiles[-2])
+        else:
+            label += '\n'
         fitlabels.append(label)
 
 
@@ -2718,6 +2816,9 @@ def full_analysis(
         # 'framealpha': 1,
         'borderaxespad': 0,
         'edgecolor': 'black',
+        # hide handles
+        'handlelength': 0,
+        'handletextpad': 0,
         }
     try:
         axes[3].legend(fitcurves, fitlabels, **tempkwargs)
@@ -2725,6 +2826,14 @@ def full_analysis(
         log.debug('Exception passed', exc_info=True)
         del tempkwargs['edgecolor']
         axes[3].legend(fitcurves, fitlabels, **tempkwargs)
+
+    # hide handles
+    for handle in axes[3].get_legend().legendHandles:
+        handle.set_visible(False)
+
+    # center text
+    for t in axes[3].get_legend().texts:
+        t.set_multialignment('center')
 
     axes[3].get_legend().get_frame().set_linewidth(0.5)
     axes[3].axis('off')
