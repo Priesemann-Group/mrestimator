@@ -319,7 +319,7 @@ def simulate_branching(
     log.info('Generating branching process:\n' +
         '\t{:d} trials with {:d} time steps each\n'.format(numtrials, length) +
         '\tbranchign ratio m={}\n'.format(m) +
-        '\t(initial) activity s={}\n'.format(a) +
+        '\t(initial) activity a={}\n'.format(a) +
         '\t(initial) drive rate h={}'.format(h[0]))
 
     A_t = np.zeros(shape=(numtrials, length), dtype=int)
@@ -401,11 +401,12 @@ class CoefficientResult(namedtuple('CoefficientResultBase', [
     'numboot',
     'numsteps'])):
     """
-        Result returned by `coefficients()`.
+        Result returned by `coefficients()`. Subclassed from
+        :obj:`~collections.namedtuple`.
 
         Attributes are set to `None` if the specified method or input
         data do not provide them. All attributes of type :obj:`~numpy.ndarray`
-        are one-dimensional.
+        and lists are one-dimensional.
 
         Attributes
         ----------
@@ -454,6 +455,17 @@ class CoefficientResult(namedtuple('CoefficientResultBase', [
             from individual trials. Only has length `numtrials` if the
             `trialseparated` method was used, otherwise it is empty.
 
+        Note
+        ----
+        At the time of writing, :obj:`~numpy.ndarray` behaves a bit unexpected
+        when creating arrays with objects that are sequence like (such as
+        :obj:`CoefficientResult` and :obj:`FitResult`), even when specifying
+        `dtype=object`.
+        Numpy converts the objects into an ndimensional structure instead
+        of creating the (probably desired) 1d-array. To work around the issue,
+        use a `list` or manually create the array with `dtype=object` and add
+        the entries after creation.
+
         Example
         -------
         .. code-block:: python
@@ -463,10 +475,17 @@ class CoefficientResult(namedtuple('CoefficientResultBase', [
             import mrestimator as mre
 
             # branching process with 15 trials
-            bp = mre.simulate_branching(numtrials=15)
+            bp = mre.simulate_branching(m=0.995, a=10, numtrials=15)
 
             # the bp returns data already in the right format
-            rk = mre.coefficients(bp)
+            rk = mre.coefficients(bp, dtunit='step')
+
+            # fit
+            ft = mre.fit(rk)
+
+            # plot coefficients and the autocorrelation fit
+            mre.OutputHandler([rk, ft])
+            plt.show()
 
             # print the coefficients
             print(rk.coefficients)
@@ -474,8 +493,8 @@ class CoefficientResult(namedtuple('CoefficientResultBase', [
             # get the documentation
             print(help(rk))
 
-            mre.OutputHandler(rk)
-            plt.show()
+            # rk is inherited from namedtuple with all the bells and whistles
+            print(rk._fields)
         ..
     """
 
@@ -989,6 +1008,9 @@ class FitResult(namedtuple('FitResultBase', [
     'desc',
     'description'])):
     """
+        Result returned by `fit()`.
+        Subclassed from :obj:`~collections.namedtuple`.
+
         Attributes
         ----------
         tau : float
@@ -1053,14 +1075,15 @@ class FitResult(namedtuple('FitResultBase', [
             import matplotlib.pyplot as plt
             import mrestimator as mre
 
-            bp = mre.simulate_branching(numtrials=15)
-            rk = mre.coefficients(bp)
+            bp = mre.simulate_branching(m=0.99, a=10, numtrials=15)
+            rk = mre.coefficients(bp, dtunit='step')
 
             # compare the builtin fitfunctions
             m1 = mre.fit(rk, fitfunc=mre.f_exponential)
             m2 = mre.fit(rk, fitfunc=mre.f_exponential_offset)
             m3 = mre.fit(rk, fitfunc=mre.f_complex)
 
+            # plot manually without using OutputHandler
             plt.plot(rk.steps, rk.coefficients, label='data')
             plt.plot(rk.steps, mre.f_exponential(rk.steps, *m1.popt),
                 label='exponential m={:.5f}'.format(m1.mre))
@@ -2469,7 +2492,6 @@ def full_analysis(
 
         Parameters
         ----------
-
         data: str, list or numpy.ndarray
             Passed to `input_handler()`. Ideally, import and check data first.
             A `string` is assumed to be the path
@@ -2504,6 +2526,8 @@ def full_analysis(
             2s set: `tmin=8`, `tmax=2000`, `dtunit=\'ms\'`
             (independent of `dt`).
 
+        Other Parameters
+        ----------------
         coefficientmethod: str, optional
             `ts` or `sm`, method used for determining the correlation
             coefficients. See the :func:`coefficients` function for details.
@@ -2556,8 +2580,10 @@ def full_analysis(
             as a subplot to any other figure later on. This is due to
             the way matplotlib handles subplots.
 
-        Returns: OutputHandler
-            Returns an instance of `OutputHandler` that is associated
+        Returns
+        -------
+        OutputHandler
+            that is associated
             with the correlation plot, fits and coefficients.
             Also saves meta data and plotted pdfs to `targetdir`.
 
@@ -2567,7 +2593,7 @@ def full_analysis(
         .. code-block:: python
 
             # test data, subsampled branching process
-            bp = mre.simulate_branching(m=0.95, h=10, subp=0.1, numtrials=10)
+            bp = mre.simulate_branching(m=0.95, h=10, subp=0.1, numtrials=50)
 
             mre.full_analysis(
                 data=bp,
@@ -2844,7 +2870,7 @@ def full_analysis(
         for s in a.spines:
             a.spines[s].set_linewidth(0.5)
 
-    fig.tight_layout()
+    fig.tight_layout(h_pad=2.0)
     plt.subplots_adjust(top=topshift)
     if (title is not None and title != ''):
         fig.suptitle(title+'\n', fontsize=14)
