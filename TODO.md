@@ -16,6 +16,9 @@ General
 - [x] ask Jens to link our repo from nat comm url
 - [x] How do we want to seed the rng per default?
 - [ ] Disentangle spaghetti code, probably along with __all__ fix
+- [ ] log.status or log.progress that does not appear in files. maybe we can have this guy as console logger only with \r by default!
+    - https://stackoverflow.com/questions/23175653/set-a-log-to-min-and-max-level-as-to-exclude-errors
+    - https://stackoverflow.com/questions/3118059/how-to-write-custom-python-logging-handler?answertab=active#tab-top
 
 Wrapper Function
 ----------------
