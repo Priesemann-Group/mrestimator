@@ -315,8 +315,8 @@ def simulate_branching(
     if h[0] == 0 and a == 0:
         log.warning('activity a=0 and initial h=0')
 
-
-    log.info('Generating branching process:\n' +
+    log.info('Generating branching process with m={}'.format(_printeger(m)))
+    log.debug('Details:\n' +
         '\t{:d} trials with {:d} time steps each\n'.format(numtrials, length) +
         '\tbranchign ratio m={}\n'.format(m) +
         '\t(initial) activity a={}\n'.format(a) +
@@ -1571,14 +1571,15 @@ def fit(
     if fulres.tau is None:
         return fulres
 
-    if fulres.tau >= 0.9*(steps[-1]*dt):
+    if fulres.tau >= 0.75*(steps[-1]*dt):
+
         log.warning('The obtained autocorrelationtime is large compared '+
             'to the fitrange: tmin~{:.0f}{}, tmax~{:.0f}{}, tau~{:.0f}{}'
             .format(steps[0]*dt, dtunit, steps[-1]*dt, dtunit,
                 fulres.tau, dtunit))
         log.warning('Consider fitting with a larger \'maxstep\'')
 
-    if fulres.tau <= 0.01*(steps[-1]*dt) or fulres.tau <= steps[0]*dt:
+    if fulres.tau <= 0.05*(steps[-1]*dt) or fulres.tau <= steps[0]*dt:
         log.warning('The obtained autocorrelationtime is small compared '+
             'to the fitrange: tmin~{:.0f}{}, tmax~{:.0f}{}, tau~{:.0f}{}'
             .format(steps[0]*dt, dtunit, steps[-1]*dt, dtunit,
