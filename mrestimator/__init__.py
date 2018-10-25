@@ -866,6 +866,10 @@ def coefficients(
 # Fitting, Helper
 # ------------------------------------------------------------------ #
 
+def f_linear(k, A, O):
+    """:math:`A k + O`"""
+    return A*k + O*np.ones_like(k)
+
 def f_exponential(k, tau, A):
     """:math:`A e^{-k/\\tau}`"""
 
@@ -901,7 +905,9 @@ def default_fitpars(fitfunc):
             The default parameters of the given function, 2d array for
             multiple sets of initial conditions.
     """
-    if fitfunc == f_exponential:
+    if fitfunc == f_linear:
+        return np.array([(1, 0)])
+    elif fitfunc == f_exponential:
         return np.array([(20, 1), (200, 1)])
     elif fitfunc == f_exponential_offset:
         return np.array([(20, 1, 0), (200, 1, 0)])
@@ -938,7 +944,9 @@ def default_fitpars(fitfunc):
             'fitfunction.')
 
 def default_fitbnds(fitfunc):
-    if fitfunc == f_exponential:
+    if fitfunc == f_linear:
+        return None
+    elif fitfunc == f_exponential:
         return None
     elif fitfunc == f_exponential_offset:
         return None
@@ -976,15 +984,19 @@ def math_from_doc(fitfunc, maxlen=np.inf):
             res = 'Exp+Offset'
         elif fitfunc == f_exponential:
             res = 'Exponential'
+        elif fitfunc == f_linear:
+            res = 'Linear'
         else:
             res = fitfunc.__name__
 
     return res
 
 def _fitfunc_check(f):
-    if f is f_exponential or \
-        str(f).lower() in ['f_exponential', 'exponential', 'exp',
-        'e']:
+    if f is f_linear or \
+        str(f).lower() in ['f_linear', 'linear', 'lin', 'l']:
+            return f_linear
+    elif f is f_exponential or \
+        str(f).lower() in ['f_exponential', 'exponential', 'exp', 'e']:
             return f_exponential
     elif f is f_exponential_offset or \
         str(f).lower() in ['f_exponential_offset', 'exponentialoffset',
@@ -1254,14 +1266,6 @@ def fit(
     log.debug('fit()')
     log.debug('Locals: {}'.format(locals()))
 
-    # if fitfunc in ['f_exponential', 'exponential', 'exp']:
-    #     fitfunc = f_exponential
-    # elif fitfunc in ['f_exponential_offset', 'exponentialoffset',
-    #     'exponential_offset','offset', 'exp_off', 'exp_offs']:
-    #     fitfunc = f_exponential_offset
-    # elif fitfunc in ['f_complex', 'complex']:
-    #     fitfunc = f_complex
-
     fitfunc = _fitfunc_check(fitfunc)
 
     # check input data type
@@ -1476,6 +1480,8 @@ def fit(
     if numboot <= 1:
         log.debug('Bootstrap needs at least numboot=2 replicas and the ' +
             'default data type, skipping the resampling')
+    elif fitfunc == f_linear:
+        log.warning('Bootstrap is not suppored for the f_linear fitfunction')
     elif numboot>1:
         if numboot > src.numboot:
             log.exception("The provided data does not contain enough " +
@@ -1526,11 +1532,16 @@ def fit(
         tauquantiles = np.nanpercentile(bstau, quantiles*100.)
         mrequantiles = np.nanpercentile(bsmre, quantiles*100.)
 
+    tau = fulpopt[0]
+    mre = np.exp(-1*dt/fulpopt[0])
 
+    if fitfunc == f_linear:
+        tau = None
+        mre = None
 
     fulres = FitResult(
-        tau          = fulpopt[0],
-        mre          = np.exp(-1*dt/fulpopt[0]),
+        tau          = tau,
+        mre          = mre,
         fitfunc      = fitfunc,
         taustderr    = taustderr,
         mrestderr    = mrestderr,
@@ -1556,6 +1567,9 @@ def fit(
             _prerror(fulres.mre, fulres.mrestderr),
             _prerror(fulres.tau, fulres.taustderr, 2, 2),
             fulres.dtunit, fulres.ssres))
+
+    if fulres.tau is None:
+        return fulres
 
     if fulres.tau >= 0.9*(steps[-1]*dt):
         log.warning('The obtained autocorrelationtime is large compared '+
@@ -2444,12 +2458,22 @@ def _at_index(data, indices, keepdim=None, padding=np.nan):
         return res
 
 def _printeger(f, maxprec=5):
+    try:
+        f = float(f)
+    except TypeError:
+        log.debug('Exception when casting float in _printerger', exc_info=True)
+        return 'None'
     prec=0
     while(not float(f*10**(prec)).is_integer() and prec <maxprec):
         prec+=1
     return str('{:.{p}f}'.format(f, p=prec))
 
 def _prerror(f, ferr, errprec=2, maxprec=5):
+    try:
+        f = float(f)
+    except TypeError:
+        log.debug('Exception when casting float in _prerror', exc_info=True)
+        return 'None'
     if ferr is None or ferr == 0:
         return _printeger(f, maxprec)
     if ferr < 1:
@@ -2831,7 +2855,6 @@ def full_analysis(
             'Average Activity and Stddev for {} Intervals'.format(numsegs))
         taout.ax.set_xlabel('Interval i')
         taout.ax.set_ylabel('$\\bar{A}_i$')
-
 
 
     cout = OutputHandler(rks+fits, ax=axes[2])
