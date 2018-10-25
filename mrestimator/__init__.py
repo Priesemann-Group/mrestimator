@@ -393,6 +393,7 @@ class CoefficientResult(namedtuple('CoefficientResultBase', [
     'dtunit',
     'stderrs',
     'trialactivities',
+    'trialvariances',
     'bootstrapcrs',
     'trialcrs',
     'desc',
@@ -509,6 +510,7 @@ class CoefficientResult(namedtuple('CoefficientResultBase', [
         dtunit          = 'ms',
         stderrs         = None,
         trialactivities = np.array([]),
+        trialvariances  = np.array([]),
         bootstrapcrs    = np.array([]),
         trialcrs        = np.array([]),
         description     = None,
@@ -521,6 +523,7 @@ class CoefficientResult(namedtuple('CoefficientResultBase', [
         dtunit          = str(dtunit)
         stderrs         = None if stderrs is None else np.asarray(stderrs)
         trialactivities = np.asarray(trialactivities)
+        trialvariances  = np.asarray(trialvariances)
         bootstrapcrs    = bootstrapcrs if isinstance(bootstrapcrs, list) else \
             [bootstrapcrs]
         trialcrs        = trialcrs if isinstance(trialcrs, list) else \
@@ -541,6 +544,7 @@ class CoefficientResult(namedtuple('CoefficientResultBase', [
             dtunit,
             stderrs,
             trialactivities,
+            trialvariances,
             bootstrapcrs,
             trialcrs,
             desc,
@@ -725,11 +729,13 @@ def coefficients(
     bootstrapcrs    = []
     stderrs         = None
     trialactivities = np.mean(data, axis=1)
+    trialvariances  = np.var(data, axis=1, ddof=1)
     coefficients    = None                    # set later
 
     if method == 'trialseparated':
         tsmean         = np.mean(data, axis=1, keepdims=True)  # (numtrials, 1)
-        tsvar          = np.var(data, axis=1, ddof=1)          # (numtrials)
+        # tsvar          = np.var(data, axis=1, ddof=1)          # (numtrials)
+        tsvar          = trialvariances
         tscoefficients = np.zeros(shape=(numtrials, numsteps), dtype='float64')
 
         _logstreamhandler.terminator = "\r"
@@ -754,6 +760,7 @@ def coefficients(
             temp = CoefficientResult(
                 coefficients    = tscoefficients[tdx],
                 trialactivities = np.array([trialactivities[tdx]]),
+                trialvariances  = np.array([trialvariances[tdx]]),
                 steps           = steps,
                 dt              = dt,
                 dtunit          = dtunit,
@@ -806,6 +813,7 @@ def coefficients(
             bsmean = np.mean(trialactivities[choices])
 
             if method == 'trialseparated':
+                bsvar = np.var(trialactivities[choices], ddof=1) # inconstitent
                 bscoefficients[tdx, :] = \
                     np.mean(tscoefficients[choices, :], axis=0)
 
@@ -825,6 +833,7 @@ def coefficients(
             temp = CoefficientResult(
                 coefficients    = bscoefficients[tdx],
                 trialactivities = np.array([bsmean]),
+                trialvariances  = np.array([bsvar]),
                 steps           = steps,
                 dt              = dt,
                 dtunit          = dtunit,
@@ -842,6 +851,7 @@ def coefficients(
     fulres =  CoefficientResult(
         coefficients    = coefficients,
         trialactivities = trialactivities,
+        trialvariances  = trialvariances,
         steps           = steps,
         stderrs         = stderrs,
         trialcrs        = trialcrs,
@@ -2353,16 +2363,13 @@ class OutputHandler:
                 hdr += 'description: ' + str(fit.desc) + '\n'
                 hdr += 'm={}, tau={}[{}]\n' \
                     .format(fit.mre, fit.tau, fit.dtunit)
-                try:
+                if fit.quantiles is not None:
                     hdr += 'quantiles | tau [{}]| m:\n'.format(fit.dtunit)
                     for i, q in enumerate(fit.quantiles):
                         hdr += '{:6.3f} | '.format(fit.quantiles[i])
                         hdr += '{:8.3f} | '.format(fit.tauquantiles[i])
                         hdr += '{:8.8f}\n'.format(fit.mrequantiles[i])
                     hdr += '\n'
-                except Exception as e:
-                    hdr += 'none\n'
-                    log.debug('Exception passed', exc_info=True)
                 hdr += 'fitrange: {} <= k <= {}[{}{}]\n' \
                     .format(fit.steps[0], fit.steps[-1], fit.dt, fit.dtunit)
                 hdr += 'function: ' + math_from_doc(fit.fitfunc) + '\n'
@@ -2443,7 +2450,7 @@ def _printeger(f, maxprec=5):
     return str('{:.{p}f}'.format(f, p=prec))
 
 def _prerror(f, ferr, errprec=2, maxprec=5):
-    if ferr is None:
+    if ferr is None or ferr == 0:
         return _printeger(f, maxprec)
     if ferr < 1:
         prec = math.ceil(-math.log10(math.fabs(ferr) -
@@ -2652,6 +2659,7 @@ def full_analysis(
     log.addHandler(loghandler)
 
     log.debug("full_analysis()")
+    log.debug('Locals: {}'.format(locals()))
     try:
         dt = float(dt)
         assert(dt>0)
@@ -2775,7 +2783,7 @@ def full_analysis(
             prevclr = plt.rcParams["axes.prop_cycle"].by_key()["color"][0]
         except Exception:
             prevclr = 'navy'
-            log.debug('Exception passed', exc_info=True)
+            log.debug('Exception getting color cycle', exc_info=True)
         tsout.add_ts(np.mean(src, axis=0), color=prevclr, label='Average')
     else:
         tsout.ax.legend().set_visible(False)
@@ -2785,20 +2793,42 @@ def full_analysis(
     if (src.shape[0] > 1):
         # average trial activites as function of trial number
         taout = OutputHandler(rks[0].trialactivities, ax=axes[1])
-        taout.ax.set_title('Mean Trial Activity')
+        try:
+            err1 = rks[0].trialactivities - np.sqrt(rks[0].trialvariances)
+            err2 = rks[0].trialactivities + np.sqrt(rks[0].trialvariances)
+            prevclr = plt.rcParams["axes.prop_cycle"].by_key()["color"][0]
+            taout.ax.fill_between(
+                np.arange(1, rks[0].numtrials+1), err1, err2,
+                color=prevclr, alpha=0.2)
+        except Exception as e:
+            log.debug('Exception adding std deviation to plot', exc_info=True)
+        taout.ax.set_title('Mean Trial Activity and Std. Deviation')
         taout.ax.set_xlabel('Trial i')
         taout.ax.set_ylabel('$\\bar{A}_i$')
     else:
         # running average over the one trial to see if stays stationary
         numsegs = 50
         ravg = np.zeros(numsegs)
+        err1 = np.zeros(numsegs)
+        err2 = np.zeros(numsegs)
         seglen = int(src.shape[1]/numsegs)
         for s in range(numsegs):
-            ravg[s] = np.mean(src[0][s*seglen : (s+1)*seglen])
+            temp = np.mean(src[0][s*seglen : (s+1)*seglen])
+            ravg[s] = temp
+            stddev = np.sqrt(np.var(src[0][s*seglen : (s+1)*seglen]))
+            err1[s] = temp - stddev
+            err2[s] = temp + stddev
 
         taout = OutputHandler(ravg, ax=axes[1])
+        try:
+            prevclr = plt.rcParams["axes.prop_cycle"].by_key()["color"][0]
+            taout.ax.fill_between(
+                np.arange(1, numsegs+1), err1, err2,
+                color=prevclr, alpha=0.2)
+        except Exception as e:
+            log.debug('Exception adding std deviation to plot', exc_info=True)
         taout.ax.set_title(
-            'Average Activity for {} Intervals'.format(numsegs))
+            'Average Activity and Stddev for {} Intervals'.format(numsegs))
         taout.ax.set_xlabel('Interval i')
         taout.ax.set_ylabel('$\\bar{A}_i$')
 

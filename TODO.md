@@ -15,6 +15,7 @@ General
 - [ ] add all function arguments to log/resulting container
 - [x] ask Jens to link our repo from nat comm url
 - [x] How do we want to seed the rng per default?
+- [ ] Disentangle spaghetti code, probably along with __all__ fix
 
 Wrapper Function
 ----------------
@@ -43,3 +44,11 @@ Wrapper Function
 - [x] loglevel argument should be the console handler, i would say. we have a default log file anyway.
 - [x] plot zorder is hardcoded, check if args set.  removed shaded areas of fits
 - [x] add qunatil labels to fit results -> use 25% for fiterr instead of variance
+
+
+Test Script
+-----------
+- [ ] single trial | trial structure
+- [ ] sm | ts
+- [ ] numboots = 0 | > 0
+
