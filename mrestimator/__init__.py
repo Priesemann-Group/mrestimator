@@ -796,7 +796,10 @@ def coefficients(
     if numboot <= 1:
         log.debug('Bootstrap needs at least numboot=2 replicas, ' +
             'skipping the resampling')
-    if numboot>1:
+    elif numtrials < 2:
+        log.info('Bootstrapping needs at least 2 trials, skipping ' +
+            'the resampling')
+    elif numboot > 1:
         log.info('Bootstrapping {} replicas'.format(numboot))
         if seed is not None:
             log.debug('seeding to {}'.format(seed))
@@ -1277,7 +1280,7 @@ def fit(
         dtunit  = data.dtunit
     else:
         try:
-            log.warning("Given data is no CoefficienResult. Guessing format")
+            log.warning("Given data is no CoefficientResult. Guessing format")
             dt      = 1
             dtunit  = 'ms'
             srcerrs = None
@@ -1290,7 +1293,7 @@ def fit(
                 else:
                     log.debug("using steps linear steps starting at 1")
                     tempsteps = np.arange(1, len(data)+1)
-                src = CoefficienResult(
+                src = CoefficientResult(
                     coefficients = data,
                     steps        = tempsteps)
             elif len(data.shape) == 2:
@@ -1303,14 +1306,14 @@ def fit(
                     else:
                         log.debug("using steps linear steps starting at 1")
                         tempsteps = np.arange(1, len(data[0])+1)
-                    src = CoefficienResult(
+                    src = CoefficientResult(
                         coefficients = data[0],
                         steps        = tempsteps)
                 elif data.shape[0] == 2:
                     log.debug('2d array, assuming this to be ' +
                           'steps and coefficients')
                     tempsteps    = data[0]
-                    src = CoefficienResult(
+                    src = CoefficientResult(
                         coefficients = data[1],
                         steps        = tempsteps)
             else:
@@ -1572,7 +1575,6 @@ def fit(
         return fulres
 
     if fulres.tau >= 0.75*(steps[-1]*dt):
-
         log.warning('The obtained autocorrelationtime is large compared '+
             'to the fitrange: tmin~{:.0f}{}, tmax~{:.0f}{}, tau~{:.0f}{}'
             .format(steps[0]*dt, dtunit, steps[-1]*dt, dtunit,
@@ -1598,6 +1600,31 @@ def fit(
             log.debug('Exception passed', exc_info=True)
 
     return fulres
+
+
+# ------------------------------------------------------------------ #
+# New Consistency Checks
+# ------------------------------------------------------------------ #
+
+def _c_rk_greater_zero(data, plim=0.1):
+    """
+        check rk are signigicantly larger than 0
+
+        returns True if the test passed (and the null hypothesis was rejected)
+    """
+    if not isinstance(data, CoefficientResult):
+        log.exception('_c_nonzero needs a CoefficientResult')
+        raise TypeError
+
+    # two sided
+    t, p = scipy.stats.ttest_1samp(data.coefficients, 0.0)
+    passed = False
+
+    if p/2 < plim and t > 0:
+        passed = True
+    return passed, t, p
+
+
 
 # ------------------------------------------------------------------ #
 # Output, Plotting
