@@ -1027,6 +1027,7 @@ class FitResult(namedtuple('FitResultBase', [
     'popt',
     'pcov',
     'ssres',
+    'rsquared',
     'steps',
     'dt',
     'dtunit',
@@ -1137,6 +1138,7 @@ class FitResult(namedtuple('FitResultBase', [
         popt         = None,
         pcov         = None,
         ssres        = None,
+        rsquared     = None,
         steps        = None,
         dt           = 1,
         dtunit       = 'ms',
@@ -1160,6 +1162,7 @@ class FitResult(namedtuple('FitResultBase', [
             popt,
             pcov,
             ssres,
+            rsquared,
             steps,
             dt,
             dtunit,
@@ -1473,6 +1476,18 @@ def fit(
         log.exception('No fit converged afer %d iterations', maxfev)
         raise RuntimeError
 
+    try:
+        rsquared = 0.0
+        sstot = np.sum((src.coefficients[stepinds] -
+            np.mean(src.coefficients[stepinds]))**2)
+        rsquared = 1.0 - (ssresmin/sstot)
+
+        # adjusted rsquared to consider parameter number
+        rsquared = 1.0 - (1.0 - rsquared) * \
+            (len(stepinds) -1)/(len(stepinds) -1 - len(fulpopt))
+    except Exception as e:
+        log.debug('Exception passed when estimating rsquared', exc_info=True)
+
     # ------------------------------------------------------------------ #
     # Bootstrapping
     # ------------------------------------------------------------------ #
@@ -1554,6 +1569,7 @@ def fit(
         popt         = fulpopt,
         pcov         = fulpcov,
         ssres        = ssresmin,
+        rsquared     = rsquared,
         steps        = steps,
         dt           = dt,
         dtunit       = dtunit,
@@ -2372,6 +2388,11 @@ class OutputHandler:
         """
         if not isinstance(fname, str): fname = str(fname)
         if fname == '': fname = './mre'
+
+        # try creating enclosing dir if not existing
+        tempdir = os.path.abspath(os.path.expanduser(fname+"/../"))
+        os.makedirs(tempdir, exist_ok=True)
+
         fname = os.path.expanduser(fname)
 
         if isinstance(ftype, str): ftype = [ftype]
@@ -2393,7 +2414,13 @@ class OutputHandler:
         """
         if not isinstance(fname, str): fname = str(fname)
         if fname == '': fname = './mre'
+
+        # try creating enclosing dir if not existing
+        tempdir = os.path.abspath(os.path.expanduser(fname+"/../"))
+        os.makedirs(tempdir, exist_ok=True)
+
         fname = os.path.expanduser(fname)
+
         log.info('Saving meta to {}.tsv'.format(fname))
         # fits
         hdr = ''
