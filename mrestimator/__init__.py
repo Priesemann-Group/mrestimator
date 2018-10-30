@@ -284,6 +284,8 @@ def simulate_branching(
     """
 
     log.debug('simulate_branching()')
+    length = int(length)
+    numtrials = int(numtrials)
     if h is None:
         if a is None:
             log.exception("Missing argument, either provide " +
