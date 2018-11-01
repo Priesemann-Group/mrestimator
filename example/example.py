@@ -56,6 +56,8 @@ auto = mre.full_analysis(
     dt=4, dtunit='ms',
     tmin=0, tmax=8000,
     fitfunctions=['exp', 'exp_offs', 'complex'],
+    numboot='auto',
+    seed='auto',
     )
 
 plt.show()
@@ -73,15 +75,22 @@ oful.add_ts(srcful)
 
 # keyword arguments "kwargs" are passed through to matplotlib,
 # e.g. to specify a color or the label for the plot legend
-oful.add_ts(avgful, color='C0', label='average (full)')
+oful.add_ts(avgful, color='navy', label='average (full)')
+
+# colors improved a lot in newer versions of matplotlib.
+# here we used web colors for compatiblity check the links below
+# https://matplotlib.org/1.5.3/api/colors_api.html
+# https://matplotlib.org/2.2.3/api/colors_api.html
+# especially the color='C0' ... color='CN' notation is nice for accessing
+# default colors in sequential order
 
 # see https://matplotlib.org/api/_as_gen/matplotlib.pyplot.plot.html
 # for some more style options
-oful.add_ts(srcsub, alpha=0.25, color='orange', label='trials (subs.)')
-oful.add_ts(avgsub, ls='dashed', color='C1', label='average (subs.)')
+oful.add_ts(srcsub, alpha=0.25, color='yellow', label='trials (subs.)')
+oful.add_ts(avgsub, ls='dashed', color='maroon', label='average (subs.)')
 
 # add the drive
-oful.add_ts(srcdrv, color='C2', label='drive')
+oful.add_ts(srcdrv, color='green', label='drive')
 
 plt.show()
 
@@ -119,6 +128,6 @@ ores.add_fit(m2)
 # save the plot and its meta data
 ores.save('./output/custom')
 
-plt.show()
+plt.show(block=True)
 
 

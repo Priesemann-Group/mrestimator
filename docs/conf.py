@@ -14,6 +14,7 @@
 #
 import os
 import sys
+import re
 sys.path.insert(0, os.path.abspath('../'))
 
 
@@ -23,10 +24,23 @@ project = 'Mr. Estimator'
 copyright = '2018, Paul Spitzner, Jonas Dehning, Annika Hagemann, Jens Wilting, Viola Priesemann'
 author = 'Paul Spitzner, Jonas Dehning, Annika Hagemann, Jens Wilting, Viola Priesemann'
 
+verstr = "unknown"
+try:
+    verstrline = open('../mrestimator/_version.py', "rt").read()
+except EnvironmentError:
+    pass
+else:
+    VSRE = r"^__version__ = ['\"]([^'\"]*)['\"]"
+    mo = re.search(VSRE, verstrline, re.M)
+    if mo:
+        verstr = mo.group(1)
+    else:
+        raise RuntimeError("unable to find version in mrestimator/_version.py")
+print('sphinx found version: {}'.format(verstr))
 # The short X.Y version
-version = '0.1.0'
+version = verstr
 # The full version, including alpha/beta/rc tags
-release = '0.1.0'
+release = verstr
 
 
 # -- General configuration ---------------------------------------------------

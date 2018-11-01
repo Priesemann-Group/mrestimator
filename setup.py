@@ -1,4 +1,5 @@
 from setuptools import setup
+import re
 
 # read the contents of your README file
 from os import path
@@ -6,9 +7,22 @@ from os import path
 with open('README.md') as f:
     long_description = f.read()
 
+verstr = "unknown"
+try:
+    verstrline = open('mrestimator/_version.py', "rt").read()
+except EnvironmentError:
+    pass
+else:
+    VSRE = r"^__version__ = ['\"]([^'\"]*)['\"]"
+    mo = re.search(VSRE, verstrline, re.M)
+    if mo:
+        verstr = mo.group(1)
+    else:
+        raise RuntimeError("unable to find version in mrestimator/_version.py")
+
 setup(
     name='mrestimator',
-    version='0.1.0',
+    version=verstr,
     author='Paul Spitzner, Jonas Dehning, Annika Hagemann, Jens Wilting, Viola Priesemann',
     author_email='paul.spitzner@ds.mpg.de',
     packages=['mrestimator'],
