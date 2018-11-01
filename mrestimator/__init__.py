@@ -1501,19 +1501,20 @@ def fit(
     mrestderr = None
     tauquantiles = None
     mrequantiles = None
-    if numboot <= 1:
-        log.debug('Bootstrap needs at least numboot=2 replicas and the ' +
-            'default data type, skipping the resampling')
+    if src.numboot <= 1:
+        log.debug('Fitting of bootstrapsamples can only be done if ' +
+            "coefficients() was called with sufficient trials and " +
+            "bootstrapsamples were created by specifying 'numboot'")
     elif fitfunc == f_linear:
         log.warning('Bootstrap is not suppored for the f_linear fitfunction')
-    elif numboot>1:
+    elif src.numboot>1:
         if numboot > src.numboot:
-            log.exception("The provided data does not contain enough " +
+            log.debug("The provided data does not contain enough " +
                 "bootstrapsamples (%d) to do the requested " +
                 "'numboot=%d' fits.\n\tCall 'coefficeints()' and 'fit()' " +
                 "with the same 'numboot' argument to avoid this.",
-                numboot, src.numboot)
-            raise ValueError
+                src.numboot, numboot)
+            numboot = src.numboot
         log.info('Bootstrapping {} replicas ({} fits each)'.format(
             numboot, len(fitpars)))
         if seed is not None:
