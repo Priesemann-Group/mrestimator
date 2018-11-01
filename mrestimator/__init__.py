@@ -1515,47 +1515,50 @@ def fit(
                 "with the same 'numboot' argument to avoid this.",
                 src.numboot, numboot)
             numboot = src.numboot
-        log.info('Bootstrapping {} replicas ({} fits each)'.format(
-            numboot, len(fitpars)))
-        if seed is not None:
-            log.debug('seeding to {}'.format(seed))
-            np.random.seed(seed)
-
-        bstau = np.full(numboot+1, np.nan)
-        bsmre = np.full(numboot+1, np.nan)
-
-        # use scipy default maxfev for errors
-        maxfev = 100*(len(fitpars[0])+1)
-
-        _logstreamhandler.terminator = "\r"
-        for tdx in range(numboot):
-            log.info('{}/{} replicas'.format(tdx+1, numboot))
-            bspopt, bspcov, bsres = fitloop(
-                src.bootstrapcrs[tdx].coefficients[stepinds],
-                int(maxfev), False)
-            try:
-                bstau[tdx] = bspopt[0]
-                bsmre[tdx] = np.exp(-1*dt/bspopt[0])
-            except TypeError:
-                log.debug('Exception passed', exc_info=True)
-                bstau[tdx] = np.nan
-                bsmre[tdx] = np.nan
-
-        _logstreamhandler.terminator = "\n"
-        log.info('{} Bootstrap replicas done'.format(numboot))
-
-        # add source sample?
-        bstau[-1] = fulpopt[0]
-        bsmre[-1] = np.exp(-1*dt/fulpopt[0])
-
-        taustderr = np.sqrt(np.nanvar(bstau, ddof=1))
-        mrestderr = np.sqrt(np.nanvar(bsmre, ddof=1))
-        if quantiles is None:
-            quantiles = np.array([.125, .25, .4, .5, .6, .75, .875])
+        if numboot == 0:
+            log.debug("'numboot=0' skipping bootstrapping")
         else:
-            quantiles = np.array(quantiles)
-        tauquantiles = np.nanpercentile(bstau, quantiles*100.)
-        mrequantiles = np.nanpercentile(bsmre, quantiles*100.)
+            log.info('Bootstrapping {} replicas ({} fits each)'.format(
+                numboot, len(fitpars)))
+            if seed is not None:
+                log.debug('seeding to {}'.format(seed))
+                np.random.seed(seed)
+
+            bstau = np.full(numboot+1, np.nan)
+            bsmre = np.full(numboot+1, np.nan)
+
+            # use scipy default maxfev for errors
+            maxfev = 100*(len(fitpars[0])+1)
+
+            _logstreamhandler.terminator = "\r"
+            for tdx in range(numboot):
+                log.info('{}/{} replicas'.format(tdx+1, numboot))
+                bspopt, bspcov, bsres = fitloop(
+                    src.bootstrapcrs[tdx].coefficients[stepinds],
+                    int(maxfev), False)
+                try:
+                    bstau[tdx] = bspopt[0]
+                    bsmre[tdx] = np.exp(-1*dt/bspopt[0])
+                except TypeError:
+                    log.debug('Exception passed', exc_info=True)
+                    bstau[tdx] = np.nan
+                    bsmre[tdx] = np.nan
+
+            _logstreamhandler.terminator = "\n"
+            log.info('{} Bootstrap replicas done'.format(numboot))
+
+            # add source sample?
+            bstau[-1] = fulpopt[0]
+            bsmre[-1] = np.exp(-1*dt/fulpopt[0])
+
+            taustderr = np.sqrt(np.nanvar(bstau, ddof=1))
+            mrestderr = np.sqrt(np.nanvar(bsmre, ddof=1))
+            if quantiles is None:
+                quantiles = np.array([.125, .25, .4, .5, .6, .75, .875])
+            else:
+                quantiles = np.array(quantiles)
+            tauquantiles = np.nanpercentile(bstau, quantiles*100.)
+            mrequantiles = np.nanpercentile(bsmre, quantiles*100.)
 
     tau = fulpopt[0]
     mre = np.exp(-1*dt/fulpopt[0])
@@ -2928,7 +2931,7 @@ def full_analysis(
     # fittau = []
     for i, f in enumerate(cout.fits):
         fitcurves.append(cout.fitcurves[i][0])
-        label = '\n'
+        # label = '\n'
         # label = cout.fitlabels[i]
         label = math_from_doc(f.fitfunc, 5)
         label += '\n\n$\\tau={:.2f}${}\n'.format(f.tau, f.dtunit)
