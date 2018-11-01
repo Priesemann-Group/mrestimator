@@ -1,6 +1,9 @@
 # Mr. Estimator
 
-Welcomme to the Toolbox for the Multistep Regression Estimator ("Mister Estimator")
+Welcome to the Toolbox for the Multistep Regression Estimator ("Mister Estimator").
+
+**This is work in progress!**
+If you find bugs, encounter unexpected behaviour or want to comment, please let us know or open an issue. Any input is greatly appreciated.
 
 - [Documentation](https://mrestimator.readthedocs.io/en/latest/)
 - [Getting Started](https://mrestimator.readthedocs.io/en/latest/doc/gettingstarted.html)
@@ -65,8 +68,8 @@ INFO     Loaded mrestimator v0.1.1b1, writing to /tmp/mre_output/
 Clone the repository via ssh or https
 
 ```
-git clone git@github.com:pSpitzner/mrestimator.git
-git clone https://github.com/pSpitzner/mrestimator.git
+git clone git@github.com:Priesemann-Group/mrestimator.git
+git clone https://github.com/Priesemann-Group/mrestimator.git
 ```
 
 And optionally,
