@@ -691,7 +691,7 @@ def coefficients(
     except Exception as e:
         log.exception('Please provide steps as ' +
             'steps=(minstep, maxstep) or as one dimensional numpy ' +
-            'array containing all desired step values')
+            'array containing all desired integer step values')
         raise ValueError from e
     if len(steps) == 2:
         minstep=1
@@ -708,12 +708,13 @@ def coefficients(
             log.debug('maxstep={} is invalid'.format(maxstep))
             maxstep = int(data.shape[1]-2)
             log.debug('Adjusting maxstep to {}'.format(maxstep))
-        steps     = np.arange(minstep, maxstep+1)
+        steps = np.arange(minstep, maxstep+1, dtype=int)
         log.debug('Using steps between {} and {}'.format(minstep, maxstep))
     else:
         if (steps<1).any():
             log.exception('All provided steps must be >= 1')
             raise ValueError
+        steps = np.asarray(steps, dtype=int)
         log.debug('Using provided custom steps')
 
     # ------------------------------------------------------------------ #
@@ -723,6 +724,8 @@ def coefficients(
     numsteps  = len(steps)        # number of steps for rks
     numtrials = data.shape[0]     # number of trials
     numels    = data.shape[1]     # number of measurements per trial
+
+    log.debug('Trusted Locals: {}'.format(locals()))
 
     log.info("coefficients() with '{}' method for {} trials of length {}" \
         .format(method, numtrials, numels))
@@ -1353,12 +1356,13 @@ def fit(
             maxstep = src.steps[-1]
             log.debug('Adjusting maxstep to {}'.format(maxstep))
 
-        steps = np.arange(minstep, maxstep+1)
+        steps = np.arange(minstep, maxstep+1, dtype=int)
         log.debug('Checking steps between {} and {}'.format(minstep, maxstep))
     else:
         if (steps<1).any():
             log.exception('All provided steps must be >= 1')
             raise ValueError
+        steps = np.asarray(steps, dtype=int)
         log.debug('Using provided custom steps')
 
     # make sure this is data, no pointer, so we dont overwrite anything
@@ -3104,5 +3108,8 @@ def main():
     log.info('Loaded mrestimator v%s, writing to %s', __version__, _targetdir)
     _logstreamhandler.setLevel(logging.INFO)
 
+    # capture (numpy) warnings and only log them to the global log file
+    logging.captureWarnings(True)
+    logging.getLogger('py.warnings').addHandler(_logfilehandler)
 
 main()
