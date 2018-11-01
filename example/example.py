@@ -51,7 +51,6 @@ avgsub = np.mean(srcsub, axis=0)
 # here called with all required(!) arguments
 auto = mre.full_analysis(
     data='./data/sub_*.tsv',
-    # data = mre.simulate_branching(m=0.995, h=10, subp=0.05, numtrials=1),
     targetdir='./output',
     title='Full Analysis',
     dt=4, dtunit='ms',
@@ -60,25 +59,6 @@ auto = mre.full_analysis(
     numboot='auto',
     seed='auto',
     )
-
-# var = []
-# for i in range(100):
-#     var.append(mre.simulate_branching(
-#         m=0.995, subp=0.05, a=100+i*10-np.random.random()*10))
-# var = np.vstack(var)
-
-# buto = mre.full_analysis(
-#     # data='./data/sub_*.tsv',
-#     data = mre.simulate_branching(m=0.995, h=np.arange(1,1e2,0.001), subp=0.05, numtrials=1),
-#     targetdir='./output',
-#     title='Full Analysis',
-#     coefficientmethod='sm',
-#     dt=4, dtunit='ms',
-#     tmin=0, tmax=8000,
-#     fitfunctions=['exp', 'exp_offs', 'complex'],
-#     numboot='auto',
-#     seed='auto',
-#     )
 
 plt.show()
 
