@@ -20,6 +20,8 @@ General
     - https://stackoverflow.com/questions/23175653/set-a-log-to-min-and-max-level-as-to-exclude-errors
     - https://stackoverflow.com/questions/3118059/how-to-write-custom-python-logging-handler?answertab=active#tab-top
 
+- [ ] custom Fitfunction crashes fit due to call for default args?
+
 Wrapper Function
 ----------------
 

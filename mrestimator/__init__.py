@@ -328,14 +328,24 @@ def simulate_branching(
     a = np.ones_like(A_t[:, 0])*a
 
     # if drive is zero, user would expect exp-decay of set activity
-    if (h[0] != 0 and h[0]):
-        # avoid nonstationarity by discarding some steps
+    # for m>1 we want exp-increase, else
+    # avoid nonstationarity by discarding some steps
+    if (h[0] != 0 and h[0] and m < 1):
         for idx in range(0, np.fmax(100, int(length*0.05))):
             a = np.random.poisson(lam=m*a + h[0])
 
     A_t[:, 0] = np.random.poisson(lam=m*a + h[0])
     for idx in range(1, length):
-        A_t[:, idx] = np.random.poisson(lam=m*A_t[:, idx-1] + h[idx])
+        try:
+            # if m >= 1 activity may explode until this throws an error
+            A_t[:, idx] = np.random.poisson(lam=m*A_t[:, idx-1] + h[idx])
+        except ValueError as e:
+            log.debug('Exception passed for bp generation', exc_info=True)
+            # A_t.resize((numtrials, idx))
+            A_t = A_t[:, 0:idx]
+            log.info('Activity is exceeding numeric limits, canceling ' +
+                'and resizing output from length={} to {}'.format(length, idx))
+            break
 
     if subp != 1 and subp is not None:
         try:
@@ -739,7 +749,6 @@ def coefficients(
 
     if method == 'trialseparated':
         tsmean         = np.mean(data, axis=1, keepdims=True)  # (numtrials, 1)
-        # tsvar          = np.var(data, axis=1, ddof=1)          # (numtrials)
         tsvar          = trialvariances
         tscoefficients = np.zeros(shape=(numtrials, numsteps), dtype='float64')
 
@@ -748,10 +757,21 @@ def coefficients(
             if not idx%100:
                 log.info('{}/{} time steps'.format(idx+1, numsteps))
 
+            # tscoefficients[:, idx] = \
+            #     np.mean((data[:,  :-k] - tsmean) * \
+            #             (data[:, k:  ] - tsmean), axis=1) \
+            #     * ((numels-k)/(numels-k-1)) / tsvar
+
+            # include supercritical case
+            frontmean = np.mean(data[:,  :-k], axis=1, keepdims=True)
+            frontvar  = np.var( data[:,  :-k], axis=1, ddof=1)
+            backmean  = np.mean(data[:, k:  ], axis=1, keepdims=True)
+            # backvar   = np.var( data[:, k:  ], axis=1, ddof=1)
+
             tscoefficients[:, idx] = \
-                np.mean((data[:,  :-k] - tsmean) * \
-                        (data[:, k:  ] - tsmean), axis=1) \
-                * ((numels-k)/(numels-k-1)) / tsvar
+                np.mean((data[:,  :-k] - frontmean) * \
+                        (data[:, k:  ] - backmean ), axis=1) \
+                * ((numels-k)/(numels-k-1)) / frontvar
 
         coefficients = np.mean(tscoefficients, axis=0)
 
