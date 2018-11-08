@@ -1,6 +1,13 @@
 Changelog
 =========
 
+[v0.1.2](https://pypi.org/project/mrestimator/0.1.2) (07.11.2018)
+-----------------------------------------------------------------
+* __Changed__: `coefficients()` with `trialseparate` method calculates `rk` differently (now strictly linear regression). This should enable `m>1` estimates.
+* __Changed__: builtin fitfunctions now use absolute values of the amplitude of the exponential term
+* __Changed__: timeseries plots are rastered by default, otherwise the files grew big quickly
+
+
 [v0.1.1](https://pypi.org/project/mrestimator/0.1.1) (01.11.2018)
 -----------------------------------------------------------------
 

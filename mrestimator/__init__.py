@@ -714,9 +714,10 @@ def coefficients(
             log.debug('minstep={} is invalid, setting to 1'.format(minstep))
             minstep = 1
 
-        if maxstep > data.shape[1] or maxstep < minstep:
+        # it's important that kmax not larger than numels/2
+        if maxstep > data.shape[1]/2 or maxstep < minstep:
             log.debug('maxstep={} is invalid'.format(maxstep))
-            maxstep = int(data.shape[1]-2)
+            maxstep = int(data.shape[1]/2)
             log.debug('Adjusting maxstep to {}'.format(maxstep))
         steps = np.arange(minstep, maxstep+1, dtype=int)
         log.debug('Using steps between {} and {}'.format(minstep, maxstep))
@@ -899,19 +900,19 @@ def f_linear(k, A, O):
     return A*k + O*np.ones_like(k)
 
 def f_exponential(k, tau, A):
-    """:math:`A e^{-k/\\tau}`"""
+    """:math:`|A| e^{-k/\\tau}`"""
 
-    return A*np.exp(-k/tau)
+    return np.abs(A)*np.exp(-k/tau)
 
 def f_exponential_offset(k, tau, A, O):
-    """:math:`A e^{-k/\\tau} + O`"""
-    return A*np.exp(-k/tau)+O*np.ones_like(k)
+    """:math:`|A| e^{-k/\\tau} + O`"""
+    return np.abs(A)*np.exp(-k/tau)+O*np.ones_like(k)
 
 def f_complex(k, tau, A, O, tauosc, B, gamma, nu, taugs, C):
-    """:math:`A e^{-k/\\tau} + B e^{-(k/\\tau_{osc})^\\gamma} """ \
+    """:math:`|A| e^{-k/\\tau} + B e^{-(k/\\tau_{osc})^\\gamma} """ \
     """\\cos(2 \\pi \\nu k) + C e^{-(k/\\tau_{gs})^2} + O`"""
 
-    return A*np.exp(-(k/tau)) \
+    return np.abs(A)*np.exp(-(k/tau)) \
         + B*np.exp(-(k/tauosc)**gamma)*np.cos(2*np.pi*nu*k) \
         + C*np.exp(-(k/taugs)**2) \
         + O*np.ones_like(k)
@@ -936,9 +937,9 @@ def default_fitpars(fitfunc):
     if fitfunc == f_linear:
         return np.array([(1, 0)])
     elif fitfunc == f_exponential:
-        return np.array([(20, 1), (200, 1)])
+        return np.array([(20, 1), (200, 1), (-20, 1), (-200, 1)])
     elif fitfunc == f_exponential_offset:
-        return np.array([(20, 1, 0), (200, 1, 0)])
+        return np.array([(20, 1, 0), (200, 1, 0), (-20, 1, 0), (-50, 1, 0)])
     elif fitfunc == f_complex:
         res = np.array([
             # tau     A       O    tosc      B    gam      nu  tgs      C
@@ -968,8 +969,16 @@ def default_fitpars(fitfunc):
         # res[:, 6] *= dt            # and frequency
         return res
     else:
-        raise ValueError('Requesting default arguments for unknown ' +
+        log.debug('Requesting default arguments for unknown ' +
             'fitfunction.')
+        try:
+            args = len(inspect.signature(fitfunc).parameters)-1
+            return np.array([[1]*args, [-1]*args, [0]*args])
+        except Exception as e:
+            log.exception('Exception when requesting non default fitpars',
+                exc_info=True)
+            raise ValueError from e
+
 
 def default_fitbnds(fitfunc):
     if fitfunc == f_linear:
@@ -994,28 +1003,35 @@ def default_fitbnds(fitfunc):
         # res[:, 6] *= dt                 # and frequency
         return res
     else:
-        raise ValueError('Requesting default bounds for unknown fitfunction.')
+        log.debug('Requesting default bounds for unknown fitfunction.')
+        return None
 
 def math_from_doc(fitfunc, maxlen=np.inf):
     """convert sphinx compatible math to matplotlib/tex"""
-    res = fitfunc.__doc__
-    res = res.replace(':math:', '')
-    res = res.replace('`', '$')
-    if len(res) > maxlen:
-        term = res.find(" + ", 0, len(res))
-        res = res[:term+2]+' ...$'
+    try:
+        res = fitfunc.__doc__
+        res = res.replace(':math:', '')
+        res = res.replace('`', '$')
+        if len(res) > maxlen:
+            term = res.find(" + ", 0, len(res))
+            res = res[:term+2]+' ...$'
 
-    if len(res) > maxlen:
-        if fitfunc == f_complex:
-            res = 'Complex'
-        elif fitfunc == f_exponential_offset:
-            res = 'Exp+Offset'
-        elif fitfunc == f_exponential:
-            res = 'Exponential'
-        elif fitfunc == f_linear:
-            res = 'Linear'
-        else:
-            res = fitfunc.__name__
+        if len(res) > maxlen:
+            if fitfunc == f_complex:
+                res = 'Complex'
+            elif fitfunc == f_exponential_offset:
+                res = 'Exp+Offset'
+            elif fitfunc == f_exponential:
+                res = 'Exponential'
+            elif fitfunc == f_linear:
+                res = 'Linear'
+            else:
+                res = fitfunc.__name__
+
+    except Exception as e:
+        log.debug('Exception passed when casting function description',
+            exc_info=True)
+        res = fitfunc.__name__
 
     return res
 
@@ -1416,22 +1432,26 @@ def fit(
 
     if (len(fitpars.shape)<2): fitpars = fitpars.reshape(1, len(fitpars))
 
-    if fitbnds is None:
-        bnds = np.array([-np.inf, np.inf])
-        log.info('Unbound fit to {}'.format(math_from_doc(fitfunc)))
-        log.debug('kmin = {}, kmax = {}'.format(srcsteps[0], srcsteps[-1]))
-        ic = list(inspect.signature(fitfunc).parameters)[1:]
-        ic = ('{} = {:.3f}'.format(a, b) for a, b in zip(ic, fitpars[0]))
-        log.debug('Starting parameters: '+', '.join(ic))
-    else:
-        bnds = fitbnds
-        log.info('Bounded fit to {}'.format(math_from_doc(fitfunc)))
-        log.debug('kmin = {}, kmax = {}'.format(srcsteps[0], srcsteps[-1]))
-        ic = list(inspect.signature(fitfunc).parameters)[1:]
-        ic = ('{0:<6} = {1:8.3f} in ({2:9.4f}, {3:9.4f})'
-            .format(a, b, c, d) for a, b, c, d
-                in zip(ic, fitpars[0], fitbnds[0, :], fitbnds[1, :]))
-        log.debug('First parameters:\n\t'+'\n\t'.join(ic))
+    # logging this should not cause an actual exception
+    try:
+        if fitbnds is None:
+            bnds = np.array([-np.inf, np.inf])
+            log.info('Unbound fit to {}'.format(math_from_doc(fitfunc)))
+            log.debug('kmin = {}, kmax = {}'.format(srcsteps[0], srcsteps[-1]))
+            ic = list(inspect.signature(fitfunc).parameters)[1:]
+            ic = ('{} = {:.3f}'.format(a, b) for a, b in zip(ic, fitpars[0]))
+            log.debug('Starting parameters: '+', '.join(ic))
+        else:
+            bnds = fitbnds
+            log.info('Bounded fit to {}'.format(math_from_doc(fitfunc)))
+            log.debug('kmin = {}, kmax = {}'.format(srcsteps[0], srcsteps[-1]))
+            ic = list(inspect.signature(fitfunc).parameters)[1:]
+            ic = ('{0:<6} = {1:8.3f} in ({2:9.4f}, {3:9.4f})'
+                .format(a, b, c, d) for a, b, c, d
+                    in zip(ic, fitpars[0], fitbnds[0, :], fitbnds[1, :]))
+            log.debug('First parameters:\n\t'+'\n\t'.join(ic))
+    except Exception as e:
+        log.debug('Exception when logging fitpars', exc_info=True)
 
     if (fitpars.shape[0]>1):
         log.debug('Repeating fit with {} sets of initial parameters:'
@@ -1659,7 +1679,7 @@ def _c_rk_greater_zero(data, plim=0.1):
         returns True if the test passed (and the null hypothesis was rejected)
     """
     if not isinstance(data, CoefficientResult):
-        log.exception('_c_nonzero needs a CoefficientResult')
+        log.exception('_c_rk_greater_zero needs a CoefficientResult')
         raise TypeError
 
     # two sided
@@ -1667,6 +1687,24 @@ def _c_rk_greater_zero(data, plim=0.1):
     passed = False
 
     if p/2 < plim and t > 0:
+        passed = True
+    return passed, t, p
+
+def _c_rk_smaller_one(data, plim=0.1):
+    """
+        check rk are signigicantly smaller than 1, this should fail if m>1
+
+        returns True if the test passed (and the null hypothesis was rejected)
+    """
+    if not isinstance(data, CoefficientResult):
+        log.exception('_c_rk_smaller_one needs a CoefficientResult')
+        raise TypeError
+
+    # two sided
+    t, p = scipy.stats.ttest_1samp(data.coefficients, 1.0)
+    passed = False
+
+    if p/2 < plim and t < 0:
         passed = True
     return passed, t, p
 
@@ -2359,6 +2397,9 @@ class OutputHandler:
             alpha=0.1
         kwargs = dict(kwargs, alpha=alpha)
 
+        if 'rasterized' not in kwargs:
+            kwargs = dict(kwargs, rasterized=True)
+
         for idx, dat in enumerate(data):
             if self.xdata is None:
                 self.set_xdata(np.arange(1, data.shape[1]+1))
@@ -2404,7 +2445,7 @@ class OutputHandler:
         self.save_plot(fname)
         self.save_meta(fname)
 
-    def save_plot(self, fname='', ftype='pdf'):
+    def save_plot(self, fname='', ftype='pdf', dpi=300):
         """
             Only saves plots (ignoring the source) to the specified location.
 
@@ -2414,7 +2455,7 @@ class OutputHandler:
                 Path where to save, without file extension. Defaults to "./mre"
 
             ftype: str, optional
-                So far, only 'pdf' is implemented.
+                So far, only 'pdf' and 'png' are implemented.
         """
         if not isinstance(fname, str): fname = str(fname)
         if fname == '': fname = './mre'
@@ -2427,9 +2468,14 @@ class OutputHandler:
 
         if isinstance(ftype, str): ftype = [ftype]
         for t in list(ftype):
-            log.info('Saving plot to {}.{}'.format(fname, t))
-            if t == 'pdf':
-                self.ax.figure.savefig(fname+'.pdf')
+            log.info('Saving plot to {}.{}'.format(fname, t.lower()))
+            if t.lower() == 'pdf':
+                self.ax.figure.savefig(fname+'.pdf', dpi=dpi)
+            elif t.lower() == 'png':
+                self.ax.figure.savefig(fname+'.png', dpi=dpi)
+            else:
+                log.exception("Unsupported file format '{}'".format(t))
+                raise ValueError
 
     def save_meta(self, fname=''):
         """
@@ -2729,9 +2775,9 @@ def full_analysis(
     # ------------------------------------------------------------------ #
 
     if isinstance(targetdir, str):
-        targetdir += '/'
-        td=os.path.abspath(os.path.expanduser(targetdir))
+        td = os.path.abspath(os.path.expanduser(targetdir+'/'))
         os.makedirs(td, exist_ok=True)
+        targetdir = td
     else:
         log.exception("Argument 'targetdir' needs to be of type 'str'")
         raise TypeError
@@ -2761,7 +2807,7 @@ def full_analysis(
                 log.removeHandler(hdlr)
 
     _logstreamhandler.setLevel(logging.getLevelName(loglevel))
-    loghandler = logging.FileHandler(targetdir+title+'.log', 'w')
+    loghandler = logging.FileHandler(targetdir+'/'+title+'.log', 'w')
     loghandler.setLevel(logging.getLevelName(loglevel))
     loghandler.setFormatter(CustomExceptionFormatter(
         '%(asctime)s %(levelname)8s: %(message)s', "%Y-%m-%d %H:%M:%S"))
@@ -3015,7 +3061,7 @@ def full_analysis(
     else:
         title = 'Results_auto\n'
 
-    cout.save(targetdir+title)
+    cout.save(targetdir+'/'+title)
 
     # return a handler only containing the result
     res = OutputHandler(rks+fits, ax=targetplot)
@@ -3126,7 +3172,7 @@ def main():
     # _logfilehandler.setFormatter(logging.Formatter(
     _logfilehandler.setFormatter(CustomExceptionFormatter(
         '%(asctime)s %(levelname)8s: %(message)s', "%Y-%m-%d %H:%M:%S",
-        log_locals_on_exception=True, log_trace_on_exception=True))
+        log_locals_on_exception=False, log_trace_on_exception=True))
     log.addHandler(_logfilehandler)
 
     log.info('Loaded mrestimator v%s, writing to %s', __version__, _targetdir)

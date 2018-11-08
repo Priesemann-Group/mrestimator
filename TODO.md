@@ -11,7 +11,7 @@ General
 - [ ] import modules into _variables? No: check what numpy does via __all__
 - [x] check that input_handler is fast when getting data in the right format. Yeah: checked 1k trials with length 1e6 in the right format 100 times in 60sec
 - [x] add date to log file
-- [ ] draw fits behind coefficients but in legend data still first, matplotlib z-index?
+- [ ] draw fits behind coefficients but in legend data still first, matplotlib z-index? For dense/heavily fluctuating data, better fits in front
 - [ ] add all function arguments to log/resulting container
 - [x] ask Jens to link our repo from nat comm url
 - [x] How do we want to seed the rng per default?
@@ -20,7 +20,10 @@ General
     - https://stackoverflow.com/questions/23175653/set-a-log-to-min-and-max-level-as-to-exclude-errors
     - https://stackoverflow.com/questions/3118059/how-to-write-custom-python-logging-handler?answertab=active#tab-top
 
-- [ ] custom Fitfunction crashes fit due to call for default args?
+- [x] custom Fitfunction crashes fit due to call for default args?
+- [ ] Outputhandler rasterization and upper limit for exported stuff -> timeseries plots easily grow to hundreds of mb
+- [ ] try abs exp amplitude-> always positive without bounds
+- [ ] check if integrated autocorrelation time works, too -> only m < 1
 
 Wrapper Function
 ----------------
