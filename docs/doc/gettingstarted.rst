@@ -42,19 +42,17 @@ where the first index is the trial number and the
 second index the measurement point (sample) at time :math:`t`.
 Even if there is only one time series
 (one repetition), we still use the first index.
-
 All trials need to have the same length. If they are too short or too long,
-you will have to trim them (for now). We plan to make this more flexibel in the
-future.
+you will have to trim them (this will be more flexibel in the
+future).
 
-In a typical scenario you want to read your data from disk. For reading
+In a typical scenario, you want to read your data from disk. For reading
 plain text files we will use the :func:`input_handler`.
 
-Downloaded
+Download
 `the example data <https://github.com/Priesemann-Group/mrestimator/raw/master/example/data.zip>`_
 and remember where you saved it, e.g. `/Users/me/example/data/`.
-
-Set the work directory so we can use relative paths and create an
+In a new python shell, set the work directory so we can use relative paths and create an
 `output` directory to save results
 
 .. code-block:: python
