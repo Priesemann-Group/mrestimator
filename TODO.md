@@ -24,6 +24,7 @@ General
 - [ ] Outputhandler rasterization and upper limit for exported stuff -> timeseries plots easily grow to hundreds of mb
 - [ ] try abs exp amplitude-> always positive without bounds
 - [ ] check if integrated autocorrelation time works, too -> only m < 1
+- [ ] sometimes saving from outputhandler crops labels -> tight_layout(), but this shoud only take place if external figure was not provided.
 
 Wrapper Function
 ----------------

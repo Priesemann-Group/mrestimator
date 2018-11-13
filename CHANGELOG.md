@@ -5,7 +5,11 @@ Changelog
 -----------------------------------------------------------------
 * __Changed__: `coefficients()` with `trialseparate` method calculates `rk` differently (now strictly linear regression). This should enable `m>1` estimates.
 * __Changed__: builtin fitfunctions now use absolute values of the amplitude of the exponential term
-* __Changed__: timeseries plots are rastered by default, otherwise the files grew big quickly
+* __Changed__: fits drawn above data (again), otherwise, they get hidden if data is noisy
+* __Fixed__: maximum steps `k` in `coefficients` cannot exceed half the trial length any longer. this could lead to strong fluctuations in `r_k` and fits would fail
+* __Fixed__: Crashes when providing custom fitfunctions to `fit()` due to unhandled request of default parameters
+* __New__: Rasterization of plots in the `OutputHandler`. Especially timeseries grow large quickly. Now, if OutputHandlers create their own figures/axes elements (`ax`-argument not given on construction) all elements with `zorder<0` are rastered. Per default, `add_ts()` uses a `zorder` of `-1` but `add_coefficients()` and `add_fit()` have values above one so they stay vectorized. Call `ax.set_rasterization_zorder(0)` on your custom `ax` axes element if you want the same effect on customized figures.
+* __New__: export as png option for `OutputHandler.save_plot()`
 
 
 [v0.1.1](https://pypi.org/project/mrestimator/0.1.1) (01.11.2018)

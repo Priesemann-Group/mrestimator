@@ -1812,7 +1812,11 @@ class OutputHandler:
         if isinstance(ax, matplotlib.axes.Axes):
             self.ax = ax
         elif ax is None:
+            # fig = plt.figure()
+            # self.ax = fig.add_subplot(111, rasterized=True)
             _, self.ax = plt.subplots()
+            # everything below zorder 0 gets rastered to one layer
+            self.ax.set_rasterization_zorder(0)
         else:
             log.exception("Argument 'ax' provided to OutputHandler is not " +
             " an instance of matplotlib.axes.Axes\n"+
@@ -2175,7 +2179,7 @@ class OutputHandler:
         if 'color' not in kwargs:
             kwargs = dict(kwargs, color=color)
         if 'zorder' not in kwargs:
-            kwargs = dict(kwargs, zorder=4+0.01*indrk)
+            kwargs = dict(kwargs, zorder=1+0.01*indrk)
 
         kwargs = dict(kwargs, label=label)
 
@@ -2300,7 +2304,7 @@ class OutputHandler:
         if 'color' not in kwargs:
             kwargs = dict(kwargs, color=color)
         if 'zorder' not in kwargs:
-            kwargs = dict(kwargs, zorder=1+0.01*indfit)
+            kwargs = dict(kwargs, zorder=4+0.01*indfit)
 
         kwargs = dict(kwargs, label=label)
 
@@ -2397,8 +2401,8 @@ class OutputHandler:
             alpha=0.1
         kwargs = dict(kwargs, alpha=alpha)
 
-        if 'rasterized' not in kwargs:
-            kwargs = dict(kwargs, rasterized=True)
+        if 'zorder' not in kwargs:
+            kwargs = dict(kwargs, zorder=-1)
 
         for idx, dat in enumerate(data):
             if self.xdata is None:
@@ -2432,7 +2436,7 @@ class OutputHandler:
                 kwargs = dict(kwargs, color=p.get_color())
 
 
-    def save(self, fname=''):
+    def save(self, fname='', ftype='pdf', dpi=300):
         """
             Saves plots (ax element of this handler) and source that it was
             created from to the specified location.
@@ -2442,7 +2446,7 @@ class OutputHandler:
             fname : str, optional
                 Path where to save, without file extension. Defaults to "./mre"
         """
-        self.save_plot(fname)
+        self.save_plot(fname, ftype=ftype, dpi=dpi)
         self.save_meta(fname)
 
     def save_plot(self, fname='', ftype='pdf', dpi=300):
@@ -2931,6 +2935,10 @@ def full_analysis(
     fig, axes = plt.subplots(nrows=4, figsize=(8.27, 11.69*topshift),
         gridspec_kw={"height_ratios":ratios})
 
+    # avoid huge file size for many trials due to separate layers.
+    # everything below 0 gets rastered to the same layer.
+    axes[0].set_rasterization_zorder(0)
+
     tsout = OutputHandler(ax=axes[0])
     tsout.add_ts(src, label='Trials')
     if (src.shape[0] > 1):
@@ -2942,6 +2950,7 @@ def full_analysis(
         tsout.add_ts(np.mean(src, axis=0), color=prevclr, label='Average')
     else:
         tsout.ax.legend().set_visible(False)
+
     tsout.ax.set_title('Time Series (Input Data)')
     tsout.ax.set_xlabel('t [{}{}]'.format(_printeger(dt), dtunit))
 
@@ -3003,13 +3012,13 @@ def full_analysis(
         label += '\n\n$\\tau={:.2f}${}\n'.format(f.tau, f.dtunit)
         if f.tauquantiles is not None:
             label += '$[{:.2f}:{:.2f}]$\n\n' \
-                .format(f.tauquantiles[1], f.tauquantiles[-2])
+                .format(f.tauquantiles[0], f.tauquantiles[-1])
         else:
             label += '\n\n'
         label += '$m={:.5f}$\n'.format(f.mre)
         if f.mrequantiles is not None:
             label +='$[{:.5f}:{:.5f}]$' \
-                .format(f.mrequantiles[1], f.mrequantiles[-2])
+                .format(f.mrequantiles[0], f.mrequantiles[-1])
         else:
             label += '\n'
         fitlabels.append(label)
@@ -3047,7 +3056,7 @@ def full_analysis(
 
     axes[3].get_legend().get_frame().set_linewidth(0.5)
     axes[3].axis('off')
-    axes[3].set_title('Fitresults')
+    axes[3].set_title('Fitresults\n[$12.5\\%$:$87.5\\%$]')
     for a in axes:
         a.xaxis.set_tick_params(width=0.5)
         a.yaxis.set_tick_params(width=0.5)
@@ -3061,7 +3070,7 @@ def full_analysis(
     else:
         title = 'Results_auto\n'
 
-    cout.save(targetdir+'/'+title)
+    cout.save(targetdir+'/'+title, 'pdf', dpi=300)
 
     # return a handler only containing the result
     res = OutputHandler(rks+fits, ax=targetplot)
