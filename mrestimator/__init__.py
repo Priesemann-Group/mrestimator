@@ -2509,24 +2509,33 @@ class OutputHandler:
                 hdr += '{}\n'.format('-'*72)
                 hdr += 'legendlabel: ' + str(self.fitlabels[fdx]) + '\n'
                 hdr += '{}\n'.format('-'*72)
-                hdr += 'description: ' + str(fit.desc) + '\n'
-                hdr += 'm={}, tau={}[{}]\n' \
+                if fit.desc != '':
+                    hdr += 'description: ' + str(fit.desc) + '\n'
+                hdr += 'm = {}\ntau = {} [{}]\n' \
                     .format(fit.mre, fit.tau, fit.dtunit)
                 if fit.quantiles is not None:
-                    hdr += 'quantiles | tau [{}]| m:\n'.format(fit.dtunit)
+                    hdr += 'quantiles | tau [{}] | m:\n'.format(fit.dtunit)
                     for i, q in enumerate(fit.quantiles):
                         hdr += '{:6.3f} | '.format(fit.quantiles[i])
                         hdr += '{:8.3f} | '.format(fit.tauquantiles[i])
                         hdr += '{:8.8f}\n'.format(fit.mrequantiles[i])
                     hdr += '\n'
-                hdr += 'fitrange: {} <= k <= {}[{}{}]\n' \
-                    .format(fit.steps[0], fit.steps[-1], fit.dt, fit.dtunit)
+                hdr += 'fitrange: {} <= k <= {} [{}{}]\n' .format(fit.steps[0],
+                    fit.steps[-1], _printeger(fit.dt), fit.dtunit)
                 hdr += 'function: ' + math_from_doc(fit.fitfunc) + '\n'
-                hdr += '\twith parameters:\n'
+                # hdr += '\twith parameters:\n'
                 parname = list(inspect.signature(fit.fitfunc).parameters)[1:]
+                parlen = len(max(parname, key=len))
                 for pdx, par in enumerate(self.fits[fdx].popt):
-                    hdr += '\t\t{} = {}\n'.format(parname[pdx], par)
-                hdr += '\n\n'
+                    unit = ''
+                    if parname[pdx] == 'nu':
+                        unit += '[1/{}]'.format(fit.dtunit)
+                    elif parname[pdx].find('tau') != -1:
+                        unit += '[{}]'.format(fit.dtunit)
+                    hdr += '\t{: <{width}}'.format(parname[pdx]+' '+unit,
+                        width=parlen+5+len(fit.dtunit))
+                    hdr += ' = {}\n'.format(par)
+                hdr += '\n'
         except Exception as e:
             log.debug('Exception passed', exc_info=True)
 
