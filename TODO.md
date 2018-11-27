@@ -11,7 +11,7 @@ General
 - [ ] import modules into _variables? No: check what numpy does via __all__
 - [x] check that input_handler is fast when getting data in the right format. Yeah: checked 1k trials with length 1e6 in the right format 100 times in 60sec
 - [x] add date to log file
-- [ ] draw fits behind coefficients but in legend data still first, matplotlib z-index? For dense/heavily fluctuating data, better fits in front
+- [x] draw fits behind coefficients but in legend data still first, matplotlib z-index? For dense/heavily fluctuating data, better fits in front
 - [ ] add all function arguments to log/resulting container
 - [x] ask Jens to link our repo from nat comm url
 - [x] How do we want to seed the rng per default?
@@ -21,10 +21,21 @@ General
     - https://stackoverflow.com/questions/3118059/how-to-write-custom-python-logging-handler?answertab=active#tab-top
 
 - [x] custom Fitfunction crashes fit due to call for default args?
-- [ ] Outputhandler rasterization and upper limit for exported stuff -> timeseries plots easily grow to hundreds of mb
-- [ ] try abs exp amplitude-> always positive without bounds
+- [x] Outputhandler rasterization and upper limit for exported stuff -> timeseries plots easily grow to hundreds of mb
+- [x] try abs exp amplitude-> always positive without bounds
 - [ ] check if integrated autocorrelation time works, too -> only m < 1
 - [ ] sometimes saving from outputhandler crops labels -> tight_layout(), but this shoud only take place if external figure was not provided.
+- [ ] bug: calling coefficients with steps=np.arange(0,2000,10) crashes breaks the printout (probably \r is not reset), 0 -> invalid step
+- [ ] bug: crash on import if logfile cannot be overwritten.
+- [ ] bug: crash if no fit converges is inconvenient when running scripts
+
+
+Tipps and Tricks Documentation Section
+--------------------------------------
+
+- [ ] handling different trial lentgh: input_handler on each file. then v-stack
+- [ ] Customizing plots, Rasterization, axis label, size
+
 
 Wrapper Function
 ----------------
