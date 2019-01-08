@@ -18,6 +18,8 @@ import platform
 import time
 import glob
 import inspect
+import getpass
+import stat
 
 __version__ = "unknown"
 
@@ -3128,76 +3130,128 @@ class CustomExceptionFormatter(logging.Formatter, object):
         except:
             return ''
 
-def set_targetdir(fname):
+
+def _set_permissions(fname, permissions=None):
+
+    try:
+        log.debug('Trying to set permissions of %s to %s',
+            fname, 'defaults' if permissions is None else str(permissions))
+        dirusr = os.path.abspath(os.path.expanduser('~'))
+        if permissions is None:
+            if not fname.startswith(dirusr):
+                os.chmod(fname, 0o777)
+        else:
+            os.chmod(fname, int(str(permissions), 8))
+    except Exception as e:
+        log.debug('Unable set permissions of {}'.format(fname))
+
+    log.debug('%s now has permissions %s',
+        fname, oct(os.stat(fname)[stat.ST_MODE])[-3:])
+
+def set_targetdir(fname=None, permissions=None):
     """
-        set the global variable _targetdir. Not used for much yet.
+        set the global variable _targetdir.
+        Per default, global log file is placed here.
+        (and, in the future, any output when no path is specified)
+        If no argument provided we try the default tmp directory.
+        If permissions are not provided, uses 777 if not in user folder
+        and defaults otherwise.
     """
-    log.debug('Setting global target directory to %s, log file might change',
-        os.path.abspath(os.path.expanduser(fname)))
+
+    dirtmpsys = '/tmp' if platform.system() == 'Darwin' \
+        else tempfile.gettempdir()
+
+    if fname is None:
+        fname = '{}/mre_{}'.format(dirtmpsys, getpass.getuser())
+    else:
+        try:
+            fname = os.path.abspath(os.path.expanduser(fname))
+        except Exception as e:
+            log.debug('Specified file name caused an exception, using default',
+                exc_info=True)
+            fname = '{}/mre_{}'.format(dirtmpsys, getpass.getuser())
+
+    log.debug('Setting global target directory to %s', fname)
+
+    fname += '/'
+    os.makedirs(fname, exist_ok=True)
+
+    _set_permissions(fname, permissions)
 
     global _targetdir
-    _targetdir = os.path.abspath(os.path.expanduser(fname))+'/'
-    os.makedirs(_targetdir, exist_ok=True)
+    _targetdir = fname
 
-    # for hdlr in log.handlers[:]:
-    #     if isinstance(hdlr, logging.FileHandler):
-    #         hdlr.close()
-    #         hdlr.baseFilename = os.path.abspath(_targetdir+'mre.log')
+    log.debug('Target directory set to %s', _targetdir)
+
+
+def set_logfile(fname, loglevel=None, permissions=None):
+    """
+        Set the path where the global file logger writes the output.
+        If the file is not within the user folder, permissions are set to 777
+    """
+    try:
+        fname = os.path.abspath(os.path.expanduser(fname))
+        if loglevel is None:
+            loglevel = logging.getLevelName(_logfilehandler.level)
+        log.debug('Setting log file to %s and level %s', fname, str(loglevel))
+        _logfilehandler.setLevel(logging.getLevelName(loglevel))
+    except Exception as e:
+        log.debug(
+            'Could not set loglevel. Maybe _logfilehandler doesnt exist yet?',
+            exc_info=True)
+
+    tempdir = os.path.abspath(fname+"/../")
+    os.makedirs(tempdir, exist_ok=True)
+    # _set_permissions(tempdir, permissions)
+    # not sure yet if we want to overwrite permissions on possibly existing
+    # or system directories. user can call _set_permissions() manually
+
     try:
         _logfilehandler.close()
-        _logfilehandler.baseFilename = os.path.abspath(_targetdir+'mre.log')
-    except AttributeError as e:
-        log.debug('_logfilehandler doesnt exist yet', exc_info=True)
+        _logfilehandler.baseFilename = fname
+        _set_permissions(fname, permissions)
 
-    log.info('Target directory set to %s', _targetdir)
-
-def set_logfile(fname, loglevel='DEBUG'):
-    """
-        set the path where the global file logger writes the output.
-    """
-    _logfilehandler.setLevel(logging.getLevelName(loglevel))
-    log.debug('Setting log file to %s',
-        os.path.abspath(os.path.expanduser(fname)))
-
-    tempdir = os.path.abspath(os.path.expanduser(fname+"/../"))
-    os.makedirs(tempdir, exist_ok=True)
-
-    _logfilehandler.close()
-    _logfilehandler.baseFilename = os.path.abspath(os.path.expanduser(fname))
-    log.info('Log file set to %s', _logfilehandler.baseFilename)
+        log.debug('Log file set to %s with level %s',
+            _logfilehandler.baseFilename, str(loglevel))
+    except Exception as e:
+        log.debug('Could not set logfile. Maybe _logfilehandler doesnt exist?',
+            exc_info=True)
 
 def main():
-    set_targetdir('{}/mre_output/'.format(
-        '/tmp' if platform.system() == 'Darwin' else tempfile.gettempdir()))
 
+    try:
+        log.setLevel(logging.DEBUG)
 
-    log.setLevel(logging.DEBUG)
+        # create (global) file handler which logs even debug messages
+        global _logfilehandler
+        set_targetdir()
 
-    # create (global) console handler with a higher log level
-    global _logstreamhandler
-    _logstreamhandler = logging.StreamHandler()
-    _logstreamhandler.setLevel(logging.DEBUG)
-    # _logstreamhandler.setFormatter(logging.Formatter(
-    _logstreamhandler.setFormatter(CustomExceptionFormatter(
-        '%(levelname)-8s %(message)s',
-        log_locals_on_exception=False, log_trace_on_exception=False))
-    log.addHandler(_logstreamhandler)
+        _logfilehandler = logging.FileHandler(_targetdir+'mre.log', 'w')
+        _set_permissions(_targetdir+'mre.log')
+        _logfilehandler.setFormatter(CustomExceptionFormatter(
+            '%(asctime)s %(levelname)8s: %(message)s', "%Y-%m-%d %H:%M:%S",
+            log_locals_on_exception=False, log_trace_on_exception=True))
+        _logfilehandler.setLevel(logging.DEBUG)
+        log.addHandler(_logfilehandler)
 
-    # create (global) file handler which logs even debug messages
-    global _logfilehandler
-    _logfilehandler = logging.FileHandler(_targetdir+'mre.log', 'w')
-    _logfilehandler.setLevel(logging.DEBUG)
-    # _logfilehandler.setFormatter(logging.Formatter(
-    _logfilehandler.setFormatter(CustomExceptionFormatter(
-        '%(asctime)s %(levelname)8s: %(message)s', "%Y-%m-%d %H:%M:%S",
-        log_locals_on_exception=False, log_trace_on_exception=True))
-    log.addHandler(_logfilehandler)
+        # create (global) console handler with a higher log level
+        global _logstreamhandler
+        _logstreamhandler = logging.StreamHandler()
+        _logstreamhandler.setFormatter(CustomExceptionFormatter(
+            '%(levelname)-8s %(message)s',
+            log_locals_on_exception=False, log_trace_on_exception=False))
+        _logstreamhandler.setLevel(logging.INFO)
+        log.addHandler(_logstreamhandler)
 
-    log.info('Loaded mrestimator v%s, writing to %s', __version__, _targetdir)
-    _logstreamhandler.setLevel(logging.INFO)
+        log.info('Loaded mrestimator v%s, writing to %s',
+            __version__, _targetdir)
 
-    # capture (numpy) warnings and only log them to the global log file
-    logging.captureWarnings(True)
-    logging.getLogger('py.warnings').addHandler(_logfilehandler)
+        # capture (numpy) warnings and only log them to the global log file
+        logging.captureWarnings(True)
+        logging.getLogger('py.warnings').addHandler(_logfilehandler)
+
+    except Exception as e:
+        print('Loaded mrestimator v%s, but logger could not be set up for %s',
+            __version__, _targetdir)
 
 main()

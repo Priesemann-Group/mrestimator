@@ -28,13 +28,14 @@ General
 - [ ] bug: calling coefficients with steps=np.arange(0,2000,10) crashes breaks the printout (probably \r is not reset), 0 -> invalid step
 - [ ] bug: crash on import if logfile cannot be overwritten.
 - [ ] bug: crash if no fit converges is inconvenient when running scripts
+- [ ] bug: wrapper crashes if substract trial average is used on activity of integers
 
 
 Tipps and Tricks Documentation Section
 --------------------------------------
 
 - [ ] handling different trial lentgh: input_handler on each file. then v-stack
-- [ ] Customizing plots, Rasterization, axis label, size
+- [ ] Customizing plots, Rasterization, axis label, size, logscale
 
 
 Wrapper Function
