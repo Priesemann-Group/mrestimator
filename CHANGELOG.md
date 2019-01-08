@@ -4,6 +4,8 @@ Changelog
 [v0.1.3](https://pypi.org/project/mrestimator/0.1.3) (08.01.2019)
 -----------------------------------------------------------------
 * __Fixed__: Crash due to logfiles. If the toolbox was used by more than one user on one machine, the logfile created in the temporary directory could not be overwritten by other users. We now try to set file permissions of the logfile and target directory to `777` if they are not subfolders of the user folder. Also, per default, each user gets their own directory `/tmp/mre_username`.
+* __Fixed__: `full_analysis()` no longer crashes with `substracttrialaverage=True` when the provided input is of integer type.
+* __Fixed__: `fit()` now returns a (mostly empty) `FitResult` when no fit converged instead of raising an exception. Helps with scripts that run multiple fits. The returned FitResult works with the OutputHandler in default settings and a note about the failed fit is added to the description and meta data.
 
 
 [v0.1.2](https://pypi.org/project/mrestimator/0.1.2) (27.11.2018)

@@ -27,8 +27,10 @@ General
 - [ ] sometimes saving from outputhandler crops labels -> tight_layout(), but this shoud only take place if external figure was not provided.
 - [ ] bug: calling coefficients with steps=np.arange(0,2000,10) crashes breaks the printout (probably \r is not reset), 0 -> invalid step
 - [x] bug: crash on import if logfile cannot be overwritten.
-- [ ] bug: crash if no fit converges is inconvenient when running scripts
-- [ ] bug: wrapper crashes if substract trial average is used on activity of integers
+- [x] bug: crash if no fit converges is inconvenient when running scripts
+- [x] bug: wrapper crashes if substract trial average is used on activity of integers
+- [ ] important: set decent default maxstep for coefficients. at the moment it is 1500
+- [ ] check if inputhandler changes passed arrays in place or returns a copy
 
 
 Tipps and Tricks Documentation Section
@@ -41,6 +43,8 @@ Tipps and Tricks Documentation Section
 Wrapper Function
 ----------------
 
+- [ ] propper required argument printout + errors with confusing stack traces in the right place
+- [ ] less args
 - [x] plot
 - [x] replace member samples with bootsamples and trials; kept samples for now
 - [x] previous point has to change a bit more:

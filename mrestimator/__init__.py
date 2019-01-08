@@ -1192,6 +1192,9 @@ class FitResult(namedtuple('FitResultBase', [
         description     = None if description is None else str(description)
         desc            = '' if description is None else str(description)
 
+        if popt is None:
+            popt = np.full(len(default_fitpars(fitfunc)[0]), np.nan)
+
         # order of args has to match above!
         return super(FitResult, cls).__new__(cls,
             tau,
@@ -1520,9 +1523,24 @@ def fit(
             fulpopt, fulpcov, ssresmin = fitloop(
                 src.coefficients[stepinds], int(maxfev))
 
+    # avoid crashing scripts if no fit converged, return np.nan result
     if fulpopt is None:
         log.exception('No fit converged afer %d iterations', maxfev)
-        raise RuntimeError
+        try:
+            if description is None:
+                description = '(fit failed)'
+            else:
+                description = str(description) + ' (fit failed)'
+        except Exception as e:
+            log.debug('Exception passed', exc_info=True)
+        return FitResult(
+            tau          = np.nan,
+            mre          = np.nan,
+            fitfunc      = fitfunc,
+            steps        = steps,
+            dt           = dt,
+            dtunit       = dtunit,
+            description  = description)
 
     try:
         rsquared = 0.0
@@ -2893,7 +2911,7 @@ def full_analysis(
         # set_targetdir(targetdir)
 
     if substracttrialaverage:
-        src -= np.mean(src, axis=0)
+        src = src - np.mean(src, axis=0)
 
     # seed once and make sure subfunctions dont reseed by providing seed=None
     log.debug('seeding to {}'.format(seed))
