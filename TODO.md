@@ -26,7 +26,7 @@ General
 - [ ] check if integrated autocorrelation time works, too -> only m < 1
 - [ ] sometimes saving from outputhandler crops labels -> tight_layout(), but this shoud only take place if external figure was not provided.
 - [ ] bug: calling coefficients with steps=np.arange(0,2000,10) crashes breaks the printout (probably \r is not reset), 0 -> invalid step
-- [ ] bug: crash on import if logfile cannot be overwritten.
+- [x] bug: crash on import if logfile cannot be overwritten.
 - [ ] bug: crash if no fit converges is inconvenient when running scripts
 - [ ] bug: wrapper crashes if substract trial average is used on activity of integers
 

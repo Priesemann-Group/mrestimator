@@ -1,6 +1,11 @@
 Changelog
 =========
 
+[v0.1.3](https://pypi.org/project/mrestimator/0.1.3) (08.01.2019)
+-----------------------------------------------------------------
+* __Fixed__: Crash due to logfiles. If the toolbox was used by more than one user on one machine, the logfile created in the temporary directory could not be overwritten by other users. We now try to set file permissions of the logfile and target directory to `777` if they are not subfolders of the user folder. Also, per default, each user gets their own directory `/tmp/mre_username`.
+
+
 [v0.1.2](https://pypi.org/project/mrestimator/0.1.2) (27.11.2018)
 -----------------------------------------------------------------
 * __Changed__: `coefficients()` with `trialseparate` method calculates `rk` differently (now strictly linear regression). This should enable `m>1` estimates.
@@ -14,7 +19,6 @@ Changelog
 
 [v0.1.1](https://pypi.org/project/mrestimator/0.1.1) (01.11.2018)
 -----------------------------------------------------------------
-
 * __Changed__: We reworked the structure of `CoefficientResult` to be more consistent. This is now a completely _selfsimilar_ , where each child-entry has exactly the same structure as the parent. The new attributes `trialcrs` and `bootstrapcrs` replaced `samples`. Both are now lists containing again `CoefficientResults`, any (previously multidmensional) ndarrays are now 1d.
 * __Changed__: Per default, `full_analysis()` initialises the random number generator (used for bootstrapping) once per call and passes `None` to the seed arguments of lower functions so they do not reseed. We introduced the convention that `seed=None` tells that function to use the current state of the rng without seeding. (Added an `auto` option for seeding where needed)
 * __Changed__: All prints now use the logging module. Hopefully nothing broke :P.
@@ -29,7 +33,6 @@ Changelog
 
 [v0.1.0](https://pypi.org/project/mrestimator/0.1.0) (11.10.2018)
 ------------------------------------------------------------------
-
 * __Changed__: OutputHandlers set_xdata() now adjusts existing data and is slightly smarter. Now returns an array containing the indices where the x axis value is right for the provided data (wrt the existing context). See the example in the documentation.
 * __Changed__: When calling OutputHanlders `add_coefficients()` or `add_ts()`, the meta data and plot range will be extended using `set_xdata`. Trying to add duplicates only changes their style to the new provided values (without adding meta).
 * __Changed__: The parameters of `simulate_branching()` are different. `activity` is now `a`, `m` is no longer optional and it is possible to set a (time dependent) drive using `h`.
