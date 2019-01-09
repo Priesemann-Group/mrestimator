@@ -13,6 +13,7 @@ import scipy.optimize
 import math
 import re
 import logging
+import logging.handlers
 import tempfile
 import platform
 import time
@@ -3244,7 +3245,9 @@ def main():
         global _logfilehandler
         set_targetdir()
 
-        _logfilehandler = logging.FileHandler(_targetdir+'mre.log', 'w')
+        # _logfilehandler = logging.FileHandler(_targetdir+'mre.log', 'w')
+        _logfilehandler = logging.handlers.RotatingFileHandler(_targetdir+'mre.log',
+            mode='w', maxBytes=50*1024*1024, backupCount=9)
         _set_permissions(_targetdir+'mre.log')
         _logfilehandler.setFormatter(CustomExceptionFormatter(
             '%(asctime)s %(levelname)8s: %(message)s', "%Y-%m-%d %H:%M:%S",
@@ -3269,7 +3272,8 @@ def main():
         logging.getLogger('py.warnings').addHandler(_logfilehandler)
 
     except Exception as e:
-        print('Loaded mrestimator v%s, but logger could not be set up for %s',
-            __version__, _targetdir)
+        print('Loaded mrestimator v{}, but logger could not be set up for {}'
+            .format(__version__, _targetdir))
+        print(e)
 
 main()
