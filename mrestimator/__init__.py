@@ -21,6 +21,7 @@ import glob
 import inspect
 import getpass
 import stat
+import sys
 
 __version__ = "unknown"
 
@@ -31,6 +32,8 @@ log = logging.getLogger(__name__)
 _targetdir = None
 _logfilehandler = None
 _logstreamhandler = None
+_log_locals = False
+_log_trace = False
 
 # ------------------------------------------------------------------ #
 # Input
@@ -708,7 +711,8 @@ def coefficients(
         raise ValueError from e
     if len(steps) == 2:
         minstep=1
-        maxstep=1500
+        # default length not sure yet. but kmax > numels/2 is no use.
+        maxstep=int(data.shape[1]/10)
         if steps[0] is not None:
             minstep = steps[0]
         if steps[1] is not None:
@@ -725,11 +729,26 @@ def coefficients(
         steps = np.arange(minstep, maxstep+1, dtype=int)
         log.debug('Using steps between {} and {}'.format(minstep, maxstep))
     else:
+        # dont overwrite provided argument
+        steps = np.array(steps, dtype=int, copy=True)
         if (steps<1).any():
-            log.exception('All provided steps must be >= 1')
-            raise ValueError
-        steps = np.asarray(steps, dtype=int)
-        log.debug('Using provided custom steps')
+            log.warning(
+                'All provided steps should be >= 1, modifying the input')
+            incorrect = np.nonzero(steps < 1)
+            correct = np.nonzero(steps >= 1)
+            # np.arange(0,1000,10) -> only first element is a problem
+            if (len(incorrect) == 1 and incorrect[0] == 0):
+                if not (steps == 1).any():
+                    steps[0] = 1
+                    log.debug('Changed first element to 1')
+                else:
+                    steps = steps[1:]
+                    log.debug('Removed first element')
+            else:
+                steps = steps[correct]
+                log.debug('Only using steps that are >= 1')
+        log.debug('Using provided custom steps between {} and {}'.format(
+            steps[0], steps[-1]))
 
     # ------------------------------------------------------------------ #
     # Continue with trusted arguments
@@ -739,7 +758,8 @@ def coefficients(
     numtrials = data.shape[0]     # number of trials
     numels    = data.shape[1]     # number of measurements per trial
 
-    log.debug('Trusted Locals: {}'.format(locals()))
+    if (_log_locals):
+        log.debug('Trusted Locals: {}'.format(locals()))
 
     log.info("coefficients() with '{}' method for {} trials of length {}" \
         .format(method, numtrials, numels))
@@ -1317,7 +1337,8 @@ def fit(
     # ------------------------------------------------------------------ #
 
     log.debug('fit()')
-    log.debug('Locals: {}'.format(locals()))
+    if (_log_locals):
+        log.debug('Locals: {}'.format(locals()))
 
     fitfunc = _fitfunc_check(fitfunc)
 
@@ -2848,7 +2869,8 @@ def full_analysis(
     log.addHandler(loghandler)
 
     log.debug("full_analysis()")
-    log.debug('Locals: {}'.format(locals()))
+    if (_log_locals):
+        log.debug('Locals: {}'.format(locals()))
     try:
         dt = float(dt)
         assert(dt>0)
@@ -3118,37 +3140,71 @@ class CustomExceptionFormatter(logging.Formatter, object):
 
     def __init__(self,
         *args,
-        log_locals_on_exception=True,
-        log_trace_on_exception=True,
+        # this is needed since i have not found an easy way to disable the
+        # printing of the stack trace to console.
+        force_disable_trace=False,
         **kwargs):
-            self._log_locals = log_locals_on_exception
-            self._log_trace  = log_trace_on_exception
+            self._force_disable_trace  = force_disable_trace
             super(CustomExceptionFormatter, self).__init__(*args, **kwargs)
 
     def formatException(self, exc_info):
         # original formatted exception
         exc_text = \
             super(CustomExceptionFormatter, self).formatException(exc_info)
-        if not self._log_locals:
+        # if not self._log_locals:
+        if not _log_locals:
             # avoid printing 'NoneType' calling log.exception wihout try
-            if exc_info[0] is None:
-                return ''
-            return exc_text if self._log_trace else ''
+            if exc_info[0] is None \
+            or not _log_trace \
+            or self._force_disable_trace:
+                exc_text = ''
+            else:
+                exc_text = '\t'+exc_text.replace('\n', '\n\t')
+            # k = exc_text.rfind('\n')
+            # if k != -1:
+                # exc_text = exc_text[:k]
+                # pass
+
+            return exc_text
         res = []
         # outermost frame of the traceback
         tb = exc_info[2]
         try:
             while tb.tb_next:
                 tb = tb.tb_next  # Zoom to the innermost frame.
-            res.append('Locals:')
+            res.append('Locals (most recent call last):')
+
             for k, v in tb.tb_frame.f_locals.items():
                 res.append('  \'{}\': {}'.format(k, v))
-            if self._log_trace:
+
+            if not self._force_disable_trace and _log_trace:
                 res.append(exc_text)
-            return '\n'.join(res)
+
+            res = '\t'+'\n'.join(res).replace('\n', '\n\t')
+            # k = res.rfind('\n')
+            # if k != -1:
+                # res = res[:k]
+
+            return res
         except:
             return ''
 
+def _enable_detailed_logging():
+    _log_locals = True
+    _log_trace = True
+    _logfilehandler.setLevel('DEBUG')
+    _logstreamhandler.setLevel('DEBUG')
+    log.debug('Logging set to full details, logs are saved at {}'.format(
+        _logfilehandler.baseFilename))
+
+def _exception_test(kwargs):
+    mykwargs = kwargs
+    localvar = 'dummy'
+    try:
+        i = 1/0
+    except Exception as e:
+        log.exception('_cause_exception try')
+        raise Exception from e
 
 def _set_permissions(fname, permissions=None):
 
@@ -3250,8 +3306,7 @@ def main():
             mode='w', maxBytes=50*1024*1024, backupCount=9)
         _set_permissions(_targetdir+'mre.log')
         _logfilehandler.setFormatter(CustomExceptionFormatter(
-            '%(asctime)s %(levelname)8s: %(message)s', "%Y-%m-%d %H:%M:%S",
-            log_locals_on_exception=False, log_trace_on_exception=True))
+            '%(asctime)s %(levelname)8s: %(message)s', "%Y-%m-%d %H:%M:%S"))
         _logfilehandler.setLevel(logging.DEBUG)
         log.addHandler(_logfilehandler)
 
@@ -3259,8 +3314,7 @@ def main():
         global _logstreamhandler
         _logstreamhandler = logging.StreamHandler()
         _logstreamhandler.setFormatter(CustomExceptionFormatter(
-            '%(levelname)-8s %(message)s',
-            log_locals_on_exception=False, log_trace_on_exception=False))
+            '%(levelname)-8s %(message)s', force_disable_trace=True))
         _logstreamhandler.setLevel(logging.INFO)
         log.addHandler(_logstreamhandler)
 

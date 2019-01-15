@@ -6,6 +6,7 @@ Changelog
 * __Fixed__: Crash due to logfiles. If the toolbox was used by more than one user on one machine, the logfile created in the temporary directory could not be overwritten by other users. We now try to set file permissions of the logfile and target directory to `777` if they are not subfolders of the user folder. Also, per default, each user gets their own directory `/tmp/mre_username`.
 * __Fixed__: `full_analysis()` no longer crashes with `substracttrialaverage=True` when the provided input is of integer type.
 * __Fixed__: `fit()` now returns a (mostly empty) `FitResult` when no fit converged instead of raising an exception. Helps with scripts that run multiple fits. The returned FitResult works with the OutputHandler in default settings and a note about the failed fit is added to the description and meta data.
+* __Changed__: Default logs are less verbose to be clearer.  `mre._enable_detailed_logging()` enables fully detailed output to console and logfile. This also calls the two new switches: selectively enable logging of function arguments with `mre._log_locals = True` and the logging of stack traces to logfile via `mre.    _log_trace = True`.
 
 
 [v0.1.2](https://pypi.org/project/mrestimator/0.1.2) (27.11.2018)
@@ -29,7 +30,7 @@ Changelog
 * __Fixed__: When calling `full_analysis()` with one trial, a running average is shown instead of an empty plot.
 * __New__: Added quantiles (and standard errors) to fit results if bootstrapping. The new default option, `numboot='auto'` calculates 250 bootstrap samples for the exponential and exp+offset fit functions (which are decently fast) and skips error estimation for the builtin complex (and custom) fits.
 * __New__: Added function ``set_logfile(fname, loglevel='DEBUG')`` to change the path of the global logfile + level. This should allow running the toolbox in parallel, with a seperate logfile per thread and relatively silent/no console output when combining with `mre._logstreamhandler.setLevel('ERROR')` or calling `full_analysis(..., loglevel='ERROR')`
-* __New__: Undocumented way to change the respective loglevels is e.g. ``mre._logstreamhandler.setLevel('WARNING')`` for console and ``.mre._logfilehandler.setLevel('DEBUG')`` for file
+* __New__: Undocumented way to change the respective loglevels is e.g. ``mre._logstreamhandler.setLevel('WARNING')`` for console and ``mre._logfilehandler.setLevel('DEBUG')`` for file
 * __New__: Added custom handler class that does not log 'None Type' Traces if `log.exception()` is called without a `try` statement
 
 
