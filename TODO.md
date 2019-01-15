@@ -25,18 +25,24 @@ General
 - [x] try abs exp amplitude-> always positive without bounds
 - [ ] check if integrated autocorrelation time works, too -> only m < 1
 - [ ] sometimes saving from outputhandler crops labels -> tight_layout(), but this shoud only take place if external figure was not provided.
-- [ ] bug: calling coefficients with steps=np.arange(0,2000,10) crashes 0 -> invalid step
+- [x] bug: calling coefficients with steps=np.arange(0,2000,10) crashes 0 -> invalid step
 - [ ] bug: breaking printout (probably \r if is not reset)
 - [x] bug: crash on import if logfile cannot be overwritten.
 - [x] bug: crash if no fit converges is inconvenient when running scripts
 - [x] bug: wrapper crashes if substract trial average is used on activity of integers
-- [ ] important: set decent default maxstep for coefficients. at the moment it is 1500
+- [x] important: set decent default maxstep for coefficients. at the moment it is 1500
 - [ ] check if inputhandler changes passed arrays in place or returns a copy
 
 
 Tipps and Tricks Documentation Section
 --------------------------------------
-
+- [ ] Note: OutputHandler create a huge amount of figures when scripted (and matplotlib interactive is true). Maybe via
+```
+>>> import matplotlib
+>>> matplotlib.use('Agg')
+>>> mre.plt.close('all')
+>>> mre.plt.close(2) # figure 2
+```
 - [ ] handling different trial lentgh: input_handler on each file. then v-stack
 - [ ] Customizing plots, Rasterization, axis label, size, logscale
 
