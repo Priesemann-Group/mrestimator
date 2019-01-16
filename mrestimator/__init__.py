@@ -21,7 +21,6 @@ import glob
 import inspect
 import getpass
 import stat
-import sys
 
 __version__ = "unknown"
 
@@ -1853,7 +1852,9 @@ class OutputHandler:
         """
         if isinstance(ax, matplotlib.axes.Axes):
             self.ax = ax
+            self.axshared = True
         elif ax is None:
+            self.axshared = False
             # fig = plt.figure()
             # self.ax = fig.add_subplot(111, rasterized=True)
             _, self.ax = plt.subplots()
@@ -1899,6 +1900,18 @@ class OutputHandler:
                 log.exception('Please provide a list containing '
                     '\tCoefficientResults and/or FitResults\n')
                 raise ValueError
+
+    def __del__(self):
+        """
+            close opened figures when outputhandler is no longer used
+        """
+        if not self.axshared:
+            try:
+                plt.close(self.ax.figure)
+                # pass
+            except Exception as e:
+                log.debug('Exception passed', exc_info=True)
+
 
     def set_xdata(self, data=None, dt=1, dtunit=None):
         """
@@ -3194,6 +3207,7 @@ def _enable_detailed_logging():
     _log_trace = True
     _logfilehandler.setLevel('DEBUG')
     _logstreamhandler.setLevel('DEBUG')
+    logging.getLogger('py.warnings').addHandler(_logstreamhandler)
     log.debug('Logging set to full details, logs are saved at {}'.format(
         _logfilehandler.baseFilename))
 
@@ -3324,6 +3338,7 @@ def main():
         # capture (numpy) warnings and only log them to the global log file
         logging.captureWarnings(True)
         logging.getLogger('py.warnings').addHandler(_logfilehandler)
+        # logging.getLogger('py.warnings').addHandler(_logstreamhandler)
 
     except Exception as e:
         print('Loaded mrestimator v{}, but logger could not be set up for {}'

@@ -32,11 +32,12 @@ General
 - [x] bug: wrapper crashes if substract trial average is used on activity of integers
 - [x] important: set decent default maxstep for coefficients. at the moment it is 1500
 - [ ] check if inputhandler changes passed arrays in place or returns a copy
+- [x] python deconstructor to close figures when outputhandler variables are overwritten.
 
 
 Tipps and Tricks Documentation Section
 --------------------------------------
-- [ ] Note: OutputHandler create a huge amount of figures when scripted (and matplotlib interactive is true). Maybe via
+- [x] Note: OutputHandler create a huge amount of figures when scripted (and matplotlib interactive is true). Kindoff solved via deconstructor.
 ```
 >>> import matplotlib
 >>> matplotlib.use('Agg')
