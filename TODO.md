@@ -50,7 +50,6 @@ Tipps and Tricks Documentation Section
 
 Wrapper Function
 ----------------
-
 - [ ] propper required argument printout + errors with confusing stack traces in the right place
 - [ ] less args
 - [x] plot

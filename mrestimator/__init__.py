@@ -2689,6 +2689,384 @@ def _prerror(f, ferr, errprec=2, maxprec=5):
 # Wrapper function
 # ------------------------------------------------------------------ #
 
+def new_wrapper(
+    data,
+    dt,
+    kmax=None,
+    dtunit=' time unit',
+    fitfunctions=None,
+    coefficientmethod=None,
+    tmin=None,                      # include somehow into 'missing' req. arg
+    tmax=None,
+    steps=None,                     # dt conversion? optional replace tmin/tmax
+    substracttrialaverage=False,
+    numboot='auto',                 # optional. default depends on fitfunc
+    seed='auto',                    # default: reseed to random on every call
+    targetdir=None,
+    title=None,                     # overwrites if not None
+    loglevel=None,                  # only concerns local logfile
+    targetplot=None,
+    ):
+
+    """
+        reworked wrapper
+    """
+
+    # ------------------------------------------------------------------ #
+    # Arguments
+    # ------------------------------------------------------------------ #
+
+    # workaround: if full_analysis() does not reach its end where we remove
+    # the local loghandler, it survives and keps logging with the old level
+    for hdlr in log.handlers:
+        if isinstance(hdlr, logging.FileHandler):
+            if hdlr != _logfilehandler:
+                hdlr.close()
+                log.removeHandler(hdlr)
+
+    if kmax is None and tmax is None and steps is None:
+        log.exception("new_wrapper() requires one of the following keyword" +
+            "arguments: 'kmax', 'tmax' or 'steps'")
+        raise TypeError
+
+    # if there is a targetdir specified, create and use for various output
+    if targetdir is not None:
+        if isinstance(targetdir, str):
+            td = os.path.abspath(os.path.expanduser(targetdir+'/'))
+            os.makedirs(td, exist_ok=True)
+            _set_permissions(td)
+            targetdir = td
+        else:
+            log.exception("Argument 'targetdir' needs to be of type 'str'")
+            raise TypeError
+
+        # setup log early so argument errors appear in the logfile
+        if loglevel is None:
+            # dont create a logfile
+            pass
+        else:
+            if isinstance(loglevel, int) and loglevel > 0:
+                pass
+            elif str(loglevel).upper() in [
+                'ERROR', 'WARNING', 'INFO', 'DEBUG']:
+                loglevel = str(loglevel).upper()
+            else:
+                log.debug(
+                    "Unrecognized log level {}, using 'INFO'".format(loglevel))
+                loglevel = 'INFO'
+            # open new handler and add it to logging module
+            loghandler = logging.handlers.RotatingFileHandler(
+                targetdir+'/{}.log'.format(
+                    'new_wrapper' if title is None else title, 'a'),
+                maxBytes=5*1024*1024, backupCount=1)
+            loghandler.setLevel(logging.getLevelName(loglevel))
+            loghandler.setFormatter(CustomExceptionFormatter(
+                '%(asctime)s %(levelname)8s: %(message)s',
+                "%Y-%m-%d %H:%M:%S"))
+            log.addHandler(loghandler)
+
+    log.debug("new_wrapper()")
+    if (_log_locals):
+        log.debug('Locals: {}'.format(locals()))
+
+    try:
+        dt = float(dt)
+        assert(dt>0)
+    except Exception as e:
+        log.exception("Argument 'dt' needs to be a float > 0")
+        raise
+
+    if not isinstance(dtunit, str):
+        log.exception("Argument 'dtunit' needs to be of type 'str'")
+        raise TypeError
+
+    if steps is None:
+        if kmax is not None:
+            try:
+                kmax = float(kmax)
+                assert(kmax>0)
+            except Exception as e:
+                log.exception("Argument 'kmax' needs to be a number > 0")
+                raise
+            if tmax is not None:
+                log.exception("Arguments do not match: Please provide either 'kmax' or 'tmin' and 'tmax' or 'steps'")
+                raise TypeError
+            else:
+                tmax = kmax*dt
+        if tmin is None:
+            tmin = 1
+        try:
+            tmin=float(tmin)
+            tmax=float(tmax)
+            assert(tmin>=0 and tmax>tmin)
+        except Exception as e:
+            log.exception("Arguments: 'tmax' and 'tmin' " +
+                "need to be floats with 'tmax' > 'tmin' >= 0")
+            raise
+        steps = (int(tmin/dt), int(tmax/dt))
+    else:
+        if tmin is not None or tmax is not None or kmax is not None:
+            log.exception("Arguments do not match: Please provide either 'kmax' or 'tmin' and 'tmax' or 'steps'")
+            raise TypeError
+        log.debug("Argument 'steps' was provided to new_wrapper()")
+
+    defaultfits = False
+    if fitfunctions is None:
+        fitfunctions = ['e', 'eo']
+        defaultfits = True
+    elif isinstance(fitfunctions, str):
+        fitfunctions = [fitfunctions]
+    if not isinstance(fitfunctions, list):
+        log.exception("Argument 'fitfunctions' needs to be of type 'str' or " + "a list e.g. ['exponential', 'exponential_offset']")
+        raise TypeError
+
+    if coefficientmethod is None:
+        coefficientmethod = 'trialseparated'
+    if coefficientmethod not in [
+    'trialseparated', 'ts', 'stationarymean', 'sm']:
+        log.exception("Optional argument 'coefficientmethod' needs " +
+            "to be either 'trialseparated' or 'stationarymean'")
+        raise TypeError
+
+    if targetplot is not None \
+    and not isinstance(targetplot, matplotlib.axes.Axes):
+        log.exception("Optional argument 'targetplot' needs " +
+            "to be an instance of 'matplotlib.axes.Axes'")
+        raise TypeError
+
+    title = str(title)
+
+    if (_log_locals):
+        log.debug('Finished argument check. Locals: {}'.format(locals()))
+
+    # ------------------------------------------------------------------ #
+    # Continue with trusted arguments
+    # ------------------------------------------------------------------ #
+
+    src = input_handler(data)
+
+    if substracttrialaverage:
+        src = src - np.mean(src, axis=0)
+
+    # seed once and make sure subfunctions dont reseed by providing seed=None
+    log.debug('seeding to {}'.format(seed))
+    if seed == 'auto':
+        np.random.seed(None)
+    elif seed is None:
+        pass
+    else:
+        np.random.seed(seed)
+    seed = None
+
+    if numboot == 'auto':
+        nbt = 250
+    else:
+        nbt = numboot
+    rks =coefficients(
+        src, steps, dt, dtunit, method=coefficientmethod,
+        numboot=nbt, seed=seed)
+
+    fits = []
+    for f in fitfunctions:
+        if numboot == 'auto':
+            if _fitfunc_check(f) is f_exponential or \
+                _fitfunc_check(f) is f_exponential_offset:
+                nbt = 250
+            elif _fitfunc_check(f) is f_complex:
+                nbt = 0
+            else:
+                nbt = 250
+        else:
+            nbt = numboot
+        fits.append(fit(data=rks, fitfunc=f, steps=steps,
+            numboot=nbt, seed=seed))
+
+    # ------------------------------------------------------------------ #
+    # Output
+    # ------------------------------------------------------------------ #
+
+    if defaultfits:
+        shownfits = [fits[0]]
+        overview(src, [rks], shownfits, title=title, warning='test warning')
+    else:
+        shownfits = fits
+        overview(src, [rks], shownfits, title=title)
+
+    res = OutputHandler([rks]+shownfits, ax=targetplot)
+    try:
+        log.removeHandler(loghandler)
+    except:
+        log.debug('No handler to remove')
+
+    log.info("new_wrapper() done")
+    return res
+
+
+def overview(src, rks, fits, **kwargs):
+    """
+        creates an A4 overview panel and returns the matplotlib figure element.
+        No Argument checks are done
+    """
+
+    # ratios = np.ones(4)*.75
+    # ratios[3] = 0.25
+    ratios=None
+    # A4 in inches, should check rc params in the future
+    # matplotlib changes the figure size when modifying subplots
+    topshift = 0.925
+    fig, axes = plt.subplots(nrows=4, figsize=(8.27, 11.69*topshift),
+        gridspec_kw={"height_ratios":ratios})
+
+    # avoid huge file size for many trials due to separate layers.
+    # everything below 0 gets rastered to the same layer.
+    axes[0].set_rasterization_zorder(0)
+
+    # ------------------------------------------------------------------ #
+    # Time Series
+    # ------------------------------------------------------------------ #
+
+    tsout = OutputHandler(ax=axes[0])
+    tsout.add_ts(src, label='Trials')
+    if (src.shape[0] > 1):
+        try:
+            prevclr = plt.rcParams["axes.prop_cycle"].by_key()["color"][0]
+        except Exception:
+            prevclr = 'navy'
+            log.debug('Exception getting color cycle', exc_info=True)
+        tsout.add_ts(np.mean(src, axis=0), color=prevclr, label='Average')
+    else:
+        tsout.ax.legend().set_visible(False)
+
+    tsout.ax.set_title('Time Series (Input Data)')
+    tsout.ax.set_xlabel('t [{}{}]'.format(
+        _printeger(rks[0].dt), rks[0].dtunit))
+
+    # ------------------------------------------------------------------ #
+    # Mean Trial Activity
+    # ------------------------------------------------------------------ #
+
+    if (src.shape[0] > 1):
+        # average trial activites as function of trial number
+        taout = OutputHandler(rks[0].trialactivities, ax=axes[1])
+        try:
+            err1 = rks[0].trialactivities - np.sqrt(rks[0].trialvariances)
+            err2 = rks[0].trialactivities + np.sqrt(rks[0].trialvariances)
+            prevclr = plt.rcParams["axes.prop_cycle"].by_key()["color"][0]
+            taout.ax.fill_between(
+                np.arange(1, rks[0].numtrials+1), err1, err2,
+                color=prevclr, alpha=0.2)
+        except Exception as e:
+            log.debug('Exception adding std deviation to plot', exc_info=True)
+        taout.ax.set_title('Mean Trial Activity and Std. Deviation')
+        taout.ax.set_xlabel('Trial i')
+        taout.ax.set_ylabel('$\\bar{A}_i$')
+    else:
+        # running average over the one trial to see if stays stationary
+        numsegs = kwargs.get(numsegs) if 'numsegs' in kwargs else 50
+        ravg = np.zeros(numsegs)
+        err1 = np.zeros(numsegs)
+        err2 = np.zeros(numsegs)
+        seglen = int(src.shape[1]/numsegs)
+        for s in range(numsegs):
+            temp = np.mean(src[0][s*seglen : (s+1)*seglen])
+            ravg[s] = temp
+            stddev = np.sqrt(np.var(src[0][s*seglen : (s+1)*seglen]))
+            err1[s] = temp - stddev
+            err2[s] = temp + stddev
+
+        taout = OutputHandler(ravg, ax=axes[1])
+        try:
+            prevclr = plt.rcParams["axes.prop_cycle"].by_key()["color"][0]
+            taout.ax.fill_between(
+                np.arange(1, numsegs+1), err1, err2,
+                color=prevclr, alpha=0.2)
+        except Exception as e:
+            log.debug('Exception adding std deviation to plot', exc_info=True)
+        taout.ax.set_title(
+            'Average Activity and Stddev for {} Intervals'.format(numsegs))
+        taout.ax.set_xlabel('Interval i')
+        taout.ax.set_ylabel('$\\bar{A}_i$')
+
+    # ------------------------------------------------------------------ #
+    # Coefficients and Fit results
+    # ------------------------------------------------------------------ #
+
+    cout = OutputHandler(rks+fits, ax=axes[2])
+
+    fitcurves = []
+    fitlabels = []
+    for i, f in enumerate(cout.fits):
+        fitcurves.append(cout.fitcurves[i][0])
+        label = math_from_doc(f.fitfunc, 5)
+        label += '\n\n$\\tau={:.2f}${}\n'.format(f.tau, f.dtunit)
+        if f.tauquantiles is not None:
+            label += '$[{:.2f}:{:.2f}]$\n\n' \
+                .format(f.tauquantiles[0], f.tauquantiles[-1])
+        else:
+            label += '\n\n'
+        label += '$m={:.5f}$\n'.format(f.mre)
+        if f.mrequantiles is not None:
+            label +='$[{:.5f}:{:.5f}]$' \
+                .format(f.mrequantiles[0], f.mrequantiles[-1])
+        else:
+            label += '\n'
+        fitlabels.append(label)
+
+    tempkwargs = {
+        # 'title': 'Fitresults',
+        'ncol': len(fitlabels),
+        'loc': 'upper center',
+        'mode': 'expand',
+        'frameon': True,
+        'markerfirst': True,
+        'fancybox': False,
+        # 'framealpha': 1,
+        'borderaxespad': 0,
+        'edgecolor': 'black',
+        # hide handles
+        'handlelength': 0,
+        'handletextpad': 0,
+        }
+    try:
+        axes[3].legend(fitcurves, fitlabels, **tempkwargs)
+    except Exception:
+        log.debug('Exception passed', exc_info=True)
+        del tempkwargs['edgecolor']
+        axes[3].legend(fitcurves, fitlabels, **tempkwargs)
+
+    # hide handles
+    for handle in axes[3].get_legend().legendHandles:
+        handle.set_visible(False)
+
+    # center text
+    for t in axes[3].get_legend().texts:
+        t.set_multialignment('center')
+
+    # apply stile and fill legend
+    axes[3].get_legend().get_frame().set_linewidth(0.5)
+    axes[3].axis('off')
+    axes[3].set_title('Fitresults\n[$12.5\\%$:$87.5\\%$]')
+    for a in axes:
+        a.xaxis.set_tick_params(width=0.5)
+        a.yaxis.set_tick_params(width=0.5)
+        for s in a.spines:
+            a.spines[s].set_linewidth(0.5)
+
+    fig.tight_layout(h_pad=2.0)
+    plt.subplots_adjust(top=topshift)
+    title = kwargs.get('title') if 'title' in kwargs else None
+    if (title is not None and title != ''):
+        fig.suptitle(title+'\n', fontsize=14)
+
+    if 'warning' in kwargs:
+        s = u'\u26A0 {}'.format(kwargs.get('warning'))
+        fig.text(.5,.01, s,
+            fontsize=13,
+            horizontalalignment='center',
+            color='red')
+
+    return fig
+
 
 def full_analysis(
     data,
@@ -3064,15 +3442,11 @@ def full_analysis(
 
     cout = OutputHandler(rks+fits, ax=axes[2])
 
-    # get some visiual results
+    # get some visual results
     fitcurves = []
     fitlabels = []
-    # fitm = []
-    # fittau = []
     for i, f in enumerate(cout.fits):
         fitcurves.append(cout.fitcurves[i][0])
-        # label = '\n'
-        # label = cout.fitlabels[i]
         label = math_from_doc(f.fitfunc, 5)
         label += '\n\n$\\tau={:.2f}${}\n'.format(f.tau, f.dtunit)
         if f.tauquantiles is not None:
