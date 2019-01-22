@@ -1749,7 +1749,37 @@ def _c_rk_smaller_one(data, plim=0.1):
         passed = True
     return passed, t, p
 
+def _c_fits_consistent(fit1, fit2, quantile=.125):
+    """
+        Check if fit1 and fit2 agree within confidence intervals.
+        default quantile=.125 is between 1 and 2 sigma
+    """
+    # [.125, .25, .4, .5, .6, .75, .875]
+    try:
+        log.debug('Checking fits against each others {} quantiles' \
+            .format(quantile))
 
+        qmin = list(fit1.quantiles).index(  quantile)
+        qmax = list(fit1.quantiles).index(1-quantile)
+        log.debug('{} < {} < {} ?'.format(
+            fit2.tauquantiles[qmin], fit1.tau, fit2.tauquantiles[qmax]))
+        if fit1.tau > fit2.tauquantiles[qmax] \
+        or fit1.tau < fit2.tauquantiles[qmin]:
+            return False
+
+        qmin = list(fit2.quantiles).index(  quantile)
+        qmax = list(fit2.quantiles).index(1-quantile)
+        log.debug('{} < {} < {} ?'.format(
+            fit1.tauquantiles[qmin], fit2.tau, fit1.tauquantiles[qmax]))
+        if fit2.tau > fit1.tauquantiles[qmax] \
+        or fit2.tau < fit1.tauquantiles[qmin]:
+            return False
+
+        return True
+    except Exception as e:
+        log.debug('Quantile not found in fit', exc_info=True)
+
+        return False
 
 # ------------------------------------------------------------------ #
 # Output, Plotting
@@ -2882,12 +2912,25 @@ def new_wrapper(
             numboot=nbt, seed=seed))
 
     # ------------------------------------------------------------------ #
-    # Output
+    # Output and Consistency Checks
     # ------------------------------------------------------------------ #
 
+    warning = None
     if defaultfits:
         shownfits = [fits[0]]
-        overview(src, [rks], shownfits, title=title, warning='test warning')
+
+        # no trials, no confidence
+        if src.shape[0] == 1:
+            warning = 'Not enough trials to calculate confidence intervals.'
+
+        # check that tau  from exp and exp_off
+        elif not _c_fits_consistent(fits[0], fits[1]):
+            # warning = 'Exponential with offset resulted in ' + \
+            #     '$\\tau = {:.2f}$ {}'.format(fits[1].tau, fits[1].dtunit)
+            warning = 'Results from other fits differed beyond confidence.\n'+\
+                "Try the 'fitfunctions' argument!"
+
+        overview(src, [rks], shownfits, title=title, warning=warning)
     else:
         shownfits = fits
         overview(src, [rks], shownfits, title=title)
@@ -3058,7 +3101,7 @@ def overview(src, rks, fits, **kwargs):
     if (title is not None and title != ''):
         fig.suptitle(title+'\n', fontsize=14)
 
-    if 'warning' in kwargs:
+    if 'warning' in kwargs and kwargs.get('warning') is not None:
         s = u'\u26A0 {}'.format(kwargs.get('warning'))
         fig.text(.5,.01, s,
             fontsize=13,
