@@ -354,7 +354,9 @@ def simulate_branching(
 
     if subp != 1 and subp is not None:
         try:
-            return simulate_subsampling(A_t, prob=subp)
+            # do not change rng seed when calling this as nested, otherwise
+            # bp with subs. is not reproducible even with given seed
+            return simulate_subsampling(A_t, prob=subp, seed=None)
         except ValueError:
             log.debug('Exception passed', exc_info=True)
     return A_t
@@ -374,9 +376,10 @@ def simulate_subsampling(data, prob=0.1, seed='auto'):
             Subsample to probability `prob`. Default is 0.1.
 
         seed : int, optional
-            Initialise the random number generator with a seed. Per default it
-            is seeded randomly (hence each call to `simulate_branching()`
-            returns different results).
+            Initialise the random number generator with a seed. Per default set
+            to `auto`: seed randomly (hence each call to `simulate_branching()`
+            returns different results). Set `seed=None` to keep the rng device
+            state.
     """
     log.debug('simulate_subsampling()')
     if prob <= 0 or prob > 1:

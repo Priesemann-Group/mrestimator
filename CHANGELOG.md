@@ -3,6 +3,7 @@ Changelog
 
 [v0.1.4](https://pypi.org/project/mrestimator/0.1.4) (17.01.2019)
 -----------------------------------------------------------------
+* __Fixed__: when calling branching process with `subp` and providing a seed, the subsampling no longer reseeds the rng device. (hence every call produces the same outcome, as expected)
 
 [v0.1.3](https://pypi.org/project/mrestimator/0.1.3) (16.01.2019)
 -----------------------------------------------------------------
