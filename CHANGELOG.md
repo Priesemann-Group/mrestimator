@@ -6,7 +6,7 @@ Changelog
 * __Fixed__: when calling branching process with `subp` and providing a seed, the subsampling no longer reseeds the rng device. (hence every call produces the same outcome, as expected)
 * __Changed__: `full_analysis()` was completely rewritten, now only has three required arguments: `data`, `dt` and `kmax`. `kmax` can be substituted by `steps` or `tmax`.
 * __Changed__: concerning the `seed` argument for various functions:
-all functions take either `seed=None` (no reseeding), `seed='random` (reseeding to a random value - causing irreproducible resaults) or to a fixed value `seed=int(yourseed)`.
+all functions take either `seed=None` (no reseeding), `seed='random'` (reseeding to a random value - causing irreproducible resaults) or to a fixed value `seed=int(yourseed)`.
 Per default, analysis functions - `full_analysis()`, `fit()` and `coefficients()` - produce same results by seeding to a fixed value each call. (only confidence intervals are affected by seeding)
 Per default, `simulate_branching()` and `simulate_subsampling()` seed to `random`.
 

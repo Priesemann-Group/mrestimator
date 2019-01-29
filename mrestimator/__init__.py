@@ -615,7 +615,7 @@ def coefficients(
             :math:`r_k`.
             If an array of length two is provided, e.g.
             ``steps=(minstep, maxstep)``, all enclosed integer values will be
-            used. Default is ``(1, 1500)``.
+            used.
             Arrays larger than two are assumed to contain a manual choice of
             steps. Strides other than one are possible.
 
@@ -2747,18 +2747,174 @@ def full_analysis(
     tmax=None,
     steps=None,                     # dt conversion? optional replace tmin/tmax
     substracttrialaverage=False,
-    numboot='auto',                 # optional. default depends on fitfunc
-    seed=1,                         # default: 1 uses hard coded seeds
     targetdir=None,
     title=None,                     # overwrites old files in same targetdir
+    numboot='auto',                 # optional. default depends on fitfunc
+    seed=1,                         # default: 1 uses hard coded seeds
     loglevel=None,                  # only concerns local logfile
     targetplot=None,
     showoverview=True,
     saveoverview=False,
     ):
-
     """
-        reworked wrapper
+        Wrapper function that performs the following four steps:
+
+        - check `data` with `input_handler()`
+        - calculate correlation coefficients via `coefficients()`
+        - fit autocorrelation function with `fit()`
+        - export/plot using the `OutputHandler`
+
+        Usually it should suffice to tweak the arguments and call this
+        wrapper function (multiple times).
+        Calling the underlying functions individually
+        gives slightly more control, though.
+
+        Parameters
+        ----------
+        data: str, list or numpy.ndarray
+            Passed to `input_handler()`. Ideally, import and check data first.
+            A `string` is assumed to be the path
+            to file(s) that is then imported as pickle or plain text.
+            Alternatively, you can provide a `list` or `ndarray` containing
+            strings or already imported data. In the latter case,
+            `input_handler()` attempts to convert it to the right format.
+
+        dt: float
+            How many `dtunits` separate the measurements of the provided data.
+            For example, if measurements are taken every 4ms:
+            `dt=4`, `dtunit=\'ms\'`.
+
+        kmax: int
+            Maximum time lag k (in time steps of size `dt`) to use for
+            coefficients. Alternatively, `tmax` or `steps` can be specified
+
+        Other Parameters
+        ----------------
+
+        dtunit: str, optional
+            Unit description/name of the time steps of the provided data.
+
+        fitfuncs: list, optional
+            Which fitfunctions to use e.g. ``fitfuncs=['e', 'eo', 'c']``
+
+        coefficientmethod: str, optional
+            `ts` or `sm`, method used for determining the correlation
+            coefficients. See the :func:`coefficients` function for details.
+            Default is `ts`.
+
+        tmin: float
+            Smallest time separation to use for coefficients, in units of
+            `dtunit`.
+            Only one argument is possible, either `kmax` or `steps` or
+            `tmin` and `tmax`.
+
+        tmax: float
+            Maximum time separation to use for coefficients.
+            For example, to fit the autocorrelation between 8ms and
+            2s set: `tmin=8`, `tmax=2000`, `dtunit=\'ms\'`
+            (independent of `dt`).
+
+        steps : ~numpy.array, optional
+            Specify the fitrange in steps :math:`k` for which to compute
+            coefficients :math:`r_k`.
+            Note that :math:`k` provided here would need
+            to be multiplied with units of [`dt` * `dtunit`] to convert
+            back to (real) time.
+            If an array of length two is provided, e.g.
+            ``steps=(minstep, maxstep)``, all enclosed integer values will be
+            used.
+            Arrays larger than two are assumed to contain a manual choice of
+            steps. Strides other than one are possible.
+            Only one argument is possible, either `steps` or `kmax` or
+            `tmin` and `tmax`.
+
+        substracttrialaverage: bool, optional
+            Substract the average across all trials before calculating
+            correlation coefficients.
+            Default is `False`.
+
+        targetdir: str, optional
+            String containing the path to the target directory where files
+            are saved with the filename `title`.
+            Per default, `targetdir=None` and no files are written to disk.
+
+        title: str, optional
+            String for the filenames. Also sets the main title of the
+            overview panel.
+
+        numboot: int or 'auto', optional
+            Number of bootstrap samples to draw.
+            This repeats every fit `numboot` times so that we can
+            provide an uncertainty estimate of the resulting branching
+            parameter and autocorrelation time.
+            Per default, bootstrapping is only applied in
+            `coefficeints()` as most of computing time is needed for the
+            fitting. Thereby we have uncertainties on the :math:`r_k`
+            (which will be plotted) but each fit is only
+            done once.
+            Default is `numboot='auto'` where the number of samples depends on
+            the fitfunction (100 for the exponential).
+
+        seed : int, None or 'random', optional
+            If `numboot` is not zero, provide a seed for the random number
+            generator. If `seed=None`, seeding will be skipped.
+            Per default, the rng is (re)seeded every time `full_analysis()` is
+            called so that every repeated call returns the same error
+            estimates.
+
+        loglevel: str, optional
+            The loglevel to use for the logfile created
+            as `title.log` in the `targetdir`.
+            'ERROR', 'WARNING', 'INFO' or 'DEBUG'.
+            Per default, no log is written unless `loglevel` and `targetdir`
+            are provided.
+
+        targetplot: `matplotlib.axes.Axes`, optional
+            You can provide a matplotlib axes element (i.e. a subplot of an
+            existing figure) to plot the correlations into.
+            The axis will be passed to the `OutputHandler`
+            and all plotting will happen within that axes.
+            Per default, a new figure is created - that cannot be added
+            as a subplot to any other figure later on. This is due to
+            the way matplotlib handles subplots.
+
+        showoverview: bool, optional
+            Wether to show the overview panel. Default is 'True'.
+            Note that even when set to 'True' the panel might not show if
+            `full_analysis()` is called through a script instead of an
+            (interactive) shell.
+
+        saveoverview: bool, optional
+            Wether to save the overview panel in `targetdir`.
+            Default is 'False'.
+
+        Returns
+        -------
+        OutputHandler
+            that is associated
+            with the correlation plot, fits and coefficients.
+            Also saves meta data and plotted pdfs to `targetdir`.
+
+        Example
+        -------
+
+        .. code-block:: python
+
+            # test data, subsampled branching process
+            bp = mre.simulate_branching(m=0.95, h=10, subp=0.1, numtrials=50)
+
+            mre.full_analysis(
+                data=bp,
+                dt=1,
+                dtunit='step',
+                tmin=0, tmax=1500,
+                fitfunctions=['exp', 'exp_offs', 'complex'],
+                targetdir='./output',
+                title='Branching Process',
+                )
+
+            plt.show()
+        ..
     """
 
     # ------------------------------------------------------------------ #
