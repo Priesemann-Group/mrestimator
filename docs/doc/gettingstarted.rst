@@ -138,7 +138,7 @@ before updating, so your scripts dont break.
         title='Full Analysis',
         dt=4, dtunit='ms',
         tmin=0, tmax=8000,
-        fitfunctions=['exp', 'exp_offs', 'complex'],
+        fitfuncs=['exp', 'exp_offs', 'complex'],
         )
 
     plt.show()

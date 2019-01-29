@@ -48,16 +48,14 @@ avgsub = np.mean(srcsub, axis=0)
 
 # this function will change in the next weeks until we decide on a
 # final interface
-# here called with all required(!) arguments
 auto = mre.full_analysis(
     data='./data/sub_*.tsv',
     targetdir='./output',
     title='Full Analysis',
     dt=4, dtunit='ms',
     tmin=0, tmax=8000,
-    fitfunctions=['exp', 'exp_offs', 'complex'],
-    numboot='auto',
-    seed='auto',
+    fitfuncs=['exp', 'exp_offs', 'complex'],
+    numboot='auto'
     )
 
 plt.show()
@@ -128,6 +126,7 @@ ores.add_fit(m2)
 # save the plot and its meta data
 ores.save('./output/custom')
 
+# show all figures and halt script until closed via gui
 plt.show(block=True)
 
 
