@@ -235,7 +235,7 @@ def simulate_branching(
     length=10000,
     numtrials=1,
     subp=1,
-    seed='auto'):
+    seed='random'):
     """
         Simulates a branching process with Poisson input. Returns data
         in the trial structure.
@@ -271,8 +271,8 @@ def simulate_branching(
 
         seed : int, optional
             Initialise the random number generator with a seed. Per default,
-            ``seed='auto'`` and the generator is seeded randomly (hence each
-            call to `simulate_branching()` returns different results).
+            ``seed='random'`` and the generator is seeded randomly (hence
+            each call to `simulate_branching()` returns different results).
             ``seed=None`` skips (re)seeding.
 
         subp : float, optional
@@ -310,12 +310,13 @@ def simulate_branching(
         else:
             length = h.size
 
-    if seed == 'auto':
+    log.debug('simulate_branching() seeding to {}'.format(seed))
+    if seed is None:
+        pass
+    elif seed == 'random':
         np.random.seed(None)
-        log.debug('seeding to {}'.format(seed))
-    elif seed is not None:
+    else:
         np.random.seed(seed)
-        log.debug('seeding to {}'.format(seed))
 
     if h[0] == 0 and a != 0:
         log.debug('Skipping thermalization since initial h=0')
@@ -361,7 +362,7 @@ def simulate_branching(
             log.debug('Exception passed', exc_info=True)
     return A_t
 
-def simulate_subsampling(data, prob=0.1, seed='auto'):
+def simulate_subsampling(data, prob=0.1, seed='random'):
     """
         Apply binomial subsampling.
 
@@ -377,9 +378,9 @@ def simulate_subsampling(data, prob=0.1, seed='auto'):
 
         seed : int, optional
             Initialise the random number generator with a seed. Per default set
-            to `auto`: seed randomly (hence each call to `simulate_branching()`
-            returns different results). Set `seed=None` to keep the rng device
-            state.
+            to `random`: seed randomly (hence each call to
+            `simulate_branching()` returns different results).
+            Set `seed=None` to keep the rng device state.
     """
     log.debug('simulate_subsampling()')
     if prob <= 0 or prob > 1:
@@ -394,10 +395,13 @@ def simulate_subsampling(data, prob=0.1, seed='auto'):
     # activity = np.mean(data)
     # a_t = np.empty_like(data)
 
-    if seed == 'auto':
-        log.debug('seeding to {}'.format(seed))
+    log.debug('simulate_subsampling() seeding to {}'.format(seed))
+    if seed is None:
+        pass
+    elif seed == 'random':
         np.random.seed(None)
-        seed = None
+    else:
+        np.random.seed(seed)
 
     # binomial subsampling, seed = None does not reseed global instance
     return scipy.stats.binom.rvs(data.astype(int), prob, random_state=seed)
@@ -592,7 +596,7 @@ def coefficients(
     dt=1, dtunit='ms',
     method=None,
     numboot=100,
-    seed=3141,
+    seed=5330,
     description=None,
     desc=None,
     ):
@@ -644,13 +648,14 @@ def coefficients(
             statistical errors, returned in `stderrs`.
             Default is `numboot=100`.
 
-        seed : int or None, optional
-            If bootstrapping (`numboot>0`), a custom seed can be passed to the
-            random number generator used for
+        seed : int, None or 'random', optional
+            If bootstrapping (`numboot>0`), a custom seed can be passed to
+            the random number generator used for
             resampling. Per default, it is set to the *same* value every time
             `coefficients()` is called to return consistent results
             when repeating the analysis on the same data. Set to `None` to
-            prevent (re)seeding. For more details, see
+            prevent (re)seeding. 'random' seeds using the wall clock time.
+            For more details, see
             :obj:`numpy.random.RandomState`.
 
         Returns
@@ -852,8 +857,12 @@ def coefficients(
             'the resampling')
     elif numboot > 1:
         log.info('Bootstrapping {} replicas'.format(numboot))
-        if seed is not None:
-            log.debug('seeding to {}'.format(seed))
+        log.debug('coefficients() seeding to {}'.format(seed))
+        if seed is None:
+            pass
+        elif seed == 'random':
+            np.random.seed(None)
+        else:
             np.random.seed(seed)
 
         bscoefficients    = np.zeros(shape=(numboot, numsteps), dtype='float64')
@@ -1258,7 +1267,7 @@ def fit(
     ignoreweights=True,
     numboot=0,
     quantiles=None,
-    seed=10815,
+    seed=101,
     desc=None,
     description=None):
     """
@@ -1311,7 +1320,7 @@ def fit(
         numboot : int, optional
             Number of bootstrap samples to compute errors from. Default is 0
 
-        seed : int or None, optional
+        seed : int, None or 'random', optional
             If `numboot` is not zero, provide a seed for the random number
             generator. If ``seed=None``, seeding will be skipped.
             Per default, the rng is (re)seeded everytime `fit()` is called so
@@ -1604,8 +1613,13 @@ def fit(
         else:
             log.info('Bootstrapping {} replicas ({} fits each)'.format(
                 numboot, len(fitpars)))
-            if seed is not None:
-                log.debug('seeding to {}'.format(seed))
+
+            log.debug('fit() seeding to {}'.format(seed))
+            if seed is None:
+                pass
+            elif seed == 'random':
+                np.random.seed(None)
+            else:
                 np.random.seed(seed)
 
             bstau = np.full(numboot+1, np.nan)
@@ -2722,23 +2736,25 @@ def _prerror(f, ferr, errprec=2, maxprec=5):
 # Wrapper function
 # ------------------------------------------------------------------ #
 
-def new_wrapper(
+def full_analysis(
     data,
     dt,
     kmax=None,
     dtunit=' time unit',
-    fitfunctions=None,
+    fitfuncs=None,
     coefficientmethod=None,
     tmin=None,                      # include somehow into 'missing' req. arg
     tmax=None,
     steps=None,                     # dt conversion? optional replace tmin/tmax
     substracttrialaverage=False,
     numboot='auto',                 # optional. default depends on fitfunc
-    seed='auto',                    # default: reseed to random on every call
+    seed=1,                         # default: 1 uses hard coded seeds
     targetdir=None,
-    title=None,                     # overwrites if not None
+    title=None,                     # overwrites old files in same targetdir
     loglevel=None,                  # only concerns local logfile
     targetplot=None,
+    showoverview=True,
+    saveoverview=False,
     ):
 
     """
@@ -2758,7 +2774,7 @@ def new_wrapper(
                 log.removeHandler(hdlr)
 
     if kmax is None and tmax is None and steps is None:
-        log.exception("new_wrapper() requires one of the following keyword" +
+        log.exception("full_analysis() requires one of the following keyword" +
             "arguments: 'kmax', 'tmax' or 'steps'")
         raise TypeError
 
@@ -2790,15 +2806,20 @@ def new_wrapper(
             # open new handler and add it to logging module
             loghandler = logging.handlers.RotatingFileHandler(
                 targetdir+'/{}.log'.format(
-                    'new_wrapper' if title is None else title, 'a'),
+                    'full_analysis' if title is None else title, 'a'),
                 maxBytes=5*1024*1024, backupCount=1)
             loghandler.setLevel(logging.getLevelName(loglevel))
             loghandler.setFormatter(CustomExceptionFormatter(
                 '%(asctime)s %(levelname)8s: %(message)s',
                 "%Y-%m-%d %H:%M:%S"))
             log.addHandler(loghandler)
+    else:
+        if saveoverview:
+            log.warning("Cannot save overview since no targetdir specified, "+\
+                "skipping")
 
-    log.debug("new_wrapper()")
+
+    log.debug("full_analysis()")
     if (_log_locals):
         log.debug('Locals: {}'.format(locals()))
 
@@ -2822,7 +2843,8 @@ def new_wrapper(
                 log.exception("Argument 'kmax' needs to be a number > 0")
                 raise
             if tmax is not None:
-                log.exception("Arguments do not match: Please provide either 'kmax' or 'tmin' and 'tmax' or 'steps'")
+                log.exception("Arguments do not match: Please provide either"+\
+                    " 'kmax' or 'tmin' and 'tmax' or 'steps'")
                 raise TypeError
             else:
                 tmax = kmax*dt
@@ -2839,18 +2861,20 @@ def new_wrapper(
         steps = (int(tmin/dt), int(tmax/dt))
     else:
         if tmin is not None or tmax is not None or kmax is not None:
-            log.exception("Arguments do not match: Please provide either 'kmax' or 'tmin' and 'tmax' or 'steps'")
+            log.exception("Arguments do not match: Please provide either "+\
+                "'kmax' or 'tmin' and 'tmax' or 'steps'")
             raise TypeError
-        log.debug("Argument 'steps' was provided to new_wrapper()")
+        log.debug("Argument 'steps' was provided to full_analysis()")
 
     defaultfits = False
-    if fitfunctions is None:
-        fitfunctions = ['e', 'eo']
+    if fitfuncs is None:
+        fitfuncs = ['e', 'eo']
         defaultfits = True
-    elif isinstance(fitfunctions, str):
-        fitfunctions = [fitfunctions]
-    if not isinstance(fitfunctions, list):
-        log.exception("Argument 'fitfunctions' needs to be of type 'str' or " + "a list e.g. ['exponential', 'exponential_offset']")
+    elif isinstance(fitfuncs, str):
+        fitfuncs = [fitfuncs]
+    if not isinstance(fitfuncs, list):
+        log.exception("Argument 'fitfuncs' needs to be of type 'str' or " +\
+            "a list e.g. ['exponential', 'exponential_offset']")
         raise TypeError
 
     if coefficientmethod is None:
@@ -2867,7 +2891,8 @@ def new_wrapper(
             "to be an instance of 'matplotlib.axes.Axes'")
         raise TypeError
 
-    title = str(title)
+    if title is not None:
+        title = str(title)
 
     if (_log_locals):
         log.debug('Finished argument check. Locals: {}'.format(locals()))
@@ -2881,38 +2906,36 @@ def new_wrapper(
     if substracttrialaverage:
         src = src - np.mean(src, axis=0)
 
-    # seed once and make sure subfunctions dont reseed by providing seed=None
-    log.debug('seeding to {}'.format(seed))
-    if seed == 'auto':
-        np.random.seed(None)
-    elif seed is None:
-        pass
+    log.debug('full_analysis() seeding to {}'.format(seed))
+    if seed is None or seed == 'random':
+        rkseed = seed
+        ftseed = seed
     else:
-        np.random.seed(seed)
-    seed = None
+        rkseed = seed*5330
+        ftseed = seed*101
 
     if numboot == 'auto':
-        nbt = 250
+        nbt = 100
     else:
         nbt = numboot
     rks =coefficients(
         src, steps, dt, dtunit, method=coefficientmethod,
-        numboot=nbt, seed=seed)
+        numboot=nbt, seed=rkseed)
 
     fits = []
-    for f in fitfunctions:
+    for f in fitfuncs:
         if numboot == 'auto':
             if _fitfunc_check(f) is f_exponential or \
                 _fitfunc_check(f) is f_exponential_offset:
-                nbt = 250
+                nbt = 100
             elif _fitfunc_check(f) is f_complex:
                 nbt = 0
             else:
-                nbt = 250
+                nbt = 100
         else:
             nbt = numboot
         fits.append(fit(data=rks, fitfunc=f, steps=steps,
-            numboot=nbt, seed=seed))
+            numboot=nbt, seed=ftseed))
 
     # ------------------------------------------------------------------ #
     # Output and Consistency Checks
@@ -2931,20 +2954,42 @@ def new_wrapper(
             # warning = 'Exponential with offset resulted in ' + \
             #     '$\\tau = {:.2f}$ {}'.format(fits[1].tau, fits[1].dtunit)
             warning = 'Results from other fits differed beyond confidence.\n'+\
-                "Try the 'fitfunctions' argument!"
-
-        overview(src, [rks], shownfits, title=title, warning=warning)
+                "Try the 'fitfuncs' argument!"
     else:
         shownfits = fits
-        overview(src, [rks], shownfits, title=title)
+        warning = None
+
+    if showoverview or saveoverview:
+        panel = overview(src, [rks], shownfits, title=title,
+            warning=warning)
 
     res = OutputHandler([rks]+shownfits, ax=targetplot)
+
+    if targetdir is not None:
+        if (title is not None and title != ''):
+            res.save(targetdir+"/"+title)
+            if saveoverview:
+                panel.savefig(targetdir+"/"+title+"_overview.pdf")
+        else:
+            res.save(targetdir+"/full_analysis")
+            if saveoverview:
+                panel.savefig(targetdir+"/full_analysis_overview.pdf")
+
+    if showoverview:
+        panel.show()
+    elif saveoverview:
+        # if interactive mode is on, panel would still be shown
+        try:
+            plt.close(panel)
+        except:
+            log.debug('Exception passed', exc_info=True)
+
     try:
         log.removeHandler(loghandler)
     except:
         log.debug('No handler to remove')
 
-    log.info("new_wrapper() done")
+    log.info("full_analysis() done")
     return res
 
 
@@ -3114,457 +3159,6 @@ def overview(src, rks, fits, **kwargs):
     return fig
 
 
-def full_analysis(
-    data,
-    targetdir,                      # function output into target dir? optional
-    title,                          # this overwrites, makes sense
-    dt,
-    dtunit,
-    fitfunctions,
-    tmin=None,                      # include somehow into 'missing' req. arg
-    tmax=None,
-    coefficientmethod=None,
-    substracttrialaverage=False,    # optional. default=? mre treff
-    numboot='auto',                 # optional. default depends on fitfunc?
-    seed='auto',                    # default: reseed to random on every call
-    loglevel=None,                  # optional. local file and console
-    steps=None,                     # dt conversion? optional replace tmin/tmax
-    targetplot=None,
-    ):
-    """
-        Wrapper function that performs the following four steps:
-
-        - check `data` with `input_handler()`
-        - calculate correlation coefficients via `coefficients()`
-        - fit autocorrelation function with `fit()`
-        - export/plot using the `OutputHandler`
-
-        Usually it should suffice to tweak the arguments and call the
-        wrapper function (multiple times).
-        Calling the underlying functions individually
-        gives slightly more control, though.
-
-        Parameters
-        ----------
-        data: str, list or numpy.ndarray
-            Passed to `input_handler()`. Ideally, import and check data first.
-            A `string` is assumed to be the path
-            to file(s) that is then imported as pickle or plain text.
-            Alternatively, you can provide a `list` or `ndarray` containing
-            strings or already imported data. In the latter case,
-            `input_handler()` attempts to convert it to the right format.
-
-        targetdir: str
-            String containing the path to the target directory where files
-            are saved with the filename `title`
-
-        title: str
-            String for the filenames. Also sets the main title of the
-            results figure.
-
-        dt: float
-            How many `dtunits` separate the measurements of the provided data.
-            For example, if measurements are taken every 4ms:
-            `dt=4`, `dtunit=\'ms\'`.
-
-        dtunit: str
-            Unit description/name of the time steps of the provided data.
-
-        tmin: float
-            Smallest time separation to use for coefficients, in units of
-            `dtunit`.
-
-        tmax: float
-            Maximum time separation to use for coefficients.
-            For example, to fit the autocorrelation between 8ms and
-            2s set: `tmin=8`, `tmax=2000`, `dtunit=\'ms\'`
-            (independent of `dt`).
-
-        Other Parameters
-        ----------------
-        coefficientmethod: str, optional
-            `ts` or `sm`, method used for determining the correlation
-            coefficients. See the :func:`coefficients` function for details.
-            Default is `ts`.
-
-        substracttrialaverage: bool, optional
-            Substract the average across all trials before calculating
-            correlation coefficients.
-            Default is `False`.
-
-        numboot: int, optional
-            Number of bootstrap samples to draw.
-            This repeats every fit `numboot` times so that we can
-            provide an uncertainty estimate of the resulting branching
-            parameter and autocorrelation time.
-            Per default, bootstrapping is only applied in
-            `coefficeints()` as most of computing time is needed for the
-            fitting. Thereby we have uncertainties on the :math:`r_k`
-            (which will be plotted) but each fit is only
-            done once.
-            Default is `numboot=0`.
-
-        loglevel: str
-            The loglevel to use for console output and the logfile created
-            as `title.log` in the `targetdir`.
-            'ERROR', 'WARNING', 'INFO' or 'DEBUG'.
-            Per default inherited from the current mre console level,
-            (usually 'INFO', if not changed by the user).
-
-        steps : ~numpy.array, optional
-            Overwrites `tmin` and `tmax`.
-            Specify the fitrange in steps :math:`k` for which to compute
-            coefficients :math:`r_k`.
-            Note that :math:`k` provided here would need
-            to be multiplied with units of [`dt` * `dtunit`] to convert
-            back to (real) time.
-            If an array of length two is provided, e.g.
-            ``steps=(minstep, maxstep)``, all enclosed integer values will be
-            used.
-            Arrays larger than two are assumed to contain a manual choice of
-            steps. Strides other than one are possible.
-            Default is `None`.
-
-        targetplot: `matplotlib.axes.Axes`, optional
-            You can provide a matplotlib axes element (i.e. a subplot of an
-            existing figure) to plot the correlations into.
-            The axis will be passed to the `OutputHandler`
-            and all plotting will happen within that axes.
-            Per default, a new figure is created - that cannot be added
-            as a subplot to any other figure later on. This is due to
-            the way matplotlib handles subplots.
-
-        Returns
-        -------
-        OutputHandler
-            that is associated
-            with the correlation plot, fits and coefficients.
-            Also saves meta data and plotted pdfs to `targetdir`.
-
-        Example
-        -------
-
-        .. code-block:: python
-
-            # test data, subsampled branching process
-            bp = mre.simulate_branching(m=0.95, h=10, subp=0.1, numtrials=50)
-
-            mre.full_analysis(
-                data=bp,
-                targetdir='./output',
-                title='Branching Process',
-                dt=1, dtunit='step',
-                tmin=0, tmax=1500,
-                fitfunctions=['exp', 'exp_offs', 'complex'],
-                )
-
-            plt.show()
-        ..
-    """
-
-    # ------------------------------------------------------------------ #
-    # check arguments: rather strictly until we tested more cases
-    # ------------------------------------------------------------------ #
-
-    if isinstance(targetdir, str):
-        td = os.path.abspath(os.path.expanduser(targetdir+'/'))
-        os.makedirs(td, exist_ok=True)
-        targetdir = td
-    else:
-        log.exception("Argument 'targetdir' needs to be of type 'str'")
-        raise TypeError
-    if not isinstance(title, str):
-        log.exception("Argument 'title' needs to be of type 'str'")
-        raise TypeError
-
-    # setup log early so argument errors appear in the logfile
-    oldloglevel = _logstreamhandler.level
-    if loglevel is None:
-        # use console level if no argument set
-        loglevel = oldloglevel
-    elif isinstance(loglevel, int) and loglevel > 0:
-        pass
-    elif str(loglevel).upper() in ['ERROR', 'WARNING', 'INFO', 'DEBUG']:
-        loglevel = str(loglevel).upper()
-    else:
-        log.debug("Unrecognized log level {}, using 'INFO'".format(loglevel))
-        loglevel = 'INFO'
-
-    # workaround: if full_analysis() does not reach its end where we remove
-    # the local loghandler, it survives and keps logging with the old level
-    for hdlr in log.handlers:
-        if isinstance(hdlr, logging.FileHandler):
-            if hdlr != _logfilehandler:
-                hdlr.close()
-                log.removeHandler(hdlr)
-
-    _logstreamhandler.setLevel(logging.getLevelName(loglevel))
-    loghandler = logging.FileHandler(targetdir+'/'+title+'.log', 'w')
-    loghandler.setLevel(logging.getLevelName(loglevel))
-    loghandler.setFormatter(CustomExceptionFormatter(
-        '%(asctime)s %(levelname)8s: %(message)s', "%Y-%m-%d %H:%M:%S"))
-    log.addHandler(loghandler)
-
-    log.debug("full_analysis()")
-    if (_log_locals):
-        log.debug('Locals: {}'.format(locals()))
-    try:
-        dt = float(dt)
-        assert(dt>0)
-    except Exception as e:
-        log.exception("Argument 'dt' needs to be a float > 0")
-        raise
-    if not isinstance(dtunit, str):
-        log.exception("Argument 'dtunit' needs to be of type 'str'")
-        raise TypeError
-
-    if steps is None:
-        try:
-            tmin=float(tmin)
-            tmax=float(tmax)
-            assert(tmin>=0 and tmax>tmin)
-        except Exception as e:
-            log.exception("Required arguments: 'tmax' and 'tmin' " +
-                "need to be floats with 'tmax' > 'tmin' >= 0")
-            raise
-        steps = (int(tmin/dt), int(tmax/dt))
-    else:
-        log.info("Argument 'steps' was provided to full_analysis(), " +
-            "ignoring 'tmin' and 'tmax'")
-
-    if fitfunctions is None:
-        log.exception("Missing required argument 'fitfunctions'")
-        raise TypeError
-    elif not isinstance(fitfunctions, list):
-        log.exception("Argument 'fitfunctions' needs to be a list e.g. " +
-            "['exponential', 'exponential_offset']")
-        raise TypeError
-
-    if numboot != 'auto':
-        try:
-            numboot = int(numboot)
-            assert(numboot >= 0)
-        except Exception as e:
-            log.exception(
-                "Optional argument 'numboot' needs to be an int >= 0")
-            raise
-
-    if coefficientmethod is not None and coefficientmethod not in [
-    'trialseparated', 'ts', 'stationarymean', 'sm']:
-        log.exception("Optional argument 'coefficientmethod' needs " +
-            "to be either 'trialseparated' or 'stationarymean'")
-        raise TypeError
-
-    if targetplot is not None \
-    and not isinstance(targetplot, matplotlib.axes.Axes):
-        log.exception("Optional argument 'targetplot' needs " +
-            "to an instance of 'matplotlib.axes.Axes'")
-        raise TypeError
-
-    # ------------------------------------------------------------------ #
-    # Continue with trusted arguments
-    # ------------------------------------------------------------------ #
-
-    src = input_handler(data)
-
-    # if targetdir is not None:
-        # set_targetdir(targetdir)
-
-    if substracttrialaverage:
-        src = src - np.mean(src, axis=0)
-
-    # seed once and make sure subfunctions dont reseed by providing seed=None
-    log.debug('seeding to {}'.format(seed))
-    if seed == 'auto':
-        np.random.seed(None)
-    elif seed is None:
-        pass
-    else:
-        np.random.seed(seed)
-
-    seed = None
-
-    rks = []
-    # dont like this. only advantage of giving multiple methods is that
-    # data does not need to go through input handler twice.
-    for c in [coefficientmethod]:
-        if numboot == 'auto':
-            nbt = 250
-        else:
-            nbt = numboot
-        rks.append(coefficients(
-            src, steps, dt, dtunit, method=c, numboot=nbt, seed=seed))
-
-    fits = []
-    for f in fitfunctions:
-        if numboot == 'auto':
-            if _fitfunc_check(f) is f_exponential or \
-                _fitfunc_check(f) is f_exponential_offset:
-                nbt = 250
-            elif _fitfunc_check(f) is f_complex:
-                nbt = 0
-            else:
-                nbt = 250
-        else:
-            nbt = numboot
-        for rk in rks:
-            fits.append(fit(data=rk, fitfunc=f, steps=steps, numboot=nbt,
-                seed=seed))
-
-    # ------------------------------------------------------------------ #
-    # Plotting
-    # ------------------------------------------------------------------ #
-
-    # ratios = np.ones(4)*.75
-    # ratios[3] = 0.25
-    ratios=None
-    # A4 in inches, should check rc params in the future
-    # matplotlib changes the figure size when modifying subplots
-    topshift = 0.925
-    fig, axes = plt.subplots(nrows=4, figsize=(8.27, 11.69*topshift),
-        gridspec_kw={"height_ratios":ratios})
-
-    # avoid huge file size for many trials due to separate layers.
-    # everything below 0 gets rastered to the same layer.
-    axes[0].set_rasterization_zorder(0)
-
-    tsout = OutputHandler(ax=axes[0])
-    tsout.add_ts(src, label='Trials')
-    if (src.shape[0] > 1):
-        try:
-            prevclr = plt.rcParams["axes.prop_cycle"].by_key()["color"][0]
-        except Exception:
-            prevclr = 'navy'
-            log.debug('Exception getting color cycle', exc_info=True)
-        tsout.add_ts(np.mean(src, axis=0), color=prevclr, label='Average')
-    else:
-        tsout.ax.legend().set_visible(False)
-
-    tsout.ax.set_title('Time Series (Input Data)')
-    tsout.ax.set_xlabel('t [{}{}]'.format(_printeger(dt), dtunit))
-
-    if (src.shape[0] > 1):
-        # average trial activites as function of trial number
-        taout = OutputHandler(rks[0].trialactivities, ax=axes[1])
-        try:
-            err1 = rks[0].trialactivities - np.sqrt(rks[0].trialvariances)
-            err2 = rks[0].trialactivities + np.sqrt(rks[0].trialvariances)
-            prevclr = plt.rcParams["axes.prop_cycle"].by_key()["color"][0]
-            taout.ax.fill_between(
-                np.arange(1, rks[0].numtrials+1), err1, err2,
-                color=prevclr, alpha=0.2)
-        except Exception as e:
-            log.debug('Exception adding std deviation to plot', exc_info=True)
-        taout.ax.set_title('Mean Trial Activity and Std. Deviation')
-        taout.ax.set_xlabel('Trial i')
-        taout.ax.set_ylabel('$\\bar{A}_i$')
-    else:
-        # running average over the one trial to see if stays stationary
-        numsegs = 50
-        ravg = np.zeros(numsegs)
-        err1 = np.zeros(numsegs)
-        err2 = np.zeros(numsegs)
-        seglen = int(src.shape[1]/numsegs)
-        for s in range(numsegs):
-            temp = np.mean(src[0][s*seglen : (s+1)*seglen])
-            ravg[s] = temp
-            stddev = np.sqrt(np.var(src[0][s*seglen : (s+1)*seglen]))
-            err1[s] = temp - stddev
-            err2[s] = temp + stddev
-
-        taout = OutputHandler(ravg, ax=axes[1])
-        try:
-            prevclr = plt.rcParams["axes.prop_cycle"].by_key()["color"][0]
-            taout.ax.fill_between(
-                np.arange(1, numsegs+1), err1, err2,
-                color=prevclr, alpha=0.2)
-        except Exception as e:
-            log.debug('Exception adding std deviation to plot', exc_info=True)
-        taout.ax.set_title(
-            'Average Activity and Stddev for {} Intervals'.format(numsegs))
-        taout.ax.set_xlabel('Interval i')
-        taout.ax.set_ylabel('$\\bar{A}_i$')
-
-
-    cout = OutputHandler(rks+fits, ax=axes[2])
-
-    # get some visual results
-    fitcurves = []
-    fitlabels = []
-    for i, f in enumerate(cout.fits):
-        fitcurves.append(cout.fitcurves[i][0])
-        label = math_from_doc(f.fitfunc, 5)
-        label += '\n\n$\\tau={:.2f}${}\n'.format(f.tau, f.dtunit)
-        if f.tauquantiles is not None:
-            label += '$[{:.2f}:{:.2f}]$\n\n' \
-                .format(f.tauquantiles[0], f.tauquantiles[-1])
-        else:
-            label += '\n\n'
-        label += '$m={:.5f}$\n'.format(f.mre)
-        if f.mrequantiles is not None:
-            label +='$[{:.5f}:{:.5f}]$' \
-                .format(f.mrequantiles[0], f.mrequantiles[-1])
-        else:
-            label += '\n'
-        fitlabels.append(label)
-
-
-    tempkwargs = {
-        # 'title': 'Fitresults',
-        'ncol': len(fitlabels),
-        'loc': 'upper center',
-        'mode': 'expand',
-        'frameon': True,
-        'markerfirst': True,
-        'fancybox': False,
-        # 'framealpha': 1,
-        'borderaxespad': 0,
-        'edgecolor': 'black',
-        # hide handles
-        'handlelength': 0,
-        'handletextpad': 0,
-        }
-    try:
-        axes[3].legend(fitcurves, fitlabels, **tempkwargs)
-    except Exception:
-        log.debug('Exception passed', exc_info=True)
-        del tempkwargs['edgecolor']
-        axes[3].legend(fitcurves, fitlabels, **tempkwargs)
-
-    # hide handles
-    for handle in axes[3].get_legend().legendHandles:
-        handle.set_visible(False)
-
-    # center text
-    for t in axes[3].get_legend().texts:
-        t.set_multialignment('center')
-
-    axes[3].get_legend().get_frame().set_linewidth(0.5)
-    axes[3].axis('off')
-    axes[3].set_title('Fitresults\n[$12.5\\%$:$87.5\\%$]')
-    for a in axes:
-        a.xaxis.set_tick_params(width=0.5)
-        a.yaxis.set_tick_params(width=0.5)
-        for s in a.spines:
-            a.spines[s].set_linewidth(0.5)
-
-    fig.tight_layout(h_pad=2.0)
-    plt.subplots_adjust(top=topshift)
-    if (title is not None and title != ''):
-        fig.suptitle(title+'\n', fontsize=14)
-    else:
-        title = 'Results_auto\n'
-
-    cout.save(targetdir+'/'+title, 'pdf', dpi=300)
-
-    # return a handler only containing the result
-    res = OutputHandler(rks+fits, ax=targetplot)
-    log.info("full_analysis() done")
-    _logstreamhandler.setLevel(oldloglevel)
-    log.removeHandler(loghandler)
-    return res
-
-
 # ------------------------------------------------------------------ #
 # Logging customization
 # ------------------------------------------------------------------ #
@@ -3643,8 +3237,10 @@ def _exception_test(kwargs):
 def _set_permissions(fname, permissions=None):
 
     try:
-        log.debug('Trying to set permissions of %s to %s',
-            fname, 'defaults' if permissions is None else str(permissions))
+        log.debug('Trying to set permissions of %s (%s) to %s',
+            fname,
+            oct(os.stat(fname)[stat.ST_MODE])[-3:],
+            'defaults' if permissions is None else str(permissions))
         dirusr = os.path.abspath(os.path.expanduser('~'))
         if permissions is None:
             if not fname.startswith(dirusr):
@@ -3654,7 +3250,7 @@ def _set_permissions(fname, permissions=None):
     except Exception as e:
         log.debug('Unable set permissions of {}'.format(fname))
 
-    log.debug('%s now has permissions %s',
+    log.debug('%s (now) has permissions %s',
         fname, oct(os.stat(fname)[stat.ST_MODE])[-3:])
 
 def set_targetdir(fname=None, permissions=None):
