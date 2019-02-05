@@ -2795,7 +2795,8 @@ def full_analysis(
             Unit description/name of the time steps of the provided data.
 
         fitfuncs: list, optional
-            Which fitfunctions to use e.g. ``fitfuncs=['e', 'eo', 'c']``
+            Which fitfunctions to use e.g. ``fitfuncs=['e', 'eo', 'c']``.
+            Renamed from `fitfunctions` in v0.1.4.
 
         coefficientmethod: str, optional
             `ts` or `sm`, method used for determining the correlation
@@ -2906,14 +2907,11 @@ def full_analysis(
             mre.full_analysis(
                 data=bp,
                 dt=1,
-                dtunit='step',
                 tmin=0, tmax=1500,
-                fitfunctions=['exp', 'exp_offs', 'complex'],
+                dtunit='step',
+                fitfuncs=['exp', 'exp_offs', 'complex'],
                 targetdir='./output',
-                title='Branching Process',
-                )
-
-            plt.show()
+                title='Branching Process')
         ..
     """
 
