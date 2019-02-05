@@ -1,29 +1,31 @@
 Changelog
 =========
 
-[v0.1.4](https://pypi.org/project/mrestimator/0.1.4) (29.01.2019)
+[v0.1.4](https://pypi.org/project/mrestimator/0.1.4) (05.02.2019)
 -----------------------------------------------------------------
-* __Fixed__: when calling branching process with `subp` and providing a seed, the subsampling no longer reseeds the rng device. (hence every call produces the same outcome, as expected)
-* __Fixed__: `simulate_subsampling()` now returns np arrays of correct dimensions
 * __Changed__: `full_analysis()` argument `fitfunctions` renamed to `fitfuncs` to be consistent with `fit()` and `coefficients()`
 * __Changed__: `full_analysis()` was rewritten, now only has three required arguments: `data`, `dt` and `kmax`, where `kmax` can be substituted by `steps` or `tmax`.
 * __Changed__: concerning the `seed` argument for various functions:
 all functions take either `seed=None` (no reseeding), `seed='random'` (reseeding to a random value - causing irreproducible resaults) or to a fixed value `seed=int(yourseed)`.
 Per default, analysis functions - `full_analysis()`, `fit()` and `coefficients()` - produce same results by seeding to a fixed value each call. (only confidence intervals are affected by seeding)
 Per default, `simulate_branching()` and `simulate_subsampling()` seed to `random`.
+* __Fixed__: when calling branching process with `subp` and providing a seed, the subsampling no longer reseeds the rng device. (hence every call produces the same outcome, as expected)
+* __Fixed__: `simulate_subsampling()` now returns np arrays of correct dimensions
+* __New__: `full_analysis()` now shows a warning in the overview panel if consistency checks fail (so far only one).
+* __New__: Version number is printed into the overview panel of `full_analysis()` and into saved meta data
 
 [v0.1.3](https://pypi.org/project/mrestimator/0.1.3) (16.01.2019)
 -----------------------------------------------------------------
 
 This is a bugfix version in preparation for the wrapper rewrite in 0.1.4.
 
+* __Changed__: If no `steps` are provided to `coefficients()`, the default maxstep is (for now) 1/10 of the trial length. (Was hard coded to 1500 before)
+* __Changed__: Default logs are less verbose to be clearer. The new function `mre._enable_detailed_logging()` enables fully detailed output to console and logfile. This also calls the two new switches, see next point. `mre._enable_detailed_logging()` also enables console display of runtime warnings that are usually only printed into the log.
 * __Fixed__: Crash due to logfiles. If the toolbox was used by more than one user on one machine, the logfile created in the temporary directory could not be overwritten by other users. We now try to set file permissions of the logfile and target directory to `777` if they are not subfolders of the user folder. Also, per default, each user gets their own directory `/tmp/mre_username`. Logfilehandler is now rotating and creates a maximum of 10 logfiles, 50mb each.
 * __Fixed__: `full_analysis()` no longer crashes with `substracttrialaverage=True` when the provided input is of integer type.
 * __Fixed__: `fit()` now returns a (mostly empty) `FitResult` when no fit converged instead of raising an exception. Helps with scripts that run multiple fits. The returned FitResult works with the OutputHandler in default settings and a note about the failed fit is added to the description and meta data.
 * __Fixed__: Calling `coefficients()` with custom steps e.g. `steps=np.arange(0,100,5)` is more robust and does not crash due to `steps < 1`. Incorrect entries are replaced.
 * __Fixed__: `OutputHandler` now has a deconstructor that closes the matplotlib figure if it was not provided as an arugment. Hence, opening many handlers (e.g. by reassigning a variable in a loop `o = mre.OutputHandler()`) does not keep the figure after reusing the variable. This used to cause a warning: `More than 20 figures have been opened.`
-* __Changed__: If no `steps` are provided to `coefficients()`, the default maxstep is (for now) 1/10 of the trial length. (Was hard coded to 1500 before)
-* __Changed__: Default logs are less verbose to be clearer. The new function `mre._enable_detailed_logging()` enables fully detailed output to console and logfile. This also calls the two new switches, see next point. `mre._enable_detailed_logging()` also enables console display of runtime warnings that are usually only printed into the log.
 * __New__: Enable logging of function arguments to console _and_ logfile with `mre._log_locals = True`. Enable logging of stack traces to logfile via `mre._log_trace = True`. (Avoiding the console printout of stack traces on exceptions is not feasible at the moment). Per default, both options are `False`.
 
 
