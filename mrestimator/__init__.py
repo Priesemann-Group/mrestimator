@@ -2605,7 +2605,7 @@ class OutputHandler:
 
         log.info('Saving meta to {}.tsv'.format(fname))
         # fits
-        hdr = ''
+        hdr = 'Mr. Estimator v{}\n'.format(__version__)
         try:
             for fdx, fit in enumerate(self.fits):
                 hdr += '{}\n'.format('-'*72)
@@ -3312,6 +3312,10 @@ def overview(src, rks, fits, **kwargs):
             horizontalalignment='center',
             color='red')
 
+    fig.text(.995,.005, 'v{}'.format(__version__),
+            fontsize=8,
+            horizontalalignment='right',
+            color='silver')
     return fig
 
 
