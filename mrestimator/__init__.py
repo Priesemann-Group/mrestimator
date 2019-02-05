@@ -402,9 +402,9 @@ def simulate_subsampling(data, prob=0.1, seed='random'):
         np.random.seed(None)
     else:
         np.random.seed(seed)
-
     # binomial subsampling, seed = None does not reseed global instance
-    return scipy.stats.binom.rvs(data.astype(int), prob, random_state=seed)
+    return scipy.stats.binom.rvs(data.astype(int), prob, random_state=seed,
+        size=data.shape)
 
 # ------------------------------------------------------------------ #
 # Coefficients

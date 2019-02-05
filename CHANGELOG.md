@@ -4,8 +4,9 @@ Changelog
 [v0.1.4](https://pypi.org/project/mrestimator/0.1.4) (29.01.2019)
 -----------------------------------------------------------------
 * __Fixed__: when calling branching process with `subp` and providing a seed, the subsampling no longer reseeds the rng device. (hence every call produces the same outcome, as expected)
-* __Changed__: `full_analysis()` was rewritten, now only has three required arguments: `data`, `dt` and `kmax`, where `kmax` can be substituted by `steps` or `tmax`.
+* __Fixed__: `simulate_subsampling()` now returns np arrays of correct dimensions
 * __Changed__: `full_analysis()` argument `fitfunctions` renamed to `fitfuncs` to be consistent with `fit()` and `coefficients()`
+* __Changed__: `full_analysis()` was rewritten, now only has three required arguments: `data`, `dt` and `kmax`, where `kmax` can be substituted by `steps` or `tmax`.
 * __Changed__: concerning the `seed` argument for various functions:
 all functions take either `seed=None` (no reseeding), `seed='random'` (reseeding to a random value - causing irreproducible resaults) or to a fixed value `seed=int(yourseed)`.
 Per default, analysis functions - `full_analysis()`, `fit()` and `coefficients()` - produce same results by seeding to a fixed value each call. (only confidence intervals are affected by seeding)
