@@ -664,13 +664,19 @@ def coefficients(
             The output is grouped and can be accessed
             using its attributes (listed below).
     """
+
+    # set precision of temporary results for numpy
+    # ftype = np.longdouble # very slow, maybe float64 is enough
+    ftype='float64'
+
     # ------------------------------------------------------------------ #
     # Check arguments to offer some more convenience
     # ------------------------------------------------------------------ #
     log.debug('coefficients() using \'{}\' method:'.format(method))
     if method is None:
         method = 'ts'
-    if method not in ['trialseparated', 'ts', 'stationarymean', 'sm']:
+    if method not in ['trialseparated', 'ts', 'stationarymean', 'sm',
+        'stationarymean_depricated', 'stationarymean_naive']:
         log.exception('Unknown method: "{}"'.format(method))
         raise NotImplementedError
     if method == 'ts':
@@ -774,12 +780,13 @@ def coefficients(
     trialcrs        = []
     bootstrapcrs    = []
     stderrs         = None
-    trialactivities = np.mean(data, axis=1)
-    trialvariances  = np.var(data, axis=1, ddof=1)
+    trialactivities = np.mean(data, axis=1, dtype=ftype)
+    trialvariances  = np.var(data, axis=1, ddof=1, dtype=ftype)
     coefficients    = None                    # set later
 
     if method == 'trialseparated':
-        tsmean         = np.mean(data, axis=1, keepdims=True)  # (numtrials, 1)
+        # (numtrials, 1)
+        tsmean         = np.mean(data, axis=1, keepdims=True, dtype=ftype)
         tsvar          = trialvariances
         tscoefficients = np.zeros(shape=(numtrials, numsteps), dtype='float64')
 
@@ -794,17 +801,20 @@ def coefficients(
             #     * ((numels-k)/(numels-k-1)) / tsvar
 
             # include supercritical case
-            frontmean = np.mean(data[:,  :-k], axis=1, keepdims=True)
-            frontvar  = np.var( data[:,  :-k], axis=1, ddof=1)
-            backmean  = np.mean(data[:, k:  ], axis=1, keepdims=True)
-            # backvar   = np.var( data[:, k:  ], axis=1, ddof=1)
+            frontmean = np.mean(data[:,  :-k], axis=1, keepdims=True,
+                dtype=ftype)
+            frontvar  = np.var( data[:,  :-k], axis=1, ddof=1,
+                dtype=ftype)  # speed this up
+            backmean  = np.mean(data[:, k:  ], axis=1, keepdims=True,
+                dtype=ftype)
+            # backvar   = np.var( data[:, k:  ], axis=1, ddof=1, dtype=ftype)
 
             tscoefficients[:, idx] = \
                 np.mean((data[:,  :-k] - frontmean) * \
-                        (data[:, k:  ] - backmean ), axis=1) \
+                        (data[:, k:  ] - backmean ), axis=1, dtype=ftype) \
                 * ((numels-k)/(numels-k-1)) / frontvar
 
-        coefficients = np.mean(tscoefficients, axis=0)
+        coefficients = np.mean(tscoefficients, axis=0, dtype=ftype)
 
         _logstreamhandler.terminator = "\n"
         log.info('{} time steps done'.format(numsteps))
@@ -823,27 +833,123 @@ def coefficients(
                 description     = tempdesc)
             trialcrs.append(temp)
 
-    elif method == 'stationarymean':
+    # old version, corrects bias but lin. regr. is calculated incorrectly
+    # not available to user, by default
+    elif method == 'stationarymean_depricated':
         smcoefficients    = np.zeros(numsteps, dtype='float64')   # (numsteps)
-        smmean = np.mean(trialactivities)                         # (1)
-        smvar  = np.mean((data[:]-smmean)**2)*(numels/(numels-1)) # (1)
+        smmean = np.mean(trialactivities, dtype=ftype)            # (1)
+        smvar  = np.mean((data[:]-smmean)**2, dtype=ftype) \
+            * (numels/(numels-1)) # (1)
+        # not sure if we really want bias correction, here, too
 
         # (x-mean)(y-mean) = x*y - mean(x+y) + mean*mean
         xty = np.empty(shape=(numsteps, numtrials))
         xpy = np.empty(shape=(numsteps, numtrials))
-        xtx = np.mean(data[:]*data[:], axis=1)                    # (numtrials)
+        xtx = np.mean(data[:]*data[:], axis=1, dtype=ftype)   # (numtrials)
         for idx, k in enumerate(steps):
             x = data[:, 0:-k]
             y = data[:, k:  ]
-            xty[idx] = np.mean(x * y, axis=1)
-            xpy[idx] = np.mean(x + y, axis=1)
+            xty[idx] = np.mean(x * y, axis=1, dtype=ftype)
+            xpy[idx] = np.mean(x + y, axis=1, dtype=ftype)
 
         for idx, k in enumerate(steps):
             smcoefficients[idx] = \
-                (np.mean(xty[idx, :] - xpy[idx, :] * smmean) \
+                (np.mean(xty[idx, :] - xpy[idx, :] * smmean, dtype=ftype) \
                 + smmean**2) / smvar * ((numels-k)/(numels-k-1))
 
         coefficients = smcoefficients
+
+    # corrected version, works for m>1
+    elif method == 'stationarymean':
+        smcoefficients    = np.zeros(numsteps, dtype='float64')   # (numsteps)
+
+
+        # x_y   = np.empty(shape=(numsteps, numtrials))
+        # x_my  = np.empty(shape=(numsteps, numtrials))
+        # y_mx  = np.empty(shape=(numsteps, numtrials))
+        # x_var = np.empty(shape=(numsteps))               # like frontvar
+        # mx    = np.empty(shape=(numsteps))
+        # my    = np.empty(shape=(numsteps))
+        # for idx, k in enumerate(steps):
+        #     x = data[:, 0:-k]
+        #     y = data[:, k:  ]
+        #     x_y[idx]   = np.mean(x * y, axis=1, dtype=ftype)
+        #     mx[idx]    = np.mean(x, dtype=ftype)
+        #     my[idx]    = np.mean(y, dtype=ftype)
+        #     x_my[idx]  = np.mean(x*my[idx], axis=1, dtype=ftype)
+        #     y_mx[idx]  = np.mean(y*mx[idx], axis=1, dtype=ftype)
+        #     # x_var[idx] = np.mean((x-mx[idx])**2)*((numels-k)/(numels-k-1))
+        #     x_var[idx] = np.var(x, dtype=ftype)
+
+        # for idx, k in enumerate(steps):
+        #     smcoefficients[idx] = (np.mean( \
+        #         x_y[idx, :] - x_my[idx, :] - y_mx[idx, :], dtype=mtype) \
+        #         + mx[idx]*my[idx]) / x_var[idx] * ((numels-k)/(numels-k-1))
+
+        # (x-mx)(y-my) = x*y + mx*my - my*x - mx*y
+        x_y   = np.empty(shape=(numsteps, numtrials))
+        mx    = np.empty(shape=(numsteps, numtrials))
+        my    = np.empty(shape=(numsteps, numtrials))
+        # x_var = np.empty(shape=(numsteps, numtrials))   # like frontvar
+
+        # precompute things that can be separated by trial and k
+        for idx, k in enumerate(steps):
+            x = data[:, 0:-k]
+            y = data[:, k:  ]
+            x_y  [idx] = np.mean(x * y,     axis=1, dtype=ftype)
+            mx   [idx] = np.mean(x,         axis=1, dtype=ftype)
+            my   [idx] = np.mean(y,         axis=1, dtype=ftype)
+            # x_var[idx] = np.var (x, ddof=1, axis=1, dtype=ftype)
+            # x_var[idx] = np.mean((x-mx[idx])**2)*((numels-k)/(numels-k-1))
+
+        for idx, k in enumerate(steps):
+            x = data[:, 0:-k]
+            y = data[:, k:  ]
+            mxk   = np.mean(mx[idx, :],    dtype=ftype)
+            myk   = np.mean(my[idx, :],    dtype=ftype)
+            y_mxk = np.mean(y*mxk, axis=1, dtype=ftype)
+            x_myk = np.mean(x*myk, axis=1, dtype=ftype)
+
+            smcoefficients[idx] = (np.mean( \
+                x_y[idx, :] - x_myk - y_mxk, dtype=ftype) \
+                + mxk*myk) \
+                / (np.mean((x-mxk)**2, dtype=ftype) * (x.size)/(x.size-1)) \
+                * ((numels-k)/(numels-k-1))
+                # / np.var(x, dtype=ftype, ddof=1) \
+                # * ((numels-k)/(numels-k-1)) \
+                # bias correction?
+
+            # print(f'{x.size} {numels-k}' )
+
+        coefficients = smcoefficients
+
+    # correct result, easier formula, but no precomputing needed for bootstrap
+    # not available to user, by default
+    elif method == 'stationarymean_naive':
+        tsmean         = np.mean(data, axis=1, keepdims=True,
+            dtype=ftype)  # (numtrials, 1)
+        tsvar          = trialvariances
+        smcoefficients = np.zeros(numsteps, dtype='float64')   # (numsteps)
+
+        for idx, k in enumerate(steps):
+            # # analogeous to trial separated
+            # frontmean = np.mean(data[:,  :-k], axis=1, keepdims=True)
+            # frontvar  = np.var( data[:,  :-k], axis=1, ddof=1)
+            # backmean  = np.mean(data[:, k:  ], axis=1, keepdims=True)
+            # # backvar   = np.var( data[:, k:  ], axis=1, ddof=1)
+
+            frontmean = np.mean(data[:,  :-k], keepdims=True, dtype=ftype)
+            frontvar  = np.var( data[:,  :-k], ddof=1, dtype=ftype)
+            backmean  = np.mean(data[:, k:  ], keepdims=True, dtype=ftype)
+
+            smcoefficients[idx] = \
+                np.mean((data[:,  :-k] - frontmean) * \
+                        (data[:, k:  ] - backmean ), dtype=ftype) \
+                * ((numels-k)/(numels-k-1)) / frontvar
+
+        coefficients = smcoefficients
+        # no bootstrap implemented
+        # numboot=0
 
     # ------------------------------------------------------------------ #
     # Bootstrapping
@@ -873,22 +979,58 @@ def coefficients(
                 log.info('{}/{} replicas'.format(tdx+1, numboot))
             choices = np.random.choice(np.arange(0, numtrials),
                 size=numtrials)
-            bsmean = np.mean(trialactivities[choices])
+            bsmean = np.mean(trialactivities[choices], dtype=ftype)
 
             if method == 'trialseparated':
-                bsvar = np.var(trialactivities[choices], ddof=1) # inconstitent
+                bsvar = np.var(trialactivities[choices], ddof=1,
+                    dtype=ftype) # inconstitent
                 bscoefficients[tdx, :] = \
-                    np.mean(tscoefficients[choices, :], axis=0)
+                    np.mean(tscoefficients[choices, :], axis=0, dtype=ftype)
 
-            elif method == 'stationarymean':
-                bsvar = (np.mean(xtx[choices])-bsmean**2) \
+            elif method == 'stationarymean_depricated':
+                bsvar = (np.mean(xtx[choices], dtype=ftype)-bsmean**2) \
                     * (numels/(numels-1))
+                # this seems wrong
 
                 for idx, k in enumerate(steps):
                     bscoefficients[tdx, idx] = \
                         (np.mean(xty[idx, choices] - \
                                  xpy[idx, choices] * bsmean) \
                         + bsmean**2) / bsvar * ((numels-k)/(numels-k-1))
+
+            elif method == 'stationarymean':
+                bsvar = np.var(trialactivities[choices], ddof=1,
+                    dtype=ftype) # inconstitent
+                # after correcting this method, bsmean changes with k.
+                # saving the value in trialactivities is misleading.
+                for idx, k in enumerate(steps):
+                    x = data[choices, 0:-k]
+                    y = data[choices, k:  ]
+                    mxk   = np.mean(mx[idx, choices], dtype=ftype)
+                    myk   = np.mean(my[idx, choices], dtype=ftype)
+                    y_mxk = np.mean(y*mxk, axis=1,    dtype=ftype)
+                    x_myk = np.mean(x*myk, axis=1,    dtype=ftype)
+
+                    bscoefficients[tdx, idx] = (np.mean( \
+                        x_y[idx, choices] - x_myk - y_mxk, dtype=ftype) \
+                        + mxk*myk) \
+                        / (np.mean((x-mxk)**2, dtype=ftype) \
+                            * (x.size)/(x.size-1)) \
+                        * ((numels-k)/(numels-k-1))
+
+            elif method == 'stationarymean_naive':
+                bsvar = np.var(trialactivities[choices], ddof=1,
+                    dtype=ftype) # inconstitent
+                for idx, k in enumerate(steps):
+                    frontmean = np.mean(data[choices,  :-k], keepdims=True, dtype=ftype)
+                    frontvar  = np.var( data[choices,  :-k], ddof=1, dtype=ftype)
+                    backmean  = np.mean(data[choices, k:  ], keepdims=True, dtype=ftype)
+
+                    bscoefficients[tdx, idx] = \
+                        np.mean((data[choices,  :-k] - frontmean) * \
+                                (data[choices, k:  ] - backmean ), dtype=ftype) \
+                        * ((numels-k)/(numels-k-1)) / frontvar
+
 
             tempdesc = 'Bootstrap Replica {}'.format(tdx)
             if description is not None:
@@ -907,7 +1049,7 @@ def coefficients(
         _logstreamhandler.terminator = "\n"
         log.info('{} bootstrap replicas done'.format(numboot))
 
-        stderrs = np.sqrt(np.var(bscoefficients, axis=0, ddof=1))
+        stderrs = np.sqrt(np.var(bscoefficients, axis=0, ddof=1, dtype=ftype))
         if (stderrs == stderrs[0]).all():
             stderrs = None
 
@@ -1813,6 +1955,11 @@ class OutputHandler:
         or, if not provided, creates a new figure.
         Most importantly, it also exports plaintext of the respective source
         material so figures are reproducible.
+
+        Note: If you want to have a live preview of the figures that are
+        automatically generated with matplotlib, you HAVE to assign the result
+        of `mre.OutputHandler()` to a variable. Otherwise, the created figures
+        are not retained and vanish instantly.
 
         Attributes
         ----------
