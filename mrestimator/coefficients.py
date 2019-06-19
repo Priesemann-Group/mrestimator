@@ -488,6 +488,7 @@ def coefficients(
 
         # (x-mx)(y-my) = x*y + mx*my - my*x - mx*y
         x_y   = np.empty(shape=(numsteps, numtrials))
+        x_x   = np.empty(shape=(numsteps, numtrials))
         mx    = np.empty(shape=(numsteps, numtrials))
         my    = np.empty(shape=(numsteps, numtrials))
         # x_var = np.empty(shape=(numsteps, numtrials))   # like frontvar
@@ -500,27 +501,25 @@ def coefficients(
             x = data[:, 0:-k]
             y = data[:, k:  ]
             x_y  [idx] = np.mean(x * y,     axis=1, dtype=ftype)
+            x_x  [idx] = np.mean(x * x,     axis=1, dtype=ftype)
             mx   [idx] = np.mean(x,         axis=1, dtype=ftype)
             my   [idx] = np.mean(y,         axis=1, dtype=ftype)
             # x_var[idx] = np.var (x, ddof=1, axis=1, dtype=ftype)
             # x_var[idx] = np.mean((x-mx[idx])**2)*((numels-k)/(numels-k-1))
 
         for idx, k in enumerate(steps):
-            x = data[:, 0:-k]
-            y = data[:, k:  ]
             mxk   = np.mean(mx[idx, :],    dtype=ftype)
             myk   = np.mean(my[idx, :],    dtype=ftype)
-            y_mxk = np.mean(y*mxk, axis=1, dtype=ftype)
-            x_myk = np.mean(x*myk, axis=1, dtype=ftype)
+
+            y_mxk = my[idx, :] * mxk
+            x_myk = mx[idx, :] * myk
 
             smcoefficients[idx] = (np.mean(
                 x_y[idx, :] - x_myk - y_mxk, dtype=ftype)
                 + mxk*myk) \
-                / np.mean((x-mxk)**2, dtype=ftype) #* (x.size)/(x.size-1)) \
-                #* ((numels-k)/(numels-k-1))
-                # / np.var(x, dtype=ftype, ddof=1) \
-                # * ((numels-k)/(numels-k-1)) \
-                # bias correction?
+                / np.mean(x_x[idx, :] - 2 * mx[idx, :] * mxk + mxk ** 2, dtype=ftype)
+
+
 
             # print(f'{x.size} {numels-k}' )
 
@@ -607,22 +606,20 @@ def coefficients(
                 # after correcting this method, bsmean changes with k.
                 # saving the value in trialactivities is misleading.
                 for idx, k in enumerate(steps):
-                    x = data[choices, 0:-k]
-                    y = data[choices, k:  ]
                     mxk   = np.mean(mx[idx, choices], dtype=ftype)
                     myk   = np.mean(my[idx, choices], dtype=ftype)
-                    y_mxk = np.mean(y*mxk, axis=1,    dtype=ftype)
-                    x_myk = np.mean(x*myk, axis=1,    dtype=ftype)
+                    y_mxk = my[idx, choices]*mxk
+                    x_myk = mx[idx, choices]*myk
+
 
                     bscoefficients[tdx, idx] = (np.mean( \
                         x_y[idx, choices] - x_myk - y_mxk, dtype=ftype) \
                         + mxk*myk) \
-                        / (np.mean((x-mxk)**2, dtype=ftype) \
-                            * (x.size)/(x.size-1)) \
-                        * ((numels-k)/(numels-k-1))
+                        / (np.mean(x_x[idx, choices]-2*mx[idx, choices]*mxk + mxk**2, dtype=ftype)) #\
+
 
             elif method == 'stationarymean_naive':
-                bsvar = np.var(trialactivities[choices], ddof=1,
+                bsvar = np.var(trialactivities[choices],
                     dtype=ftype) # inconstitent
                 for idx, k in enumerate(steps):
                     frontmean = np.mean(data[choices,  :-k], keepdims=True, dtype=ftype)
@@ -632,7 +629,7 @@ def coefficients(
                     bscoefficients[tdx, idx] = \
                         np.mean((data[choices,  :-k] - frontmean) * \
                                 (data[choices, k:  ] - backmean ), dtype=ftype) \
-                        * ((numels-k)/(numels-k-1)) / frontvar
+                         / frontvar
 
 
             tempdesc = 'Bootstrap Replica {}'.format(tdx)

@@ -13,6 +13,10 @@ print(__name__)
 from mrestimator.utility import log
 import mrestimator as mre
 
+#Currently not working...
+
+######################
+
 def calc_popt(fitfunc, k_arr, corr_arr, weights, bounds, startvalues, maxfev=None, try_only_once=False):
     k_arr = np.array(k_arr, dtype="float64")
     corr_arr = np.array(corr_arr, dtype="float64")
@@ -67,50 +71,6 @@ def calc_popt(fitfunc, k_arr, corr_arr, weights, bounds, startvalues, maxfev=Non
 
 
 
-def calc_corr_arr_stationary(activity_mat, k_arr):
-    average = np.mean(activity_mat)
-    corr_arr = np.zeros_like(k_arr, dtype="float64")
-    n = len(activity_mat[0])
-    variance = np.mean((activity_mat[:]-average)**2)*(n/(n-1))
-    for i, k in enumerate(k_arr):
-        corr_arr[i] = np.mean((activity_mat[:,:-k]-average) * (activity_mat[:,k:] - average)) * ((n-k)/(n-k-1)) / variance
-    return corr_arr
-
-
-def calc_corr_arr_stationary_new(activity_mat, k_arr):
-    corr_arr = np.zeros((len(k_arr)), dtype="float64")
-    for i, k in enumerate(k_arr):
-        x = activity_mat[:,:-k]
-        y = activity_mat[:,k:]
-        x_mean = np.mean(x)
-        y_mean = np.mean(y)
-        corr_arr[i] = np.sum(np.mean((x-x_mean) * (y - y_mean), axis=1))/\
-                      np.sum(np.mean((x-x_mean)**2, axis=1))
-    return corr_arr
-
-def calc_corr_mat_separate(activity_mat, k_arr):
-    corr_arr = np.zeros((len(k_arr)), dtype="float64")
-    for i, k in enumerate(k_arr):
-        x = activity_mat[:,:-k]
-        y = activity_mat[:,k:]
-        x_mean = np.mean(x, axis=1)[:, np.newaxis]
-        y_mean = np.mean(y, axis=1)[:, np.newaxis]
-        corr_arr[i] = np.mean(np.mean((x-x_mean) * (y - y_mean), axis=1)/
-                              np.var(x, axis=1))
-    return corr_arr
-
-def calc_corr_mat_separate2(activity_mat, k_arr):
-    corr_arr = np.zeros((len(k_arr)), dtype="float64")
-    for i, k in enumerate(k_arr):
-        x = activity_mat[:,:-k]
-        y = activity_mat[:,k:]
-        x_mean = np.mean(x, axis=1)[:, np.newaxis]
-        y_mean = np.mean(y, axis=1)[:, np.newaxis]
-        corr_arr[i] = np.mean(np.mean(x*y -x*y_mean - y*x_mean + y_mean*x_mean, axis=1)/
-                              np.mean((x-x_mean)**2, axis=1))
-    return corr_arr
-
-
 
 def fitfunction_complex(k_arr, A, tau1, exponent, freq, O, B, tau2, C, tau3):
     return A * np.exp(-(np.abs(k_arr) / tau1) ** exponent) * np.cos(2 * np.pi * freq * k_arr) + O * np.ones_like(
@@ -120,9 +80,7 @@ def fitfunction_complex(k_arr, A, tau1, exponent, freq, O, B, tau2, C, tau3):
 def fitfunction_exp_with_offset(k_arr, B, tau2, O):
     return B * np.exp(-(k_arr / tau2)) + O * np.ones_like(k_arr)
 
-def test_similarity(value1, value2, ratio_different=1e-10):
-    print('ratio difference: {:.3e}'.format(np.max(np.fabs(value1 - value2)/((value1 + value2)/2))))
-    return np.all(np.fabs(value1 - value2)/((value1 + value2)/2)  < ratio_different)
+
 
 def compare_mre_methods(activity_mat):
     print('comparing mre internally:')
@@ -145,7 +103,7 @@ def compare_mre_methods(activity_mat):
     test_similarity(rk1.coefficients, rk2.coefficients)
     test_similarity(rk3.coefficients, rk4.coefficients)
 
-class TestMREstimator():
+class TestMREstimator(unittest.TestCase):
 
     startvalues_compl = [(0.03, 300, 1, 1. / 200, 0, 0.1, 10, 0.03, 10),
                          (0.03, 200, 2.5, 1. / 250, 0, 0.1, 400, 0.03, 25),
@@ -209,50 +167,5 @@ class TestMREstimator():
                             self.assertTrue(test_similarity(popt[i], res_mre.popt[i], ratio_different=1e-5))
 
 
-class TestCorrCoeff(unittest.TestCase):
-    log.setLevel(40)
 
-    def test_stationary_mean(self):
-
-        for ele_num in range(0,40,10):
-            name_data = "./data/activity_mat_{}.pickled".format(ele_num)
-            activity_mat = pickle.load(open(name_data, "rb"))
-            k_arr = np.arange(7, 1500, 1)
-            activity_mat = activity_mat.astype(dtype="float64")
-            corr_arr = calc_corr_arr_stationary_new(activity_mat, k_arr)
-            time_beg = time.time()
-
-            mre_res = mre.coefficients(activity_mat,
-                             steps=k_arr,
-                             method='stationarymean_depricated',
-                             numboot=100)
-            print('stationarymean, time:  {:.2f} ms'.format((time.time()-time_beg)*1000))
-            print('rks: ', mre_res.coefficients[:5])
-            print('leg: ', corr_arr[:5])
-            self.assertTrue(test_similarity(mre_res.coefficients, corr_arr, ratio_different = 1e-8))
-
-    def test_separate(self):
-
-        for ele_num in range(0,40,10):
-            name_data = "./data/activity_mat_{}.pickled".format(ele_num)
-            activity_mat = pickle.load(open(name_data, "rb"))
-            activity_mat = activity_mat.astype(dtype="float64")
-            k_arr = np.arange(7, 1500, 1)
-            corr_arr = calc_corr_mat_separate(activity_mat, k_arr)
-            time_beg = time.time()
-            mre_res = mre.coefficients(activity_mat,
-                             steps=k_arr,
-                             method='trialseparated',
-                             numboot=0)
-
-            print('trialseparated, time:  {:.2f} ms'.format((time.time()-time_beg)*1000))
-            print('mre: ', mre_res.coefficients[:5])
-            print('leg: ', corr_arr[:5])
-
-            self.assertTrue(test_similarity(mre_res.coefficients, corr_arr, ratio_different = 1e-12))
-
-print(__name__)
-
-if __name__ == "__main__":
-    unittest.main()
 
