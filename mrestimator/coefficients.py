@@ -463,29 +463,6 @@ def coefficients(
     elif method == 'stationarymean':
         smcoefficients    = np.zeros(numsteps, dtype='float64')   # (numsteps)
 
-
-        # x_y   = np.empty(shape=(numsteps, numtrials))
-        # x_my  = np.empty(shape=(numsteps, numtrials))
-        # y_mx  = np.empty(shape=(numsteps, numtrials))
-        # x_var = np.empty(shape=(numsteps))               # like frontvar
-        # mx    = np.empty(shape=(numsteps))
-        # my    = np.empty(shape=(numsteps))
-        # for idx, k in enumerate(steps):
-        #     x = data[:, 0:-k]
-        #     y = data[:, k:  ]
-        #     x_y[idx]   = np.mean(x * y, axis=1, dtype=ftype)
-        #     mx[idx]    = np.mean(x, dtype=ftype)
-        #     my[idx]    = np.mean(y, dtype=ftype)
-        #     x_my[idx]  = np.mean(x*my[idx], axis=1, dtype=ftype)
-        #     y_mx[idx]  = np.mean(y*mx[idx], axis=1, dtype=ftype)
-        #     # x_var[idx] = np.mean((x-mx[idx])**2)*((numels-k)/(numels-k-1))
-        #     x_var[idx] = np.var(x, dtype=ftype)
-
-        # for idx, k in enumerate(steps):
-        #     smcoefficients[idx] = (np.mean( \
-        #         x_y[idx, :] - x_my[idx, :] - y_mx[idx, :], dtype=mtype) \
-        #         + mx[idx]*my[idx]) / x_var[idx] * ((numels-k)/(numels-k-1))
-
         # (x-mx)(y-my) = x*y + mx*my - my*x - mx*y
         x_y   = np.empty(shape=(numsteps, numtrials))
         x_x   = np.empty(shape=(numsteps, numtrials))
@@ -494,18 +471,21 @@ def coefficients(
         # x_var = np.empty(shape=(numsteps, numtrials))   # like frontvar
 
         # precompute things that can be separated by trial and k
-
-
-
+        # mm     = trialactivities
+        mm     = np.sum(data[:, :],     axis=1, dtype=ftype)
+        mm_squ = np.sum(data[:, :]**2,  axis=1, dtype=ftype)
         for idx, k in enumerate(steps):
             x = data[:, 0:-k]
             y = data[:, k:  ]
-            x_y  [idx] = np.mean(x * y,     axis=1, dtype=ftype)
-            x_x  [idx] = np.mean(x * x,     axis=1, dtype=ftype)
-            mx   [idx] = np.mean(x,         axis=1, dtype=ftype)
-            my   [idx] = np.mean(y,         axis=1, dtype=ftype)
-            # x_var[idx] = np.var (x, ddof=1, axis=1, dtype=ftype)
-            # x_var[idx] = np.mean((x-mx[idx])**2)*((numels-k)/(numels-k-1))
+            l = data[:, 0: k]
+            r = data[:,-k:  ]
+            x_y[idx] = np.mean(x*y,          axis=1, dtype=ftype)
+            x_x[idx] = (mm_squ - np.sum(r*r, axis=1, dtype=ftype))/(numels-k)
+            mx [idx] = (mm     - np.sum(r,   axis=1, dtype=ftype))/(numels-k)
+            my [idx] = (mm     - np.sum(l,   axis=1, dtype=ftype))/(numels-k)
+            # x_x[idx] = np.mean(x * x,     axis=1, dtype=ftype)
+            # mx [idx] = np.mean(x,         axis=1, dtype=ftype)
+            # my [idx] = np.mean(y,         axis=1, dtype=ftype)
 
         for idx, k in enumerate(steps):
             mxk   = np.mean(mx[idx, :],    dtype=ftype)
