@@ -1,16 +1,18 @@
-import numpy as np
-import os
-import matplotlib
-if os.environ.get('DISPLAY', '') == '':
-    print('No display found. Using non-interactive Agg backend for plotting')
-    matplotlib.use('Agg')
-import matplotlib.pyplot as plt
 import re
-
+import os
 import glob
 import inspect
+import logging
 
-from .logm import log
+from mrestimator import utility as ut
+log = ut.log
+
+import numpy as np
+import matplotlib
+if os.environ.get('DISPLAY', '') == '':
+    log.info('No display found. Using non-interactive Agg backend for plotting')
+    matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 
 def input_handler(items, **kwargs):
     """
@@ -509,7 +511,7 @@ class OutputHandler:
                     regex = r'\[.*?\]'
                     oldlabel = self.ax.get_xlabel()
                     newlabel = str('[{}{}]'.format(
-                        _printeger(self.dt), self.dtunit))
+                        ut._printeger(self.dt), self.dtunit))
                     self.ax.set_xlabel(re.sub(regex, newlabel, oldlabel))
                     self.xlabel = re.sub(regex, newlabel, self.xlabel)
                 except TypeError:
@@ -622,9 +624,9 @@ class OutputHandler:
             self.dt     = data.dt
             self.dtunit = data.dtunit
             self.xlabel = \
-                'steps[{}{}]'.format(_printeger(data.dt, 5), data.dtunit)
+                'steps[{}{}]'.format(ut._printeger(data.dt, 5), data.dtunit)
             self.ax.set_xlabel(
-                'k [{}{}]'.format(_printeger(data.dt, 5), data.dtunit))
+                'k [{}{}]'.format(ut._printeger(data.dt, 5), data.dtunit))
             self.ax.set_ylabel('$r_{k}$')
             self.ax.set_title('Correlation')
 
@@ -1029,7 +1031,7 @@ class OutputHandler:
                         hdr += '{:8.8f}\n'.format(fit.mrequantiles[i])
                     hdr += '\n'
                 hdr += 'fitrange: {} <= k <= {} [{}{}]\n' .format(fit.steps[0],
-                    fit.steps[-1], _printeger(fit.dt), fit.dtunit)
+                    fit.steps[-1], ut._printeger(fit.dt), fit.dtunit)
                 hdr += 'function: ' + math_from_doc(fit.fitfunc) + '\n'
                 # hdr += '\twith parameters:\n'
                 parname = list(inspect.signature(fit.fitfunc).parameters)[1:]
@@ -1099,7 +1101,7 @@ def overview(src, rks, fits, **kwargs):
 
     tsout.ax.set_title('Time Series (Input Data)')
     tsout.ax.set_xlabel('t [{}{}]'.format(
-        _printeger(rks[0].dt), rks[0].dtunit))
+        ut._printeger(rks[0].dt), rks[0].dtunit))
 
     # ------------------------------------------------------------------ #
     # Mean Trial Activity

@@ -1,8 +1,10 @@
-import numpy as np
+import logging
 
+import numpy as np
 import scipy
 
-from .logm import log
+from mrestimator import utility as ut
+log = ut.log
 
 def simulate_branching(
     m,
@@ -64,7 +66,6 @@ def simulate_branching(
             10000 measurements.
     """
 
-    log.debug('simulate_branching()')
     length = int(length)
     numtrials = int(numtrials)
     if h is None:
@@ -99,7 +100,7 @@ def simulate_branching(
     if h[0] == 0 and a == 0:
         log.warning('activity a=0 and initial h=0')
 
-    log.info('Generating branching process with m={}'.format(_printeger(m)))
+    log.info('Generating branching process with m={}'.format(ut._printeger(m)))
     log.debug('Details:\n' +
         '\t{:d} trials with {:d} time steps each\n'.format(numtrials, length) +
         '\tbranchign ratio m={}\n'.format(m) +

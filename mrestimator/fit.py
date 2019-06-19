@@ -1,14 +1,14 @@
-import numpy as np
-
+import inspect
+import logging
 from collections import namedtuple
+
+import numpy as np
 import scipy
 import scipy.stats
 import scipy.optimize
 
-import inspect
-
-from mrestimator import logm
-from .logm import log
+from mrestimator import utility as ut
+log = logging.getLogger(__name__)
 
 def f_linear(k, A, O):
     """:math:`A k + O`"""
@@ -429,7 +429,7 @@ def fit(
     # ------------------------------------------------------------------ #
 
     log.debug('fit()')
-    if (logm._log_locals):
+    if (ut._log_locals):
         log.debug('Locals: {}'.format(locals()))
 
     fitfunc = _fitfunc_check(fitfunc)
@@ -588,7 +588,7 @@ def fit(
         fulpopt = None
         fulpcov = None
         if fitlog:
-            logm._logstreamhandler.terminator = "\r"
+            ut._logstreamhandler.terminator = "\r"
         for idx, pars in enumerate(fitpars):
             if len(fitpars)!=1 and fitlog:
                 log.info('{}/{} fits'.format(idx+1, len(fitpars)))
@@ -607,11 +607,11 @@ def fit(
                 popt  = None
                 pcov  = None
                 if fitlog:
-                    logm._logstreamhandler.terminator = "\n"
+                    ut._logstreamhandler.terminator = "\n"
                     log.debug(
                         'Fit %d did not converge. Ignoring this fit', idx+1)
                     log.debug('Exception passed', exc_info=True)
-                    logm._logstreamhandler.terminator = "\r"
+                    ut._logstreamhandler.terminator = "\r"
 
             if ssres < ssresmin:
                 ssresmin = ssres
@@ -619,7 +619,7 @@ def fit(
                 fulpcov  = pcov
 
         if fitlog:
-            logm._logstreamhandler.terminator = "\n"
+            ut._logstreamhandler.terminator = "\n"
             log.info('Finished %d fit(s)', len(fitpars))
 
         return fulpopt, fulpcov, ssresmin
@@ -709,7 +709,7 @@ def fit(
             # use scipy default maxfev for errors
             maxfev = 100*(len(fitpars[0])+1)
 
-            logm._logstreamhandler.terminator = "\r"
+            ut._logstreamhandler.terminator = "\r"
             for tdx in range(numboot):
                 log.info('{}/{} replicas'.format(tdx+1, numboot))
                 bspopt, bspcov, bsres = fitloop(
@@ -723,7 +723,7 @@ def fit(
                     bstau[tdx] = np.nan
                     bsmre[tdx] = np.nan
 
-            logm._logstreamhandler.terminator = "\n"
+            ut._logstreamhandler.terminator = "\n"
             log.info('{} Bootstrap replicas done'.format(numboot))
 
             # add source sample?

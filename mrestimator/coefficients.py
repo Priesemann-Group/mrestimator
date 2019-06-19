@@ -1,8 +1,10 @@
-import numpy as np
+import logging
 from collections import namedtuple
 
+import numpy as np
 
-
+from mrestimator import utility as ut
+log = ut.log
 
 # ------------------------------------------------------------------ #
 # Coefficients
@@ -369,7 +371,7 @@ def coefficients(
     numtrials = data.shape[0]     # number of trials
     numels    = data.shape[1]     # number of measurements per trial
 
-    if (logm._log_locals):
+    if (ut._log_locals):
         log.debug('Trusted Locals: {}'.format(locals()))
 
     log.info("coefficients() with '{}' method for {} trials of length {}" \
@@ -388,7 +390,7 @@ def coefficients(
         tsvar          = trialvariances
         tscoefficients = np.zeros(shape=(numtrials, numsteps), dtype='float64')
 
-        logm._logstreamhandler.terminator = "\r"
+        ut._logstreamhandler.terminator = "\r"
         for idx, k in enumerate(steps):
             if not idx%100:
                 log.info('{}/{} time steps'.format(idx+1, numsteps))
@@ -414,7 +416,7 @@ def coefficients(
 
         coefficients = np.mean(tscoefficients, axis=0, dtype=ftype)
 
-        logm._logstreamhandler.terminator = "\n"
+        ut._logstreamhandler.terminator = "\n"
         log.info('{} time steps done'.format(numsteps))
 
         for tdx in range(numtrials):
@@ -571,7 +573,7 @@ def coefficients(
 
         bscoefficients    = np.zeros(shape=(numboot, numsteps), dtype='float64')
 
-        logm._logstreamhandler.terminator = "\r"
+        ut._logstreamhandler.terminator = "\r"
         for tdx in range(numboot):
             if tdx % 10 == 0:
                 log.info('{}/{} replicas'.format(tdx+1, numboot))
@@ -644,7 +646,7 @@ def coefficients(
             bootstrapcrs.append(temp)
 
 
-        logm._logstreamhandler.terminator = "\n"
+        ut._logstreamhandler.terminator = "\n"
         log.info('{} bootstrap replicas done'.format(numboot))
 
         stderrs = np.sqrt(np.var(bscoefficients, axis=0, ddof=1, dtype=ftype))

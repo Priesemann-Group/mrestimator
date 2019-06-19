@@ -3,10 +3,8 @@ import os
 
 import numpy as np
 
-from mrestimator import logm
-
-log = logging.getLogger(__name__)
 from mrestimator import utility as ut
+log = ut.log
 
 def full_analysis(
     data,
@@ -195,7 +193,7 @@ def full_analysis(
     # the local loghandler, it survives and keps logging with the old level
     for hdlr in log.handlers:
         if isinstance(hdlr, logging.FileHandler):
-            if hdlr != logm._logfilehandler:
+            if hdlr != ut._logfilehandler:
                 hdlr.close()
                 log.removeHandler(hdlr)
 
@@ -235,7 +233,7 @@ def full_analysis(
                     'full_analysis' if title is None else title, 'a'),
                 maxBytes=5*1024*1024, backupCount=1)
             loghandler.setLevel(logging.getLevelName(loglevel))
-            loghandler.setFormatter(logm.CustomExceptionFormatter(
+            loghandler.setFormatter(ut.CustomExceptionFormatter(
                 '%(asctime)s %(levelname)8s: %(message)s',
                 "%Y-%m-%d %H:%M:%S"))
             log.addHandler(loghandler)
@@ -246,7 +244,7 @@ def full_analysis(
 
 
     log.debug("full_analysis()")
-    if (logm._log_locals):
+    if (ut._log_locals):
         log.debug('Locals: {}'.format(locals()))
 
     try:
@@ -320,7 +318,7 @@ def full_analysis(
     if title is not None:
         title = str(title)
 
-    if (logm._log_locals):
+    if (ut._log_locals):
         log.debug('Finished argument check. Locals: {}'.format(locals()))
 
     # ------------------------------------------------------------------ #
