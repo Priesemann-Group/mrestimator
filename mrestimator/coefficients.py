@@ -403,16 +403,16 @@ def coefficients(
             # include supercritical case
             frontmean = np.mean(data[:,  :-k], axis=1, keepdims=True,
                 dtype=ftype)
-            frontvar  = np.var( data[:,  :-k], axis=1, ddof=1,
+            frontvar  = np.var( data[:,  :-k], axis=1,
                 dtype=ftype)  # speed this up
             backmean  = np.mean(data[:, k:  ], axis=1, keepdims=True,
                 dtype=ftype)
             # backvar   = np.var( data[:, k:  ], axis=1, ddof=1, dtype=ftype)
 
             tscoefficients[:, idx] = \
-                np.mean((data[:,  :-k] - frontmean) * \
-                        (data[:, k:  ] - backmean ), axis=1, dtype=ftype) \
-                * ((numels-k)/(numels-k-1)) / frontvar
+                np.mean((data[:, :-k] - frontmean) *
+                        (data[:, k:] - backmean), axis=1, dtype=ftype) \
+                         / frontvar
 
         coefficients = np.mean(tscoefficients, axis=0, dtype=ftype)
 
@@ -493,6 +493,9 @@ def coefficients(
         # x_var = np.empty(shape=(numsteps, numtrials))   # like frontvar
 
         # precompute things that can be separated by trial and k
+
+
+
         for idx, k in enumerate(steps):
             x = data[:, 0:-k]
             y = data[:, k:  ]
@@ -510,11 +513,11 @@ def coefficients(
             y_mxk = np.mean(y*mxk, axis=1, dtype=ftype)
             x_myk = np.mean(x*myk, axis=1, dtype=ftype)
 
-            smcoefficients[idx] = (np.mean( \
-                x_y[idx, :] - x_myk - y_mxk, dtype=ftype) \
+            smcoefficients[idx] = (np.mean(
+                x_y[idx, :] - x_myk - y_mxk, dtype=ftype)
                 + mxk*myk) \
-                / (np.mean((x-mxk)**2, dtype=ftype) * (x.size)/(x.size-1)) \
-                * ((numels-k)/(numels-k-1))
+                / np.mean((x-mxk)**2, dtype=ftype) #* (x.size)/(x.size-1)) \
+                #* ((numels-k)/(numels-k-1))
                 # / np.var(x, dtype=ftype, ddof=1) \
                 # * ((numels-k)/(numels-k-1)) \
                 # bias correction?
