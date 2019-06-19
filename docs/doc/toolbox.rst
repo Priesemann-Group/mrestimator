@@ -2,10 +2,13 @@ The Toolbox
 ===========
 
 .. toctree::
-    :titlesonly:
+    :maxdepth: 4
 
     importing
-    mre
+    coefficients
+    fit
+    full_analysis
+    fitfunctions
     exporting
 
 
