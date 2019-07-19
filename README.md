@@ -86,3 +86,17 @@ automatically when you login, you can add it to your `~/.bashrc` or `~/.profile`
 echo 'export PYTHONPATH="${PYTHONPATH}:'$(pwd)'/mrestimator"' >> ~/.bashrc
 ```
 
+### Parallelization and running on clusters
+
+Per default, the toolbox and its dependencies use all threads available on the host machine.
+While this is great if running locally, it is undesired for distributed computing as the workload manager expects jobs of serial queues to only use one thread.
+To disable multi-threading, you can set the following environment variables (e.g. at the beginning of a job file)
+
+```
+export OPENBLAS_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+export NUMEXPR_NUM_THREADS=1
+export OMP_NUM_THREADS=1
+export NUMBA_NUM_THREADS=1
+```
+

@@ -17,14 +17,14 @@ try:
 
     # implement needed sum functions to be compiled by numba:
     # parallelize higher level loops, during sm and ts methods
-    @jit(nopython=True, parallel=False, fastmath=True)
+    @jit(nopython=True, parallel=False, fastmath=True, cache=True)
     def sum_1d(a):
         total = ftype(0)
         for i in prange(a.shape[0]):
             total += ftype(a[i])
         return total
 
-    @jit(nopython=True, parallel=False, fastmath=True)
+    @jit(nopython=True, parallel=False, fastmath=True, cache=True)
     def sum_2d(a):
         total = ftype(0)
         for i in prange(a.shape[0]):
@@ -32,7 +32,7 @@ try:
                 total += ftype(a[i,j])
         return total
 
-    @jit(nopython=True, parallel=False, fastmath=True)
+    @jit(nopython=True, parallel=False, fastmath=True, cache=True)
     def sum_2d_ax0(a):
         total = np.zeros((a.shape[1]), dtype=ftype)
         for i in prange(a.shape[0]):
@@ -40,7 +40,7 @@ try:
                 total[j] += ftype(a[i,j])
         return total
 
-    @jit(nopython=True, parallel=False, fastmath=True)
+    @jit(nopython=True, parallel=False, fastmath=True, cache=True)
     def sum_2d_ax1(a):
         total = np.zeros((a.shape[0]), dtype=ftype)
         for i in prange(a.shape[0]):
@@ -84,7 +84,7 @@ except ImportError:
 # Core routines for differnt coefficient methods
 # ------------------------------------------------------------------ #
 
-@jit(nopython=True, parallel=True, fastmath=True)
+@jit(nopython=True, parallel=True, fastmath=True, cache=True)
 def sm_precompute(data, steps):
     """
         Part 1 of the >= v0.1.5 stationary mean method.
@@ -119,7 +119,7 @@ def sm_precompute(data, steps):
 
     return mm, mm_squ, mx, my, x_y, x_x
 
-@jit(nopython=True, parallel=True, fastmath=True)
+@jit(nopython=True, parallel=True, fastmath=True, cache=True)
 def sm_method(precomputed, steps, choices = None):
     """
         Part 2 of the >= v0.1.5 stationary mean method.
@@ -154,7 +154,7 @@ def sm_method(precomputed, steps, choices = None):
 
     return res
 
-@jit(nopython=True, parallel=True, fastmath=True)
+@jit(nopython=True, parallel=True, fastmath=True, cache=True)
 def ts_precompute(data, steps):
     """
         Part 1 of the trialseparated method.
@@ -180,7 +180,7 @@ def ts_precompute(data, steps):
 
     return res
 
-@jit(nopython=True, parallel=True, fastmath=True)
+@jit(nopython=True, parallel=True, fastmath=True, cache=True)
 def ts_method(precomputed, steps, choices = None):
     """
         See ts_precompute.
@@ -595,7 +595,6 @@ def coefficients(
     if method == 'trialseparated':
         ts_prepped   = ts_precompute(data, steps)
         coefficients = ts_method(ts_prepped, steps)
-        print(f"ts_coeff: {coefficients.shape}")
 
         # save per-trial result
         for tdx in range(numtrials):
