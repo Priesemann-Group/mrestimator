@@ -6,15 +6,85 @@ import numpy as np
 from mrestimator import utility as ut
 log = ut.log
 
-
-# set precision of temporary results for numpy
+# set precision of temporary results for numpy and numba
 # ftype = np.longdouble # very slow, maybe float64 is enough
 ftype=np.float64
+
+try:
+    from numba import jit, prange
+    # raise ImportError
+    # log.info('Compiling parallelizable numba functions')
+
+    # implement needed sum functions to be compiled by numba:
+    # parallelize higher level loops, during sm and ts methods
+    @jit(nopython=True, parallel=False, fastmath=True)
+    def sum_1d(a):
+        total = ftype(0)
+        for i in prange(a.shape[0]):
+            total += ftype(a[i])
+        return total
+
+    @jit(nopython=True, parallel=False, fastmath=True)
+    def sum_2d(a):
+        total = ftype(0)
+        for i in prange(a.shape[0]):
+            for j in prange(a.shape[1]):
+                total += ftype(a[i,j])
+        return total
+
+    @jit(nopython=True, parallel=False, fastmath=True)
+    def sum_2d_ax0(a):
+        total = np.zeros((a.shape[1]), dtype=ftype)
+        for i in prange(a.shape[0]):
+            for j in prange(a.shape[1]):
+                total[j] += ftype(a[i,j])
+        return total
+
+    @jit(nopython=True, parallel=False, fastmath=True)
+    def sum_2d_ax1(a):
+        total = np.zeros((a.shape[0]), dtype=ftype)
+        for i in prange(a.shape[0]):
+            for j in prange(a.shape[1]):
+                total[i] += ftype(a[i,j])
+        return total
+
+except ImportError:
+    log.info('Numba not available, skipping parallelization')
+    # replace numba functions if numba not available:
+    # we only use jit and prange
+    # helper needed for decorators with kwargs
+    def parametrized(dec):
+        def layer(*args, **kwargs):
+            def repl(f):
+                return dec(f, *args, **kwargs)
+            return repl
+        return layer
+
+    @parametrized
+    def jit(func, **kwargs):
+        return func
+
+    def prange(*args):
+        return range(*args)
+
+    def sum_1d(a):
+        return np.sum(a, dtype=ftype)
+
+    def sum_2d(a):
+        return np.sum(a, dtype=ftype)
+
+    def sum_2d_ax0(a):
+        return np.sum(a, axis=0, dtype=ftype)
+
+    def sum_2d_ax1(a):
+        return np.sum(a, axis=1, dtype=ftype)
+
 
 # ------------------------------------------------------------------ #
 # Core routines for differnt coefficient methods
 # ------------------------------------------------------------------ #
 
+@jit(nopython=True, parallel=True, fastmath=True)
 def sm_precompute(data, steps):
     """
         Part 1 of the >= v0.1.5 stationary mean method.
@@ -33,21 +103,24 @@ def sm_precompute(data, steps):
     my    = np.empty(shape=(numsteps, numtrials))
 
     # precompute things that can be separated by trial and k
-    mm     = np.sum(data[:, :],     axis=1, dtype=ftype)
-    mm_squ = np.sum(data[:, :]**2,  axis=1, dtype=ftype)
-    for idx, k in enumerate(steps):
+    mm     = sum_2d_ax1(data[:, :]   )
+    mm_squ = sum_2d_ax1(data[:, :]**2)
+
+    for idx in prange(len(steps)):
+        k = steps[idx]
         x = data[:, 0:-k]
         y = data[:, k:  ]
         l = data[:, 0: k]
         r = data[:,-k:  ]
-        x_y[idx] = np.mean(x*y,          axis=1, dtype=ftype)
-        x_x[idx] = (mm_squ - np.sum(r*r, axis=1, dtype=ftype))/(numels-k)
-        mx [idx] = (mm     - np.sum(r,   axis=1, dtype=ftype))/(numels-k)
-        my [idx] = (mm     - np.sum(l,   axis=1, dtype=ftype))/(numels-k)
+        x_y[idx] =           sum_2d_ax1(x*y) /(numels-k)
+        x_x[idx] = (mm_squ - sum_2d_ax1(r*r))/(numels-k)
+        mx [idx] = (mm     - sum_2d_ax1(r  ))/(numels-k)
+        my [idx] = (mm     - sum_2d_ax1(l  ))/(numels-k)
 
     return mm, mm_squ, mx, my, x_y, x_x
 
-def sm_method(precomputed, steps, choices = ...):
+@jit(nopython=True, parallel=True, fastmath=True)
+def sm_method(precomputed, steps, choices = None):
     """
         Part 2 of the >= v0.1.5 stationary mean method.
         Works for m>1
@@ -55,23 +128,33 @@ def sm_method(precomputed, steps, choices = ...):
         Fun fact: `choices = ...` is equivalent to not specifying the index.
     """
     mm, mm_squ, mx, my, x_y, x_x = precomputed
-    res = np.zeros(shape=(len(steps)), dtype='float64')
-    for idx in range(len(steps)):
-        mx_  = mx[idx]  # numba supports only 1d advanced indexing.
-        my_  = my[idx]
-        x_y_ = x_y[idx]
-        x_x_ = x_x[idx]
-        mxk   = np.mean(mx_[choices], dtype=ftype)
-        myk   = np.mean(my_[choices], dtype=ftype)
-        y_mxk = my_[choices]*mxk
-        x_myk = mx_[choices]*myk
+
+    if choices is None:
+        x_y_ = x_y[:, :]
+        x_x_ = x_x[:, :]
+        mx_  = mx[:, :]
+        my_  = my[:, :]
+    else:
+        x_y_ = x_y[:, choices]
+        x_x_ = x_x[:, choices]
+        mx_  = mx[:, choices]
+        my_  = my[:, choices]
+
+    res  = np.zeros(shape=(len(steps)), dtype=np.float64)
+    norm  = len(mx[0])
+    for idx in prange(len(steps)):
+        mxk   = sum_1d(mx_[idx])/norm
+        myk   = sum_1d(my_[idx])/norm
+        y_mxk = my_[idx]*mxk
+        x_myk = mx_[idx]*myk
 
         res[idx] = \
-            (np.mean(x_y_[choices] - x_myk - y_mxk, dtype=ftype) + mxk*myk) \
-            / (np.mean(x_x_[choices]-2*mx_[choices]*mxk + mxk**2, dtype=ftype))
+            (sum_1d(x_y_[idx] - x_myk - y_mxk)/norm + mxk*myk) \
+            / (sum_1d(x_x_[idx]-2*mx_[idx]*mxk + mxk**2)/norm)
 
     return res
 
+@jit(nopython=True, parallel=True, fastmath=True)
 def ts_precompute(data, steps):
     """
         Part 1 of the trialseparated method.
@@ -82,26 +165,31 @@ def ts_precompute(data, steps):
     """
     N = data.shape[0]
     T = data.shape[1]
-    res = np.zeros(shape=(N, len(steps)), dtype='float64')
-    for idx in range(len(steps)):
+    res = np.zeros(shape=(N, len(steps)), dtype=np.float64)
+    for idx in prange(len(steps)):
         k = steps[idx]
         frontmean = np.empty((N,1), ftype)
         backmean  = np.empty((N,1), ftype)
-        frontmean[:,0] = np.sum( data[:,  :-k],               axis=1)/(T-k)
-        frontvar       = np.sum((data[:,  :-k]-frontmean)**2, axis=1)/(T-k)
-        backmean[:,0]  = np.sum( data[:, k:  ],               axis=1)/(T-k)
+        frontmean[:,0] = sum_2d_ax1( data[:,  :-k]              )/(T-k)
+        frontvar       = sum_2d_ax1((data[:,  :-k]-frontmean)**2)/(T-k)
+        backmean[:,0]  = sum_2d_ax1( data[:, k:  ]              )/(T-k)
 
         res[:, idx] = \
-            np.sum((data[:, :-k] - frontmean)*(data[:, k:] - backmean),
-                axis=1, dtype=ftype) / frontvar / (T-k)
+            sum_2d_ax1((data[:, :-k] - frontmean)*(data[:, k:] - backmean)) \
+            / frontvar / (T-k)
 
     return res
 
-def ts_method(precomputed, steps, choices = ...):
+@jit(nopython=True, parallel=True, fastmath=True)
+def ts_method(precomputed, steps, choices = None):
     """
         See ts_precompute.
     """
-    res = np.mean(precomputed[choices], axis=0, dtype=ftype)
+    if choices is None:
+        res = sum_2d_ax0(precomputed)/precomputed.shape[0]
+    else:
+        res = sum_2d_ax0(precomputed[choices])/precomputed.shape[0]
+    # res = np.mean(precomputed[choices], axis=0, dtype=ftype)
     return res
 
 def sm_method_naive(data, steps):

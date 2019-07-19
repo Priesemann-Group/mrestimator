@@ -101,7 +101,7 @@ class TestCorrCoeff(unittest.TestCase):
             print('mre: ', mre_res.coefficients[:5])
             print('true value: ', corr_arr[:5])
 
-            self.assertTrue(test_similarity(mre_res.coefficients, corr_arr, ratio_different = 1e-12))
+            self.assertTrue(test_similarity(mre_res.coefficients, corr_arr, ratio_different = 1e-10))
             bootstrap_mat = np.array([boot.coefficients for boot in mre_res.bootstrapcrs])
             mean_bootstrap = np.mean(bootstrap_mat, axis=0)
             print("boot mean: ", mean_bootstrap[:5])
