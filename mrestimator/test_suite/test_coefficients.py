@@ -5,8 +5,8 @@ import time
 import numpy as np
 
 
-from mrestimator.utility import log
 import mrestimator as mre
+from mrestimator.utility import log
 
 def test_similarity(value1, value2, ratio_different=1e-10):
     print('ratio difference: {:.3e}'.format(np.max(np.fabs(value1 - value2)/((value1 + value2)/2))))
@@ -64,6 +64,7 @@ class TestCorrCoeff(unittest.TestCase):
             print('stationarymean, time:  {:.2f} ms'.format((time.time()-time_beg)*1000))
             print('rks: ', mre_res.coefficients[:5])
             print('leg: ', corr_arr[:5])
+            print('boot: ', mre_res.bootstrapcrs[0].coefficients[:5])
             self.assertTrue(test_similarity(mre_res.coefficients, corr_arr, ratio_different = 1e-8))
 
     def test_separate(self):
@@ -75,14 +76,16 @@ class TestCorrCoeff(unittest.TestCase):
             k_arr = np.arange(7, 1500, 1)
             corr_arr = calc_corr_mat_separate(activity_mat, k_arr)
             time_beg = time.time()
+            print('ts')
             mre_res = mre.coefficients(activity_mat,
                              steps=k_arr,
                              method='trialseparated',
                              numboot=100)
 
             print('trialseparated, time:  {:.2f} ms'.format((time.time()-time_beg)*1000))
-            print('mre: ', mre_res.coefficients[:5])
+            print('rks: ', mre_res.coefficients[:5])
             print('leg: ', corr_arr[:5])
+            print('boot: ', mre_res.bootstrapcrs[0].coefficients[:5])
 
             self.assertTrue(test_similarity(mre_res.coefficients, corr_arr, ratio_different = 1e-12))
 
