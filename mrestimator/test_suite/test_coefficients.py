@@ -1,16 +1,21 @@
 import unittest
 import pickle
 import time
+import sys
 
 import numpy as np
-
 
 import mrestimator as mre
 from mrestimator.utility import log
 
+
 def test_similarity(value1, value2, ratio_different=1e-10):
     print('ratio difference: {:.3e}'.format(np.max(np.fabs(value1 - value2)/((value1 + value2)/2))))
     return np.all(np.fabs(value1 - value2)/((value1 + value2)/2)  < ratio_different)
+
+def test_similarity_abs(value1, value2, max_difference=1e-10):
+    print('max difference: {:.3e}'.format(np.max(np.fabs(value1 - value2))))
+    return np.all(np.fabs(value1 - value2)  < max_difference)
 
 def calc_corr_arr_stationary(activity_mat, k_arr):
     average = np.mean(activity_mat)
@@ -48,6 +53,7 @@ class TestCorrCoeff(unittest.TestCase):
     log.setLevel(40)
 
     def test_stationary_mean(self):
+        print("\nTesting stationary mean correlation coefficients: \n")
 
         for ele_num in range(0,40,10):
             name_data = "./data/activity_mat_{}.pickled".format(ele_num)
@@ -57,17 +63,26 @@ class TestCorrCoeff(unittest.TestCase):
             corr_arr = calc_corr_arr_stationary_new(activity_mat, k_arr)
             time_beg = time.time()
 
+            numboot = 100
+
             mre_res = mre.coefficients(activity_mat,
                              steps=k_arr,
                              method='stationarymean',
-                             numboot=100)
-            print('stationarymean, time:  {:.2f} ms'.format((time.time()-time_beg)*1000))
-            print('rks: ', mre_res.coefficients[:5])
-            print('leg: ', corr_arr[:5])
-            print('boot: ', mre_res.bootstrapcrs[0].coefficients[:5])
+                             numboot=numboot)
+            print('stationarymean, time needed:  {:.2f} ms'.format((time.time()-time_beg)*1000))
+            print('mre: ', mre_res.coefficients[:5])
+            print('true value: ', corr_arr[:5])
+
             self.assertTrue(test_similarity(mre_res.coefficients, corr_arr, ratio_different = 1e-8))
+            bootstrap_mat = np.array([boot.coefficients for boot in mre_res.bootstrapcrs])
+            mean_bootstrap = np.mean(bootstrap_mat, axis=0)
+            print("boot mean: ", mean_bootstrap[:5])
+            self.assertTrue(test_similarity_abs(mre_res.coefficients, np.mean(bootstrap_mat, axis=0),
+                                                max_difference=0.04/np.sqrt(numboot)))
 
     def test_separate(self):
+        print("\nTesting trial separated correlation coefficients: \n")
+
 
         for ele_num in range(0,40,10):
             name_data = "./data/activity_mat_{}.pickled".format(ele_num)
@@ -76,18 +91,22 @@ class TestCorrCoeff(unittest.TestCase):
             k_arr = np.arange(7, 1500, 1)
             corr_arr = calc_corr_mat_separate(activity_mat, k_arr)
             time_beg = time.time()
-            print('ts')
+            numboot = 100
             mre_res = mre.coefficients(activity_mat,
                              steps=k_arr,
                              method='trialseparated',
-                             numboot=100)
+                             numboot=numboot)
 
-            print('trialseparated, time:  {:.2f} ms'.format((time.time()-time_beg)*1000))
-            print('rks: ', mre_res.coefficients[:5])
-            print('leg: ', corr_arr[:5])
-            print('boot: ', mre_res.bootstrapcrs[0].coefficients[:5])
+            print('trialseparated, time needed:  {:.2f} ms'.format((time.time()-time_beg)*1000))
+            print('mre: ', mre_res.coefficients[:5])
+            print('true value: ', corr_arr[:5])
 
             self.assertTrue(test_similarity(mre_res.coefficients, corr_arr, ratio_different = 1e-12))
+            bootstrap_mat = np.array([boot.coefficients for boot in mre_res.bootstrapcrs])
+            mean_bootstrap = np.mean(bootstrap_mat, axis=0)
+            print("boot mean: ", mean_bootstrap[:5])
+            self.assertTrue(test_similarity_abs(mre_res.coefficients, np.mean(bootstrap_mat, axis=0),
+                                                max_difference=0.04/np.sqrt(numboot)))
 
 if __name__ == "__main__":
     unittest.main()
