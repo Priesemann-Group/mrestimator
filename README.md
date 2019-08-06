@@ -86,6 +86,29 @@ automatically when you login, you can add it to your `~/.bashrc` or `~/.profile`
 echo 'export PYTHONPATH="${PYTHONPATH}:'$(pwd)'/mrestimator"' >> ~/.bashrc
 ```
 
+### Pre-release versions
+
+You can upgrade to pre-release versions using pip
+
+```
+pip install -U --pre mrestimator[full]
+```
+
+(the optional `[full]` installs numba for parallelization, see below)
+To revert to the stable version, run
+
+```
+pip install mrestimator==0.1.4
+```
+
+or
+
+```
+pip install --force-reinstall mrestimator
+```
+
+for a complete (longer) reinstall of all dependencies.
+
 ### Parallelization and running on clusters
 
 Per default, the toolbox and its dependencies use all threads available on the host machine.
