@@ -9,6 +9,7 @@ import scipy.optimize
 
 from mrestimator import utility as ut
 log = logging.getLogger(__name__)
+from mrestimator import CoefficientResult
 
 def f_linear(k, A, O):
     """:math:`A k + O`"""
@@ -521,7 +522,7 @@ def fit(
         log.debug('Using provided custom steps')
 
     # make sure this is data, no pointer, so we dont overwrite anything
-    stepinds, _ = _intersecting_index(src.steps, steps)
+    stepinds, _ = ut._intersecting_index(src.steps, steps)
     srcsteps   = np.copy(src.steps[stepinds])
 
     if desc is not None and description is None:
@@ -772,8 +773,8 @@ def fit(
         '{} to {}, mre = {}, tau = {}{}, ssres = {:.5f}'.format(
             'the data' if description is None else "'"+description+"'",
             fitfunc.__name__,
-            _prerror(fulres.mre, fulres.mrestderr),
-            _prerror(fulres.tau, fulres.taustderr, 2, 2),
+            ut._prerror(fulres.mre, fulres.mrestderr),
+            ut._prerror(fulres.tau, fulres.taustderr, 2, 2),
             fulres.dtunit, fulres.ssres))
 
     if fulres.tau is None:
