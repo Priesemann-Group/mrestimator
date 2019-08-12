@@ -7,6 +7,7 @@ Changelog
 * __Fixed__: `stationarymean` method for coefficients should work for `m>1` (now only assumes cyclo-stationarity)
 * __New__: Optional Numba dependency to parallelize and precompile the computation of the correlation coefficients.
 * __New__: Uploading pre-release versions to pypi. To upgrade run `pip install -U --pre mrestimator[full]` and to go back to stable `pip install mrestimator==0.1.4`.
+* __New__: Basic unit tests. `python -m unittest mrestimator.test_suite`
 
 [v0.1.4](https://pypi.org/project/mrestimator/0.1.4) (05.02.2019)
 -----------------------------------------------------------------

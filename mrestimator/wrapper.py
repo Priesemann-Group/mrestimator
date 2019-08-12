@@ -5,6 +5,9 @@ import numpy as np
 
 from mrestimator import utility as ut
 log = ut.log
+from mrestimator.coefficients import *
+from mrestimator.input_output import *
+from mrestimator.fit import *
 
 def full_analysis(
     data,
@@ -349,10 +352,10 @@ def full_analysis(
     fits = []
     for f in fitfuncs:
         if numboot == 'auto':
-            if _fitfunc_check(f) is f_exponential or \
-                _fitfunc_check(f) is f_exponential_offset:
+            if fitfunc_check(f) is f_exponential or \
+                fitfunc_check(f) is f_exponential_offset:
                 nbt = 100
-            elif _fitfunc_check(f) is f_complex:
+            elif fitfunc_check(f) is f_complex:
                 nbt = 0
             else:
                 nbt = 100

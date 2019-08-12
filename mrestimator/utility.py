@@ -222,6 +222,36 @@ def _prerror(f, ferr, errprec=2, maxprec=5):
             _printeger(f, errprec), _printeger(ferr, errprec)))
 
 
+def math_from_doc(fitfunc, maxlen=np.inf):
+    """convert sphinx compatible math to matplotlib/tex"""
+    try:
+        res = fitfunc.__doc__
+        res = res.replace(':math:', '')
+        res = res.replace('`', '$')
+        if len(res) > maxlen:
+            term = res.find(" + ", 0, len(res))
+            res = res[:term+2]+' ...$'
+
+        if len(res) > maxlen:
+            if fitfunc == f_complex:
+                res = 'Complex'
+            elif fitfunc == f_exponential_offset:
+                res = 'Exp+Offset'
+            elif fitfunc == f_exponential:
+                res = 'Exponential'
+            elif fitfunc == f_linear:
+                res = 'Linear'
+            else:
+                res = fitfunc.__name__
+
+    except Exception as e:
+        log.debug('Exception passed when casting function description',
+            exc_info=True)
+        res = fitfunc.__name__
+
+    return res
+
+
 # ------------------------------------------------------------------ #
 # logging
 # ------------------------------------------------------------------ #

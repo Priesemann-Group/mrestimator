@@ -6,6 +6,9 @@ import logging
 
 from mrestimator import utility as ut
 log = ut.log
+from mrestimator import CoefficientResult
+from mrestimator import FitResult
+from mrestimator import __version__
 
 import numpy as np
 import matplotlib
@@ -535,7 +538,7 @@ class OutputHandler:
         temp = np.union1d(self.xdata, xdata)
         if not np.array_equal(self.xdata, temp):
             log.debug('Rearranging present data')
-            _, indtemp = _intersecting_index(self.xdata, temp)
+            _, indtemp = ut._intersecting_index(self.xdata, temp)
             self.xdata = temp
             for ydx, col in enumerate(self.ydata):
                 coln = np.full(self.xdata.size, np.nan)
@@ -544,7 +547,7 @@ class OutputHandler:
 
         # return list of indices where to place new ydata in the existing
         # (higher-resolution) notation
-        indold, indnew = _intersecting_index(self.xdata, xdata)
+        indold, indnew = ut._intersecting_index(self.xdata, xdata)
         assert(len(indold) == len(xdata))
 
         return indold
@@ -769,7 +772,7 @@ class OutputHandler:
                 label = str(label)
         else:
             # user has not set anything, copy from desc if set
-            label = 'Fit '+math_from_doc(data.fitfunc, 0)
+            label = 'Fit '+ut.math_from_doc(data.fitfunc, 0)
             if desc != '':
                 label = desc + ' ' + label
 
@@ -1032,7 +1035,7 @@ class OutputHandler:
                     hdr += '\n'
                 hdr += 'fitrange: {} <= k <= {} [{}{}]\n' .format(fit.steps[0],
                     fit.steps[-1], ut._printeger(fit.dt), fit.dtunit)
-                hdr += 'function: ' + math_from_doc(fit.fitfunc) + '\n'
+                hdr += 'function: ' + ut.math_from_doc(fit.fitfunc) + '\n'
                 # hdr += '\twith parameters:\n'
                 parname = list(inspect.signature(fit.fitfunc).parameters)[1:]
                 parlen = len(max(parname, key=len))
@@ -1159,7 +1162,7 @@ def overview(src, rks, fits, **kwargs):
     fitlabels = []
     for i, f in enumerate(cout.fits):
         fitcurves.append(cout.fitcurves[i][0])
-        label = math_from_doc(f.fitfunc, 5)
+        label = ut.math_from_doc(f.fitfunc, 5)
         label += '\n\n$\\tau={:.2f}${}\n'.format(f.tau, f.dtunit)
         if f.tauquantiles is not None:
             label += '$[{:.2f}:{:.2f}]$\n\n' \

@@ -122,36 +122,7 @@ def default_fitbnds(fitfunc):
         log.debug('Requesting default bounds for unknown fitfunction.')
         return None
 
-def math_from_doc(fitfunc, maxlen=np.inf):
-    """convert sphinx compatible math to matplotlib/tex"""
-    try:
-        res = fitfunc.__doc__
-        res = res.replace(':math:', '')
-        res = res.replace('`', '$')
-        if len(res) > maxlen:
-            term = res.find(" + ", 0, len(res))
-            res = res[:term+2]+' ...$'
-
-        if len(res) > maxlen:
-            if fitfunc == f_complex:
-                res = 'Complex'
-            elif fitfunc == f_exponential_offset:
-                res = 'Exp+Offset'
-            elif fitfunc == f_exponential:
-                res = 'Exponential'
-            elif fitfunc == f_linear:
-                res = 'Linear'
-            else:
-                res = fitfunc.__name__
-
-    except Exception as e:
-        log.debug('Exception passed when casting function description',
-            exc_info=True)
-        res = fitfunc.__name__
-
-    return res
-
-def _fitfunc_check(f):
+def fitfunc_check(f):
     if f is f_linear or \
         str(f).lower() in ['f_linear', 'linear', 'lin', 'l']:
             return f_linear
@@ -205,7 +176,7 @@ class FitResult(namedtuple('FitResultBase', [
         fitfunc : callable
             The model function, f(x, …). This allows to fit directly with popt.
             To get the (TeX) description of a (builtin) function,
-            use ``math_from_doc(fitfunc)``.
+            use ``ut.math_from_doc(fitfunc)``.
 
         popt : array
             Final fitparameters obtained from the (best) underlying
@@ -433,7 +404,7 @@ def fit(
     if (ut._log_locals):
         log.debug('Locals: {}'.format(locals()))
 
-    fitfunc = _fitfunc_check(fitfunc)
+    fitfunc = fitfunc_check(fitfunc)
 
     # check input data type
     if isinstance(data, CoefficientResult):
@@ -556,14 +527,14 @@ def fit(
     try:
         if fitbnds is None:
             bnds = np.array([-np.inf, np.inf])
-            log.info('Unbound fit to {}'.format(math_from_doc(fitfunc)))
+            log.info('Unbound fit to {}'.format(ut.math_from_doc(fitfunc)))
             log.debug('kmin = {}, kmax = {}'.format(srcsteps[0], srcsteps[-1]))
             ic = list(inspect.signature(fitfunc).parameters)[1:]
             ic = ('{} = {:.3f}'.format(a, b) for a, b in zip(ic, fitpars[0]))
             log.debug('Starting parameters: '+', '.join(ic))
         else:
             bnds = fitbnds
-            log.info('Bounded fit to {}'.format(math_from_doc(fitfunc)))
+            log.info('Bounded fit to {}'.format(ut.math_from_doc(fitfunc)))
             log.debug('kmin = {}, kmax = {}'.format(srcsteps[0], srcsteps[-1]))
             ic = list(inspect.signature(fitfunc).parameters)[1:]
             ic = ('{0:<6} = {1:8.3f} in ({2:9.4f}, {3:9.4f})'
