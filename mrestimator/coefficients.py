@@ -13,7 +13,7 @@ ftype=np.float64
 try:
     from numba import jit, prange
     # raise ImportError
-    # log.info('Compiling parallelizable numba functions')
+    log.info('Using numba for parallelizable functions')
 
     # implement needed sum functions to be compiled by numba:
     # parallelize higher level loops, during sm and ts methods
