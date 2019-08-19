@@ -615,8 +615,6 @@ def coefficients(
         sm_prepped   = sm_precompute(data, steps)
         coefficients = sm_method(sm_prepped, steps)
 
-        print(f"sm_coeff: {coefficients.shape}")
-
 
     # ------------------------------------------------------------------ #
     # Bootstrapping

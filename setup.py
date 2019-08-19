@@ -40,8 +40,8 @@ setup(
     ],
     extras_require={
         # we want to make matplotlib optional, too
-        'full':  ["numba>=0.44.1"],
-        'numba':  ["numba>=0.44.1"],
+        'full':  ["numba>=0.44"],
+        'numba':  ["numba>=0.44"],
     },
     classifiers=[
         "License :: OSI Approved :: GNU General Public License v3 (GPLv3)"
