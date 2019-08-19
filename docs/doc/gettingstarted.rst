@@ -157,7 +157,7 @@ So what did all the arguments to :func:`full_analysis` do?
 First of all, you will find the exact same plot with the specified
 `title` as `Full Analysis.pdf` in the `targetdir` (here `output`).
 
-`dt` and `dtunit` set the time scale, how far masurementpoints are apart.
+`dt` and `dtunit` set the time scale, how far measurement points are apart.
 In the example, we have a recording every 4ms. With `tmin` and `tmax` we
 specify the interval (in `dtunits`) over which the autocrellations are fitted.
 In the third plot you see that we fitted up to `tmax=8000` ms and used the
