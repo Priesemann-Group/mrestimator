@@ -5,7 +5,7 @@ import numpy as np
 
 from mrestimator import utility as ut
 log = ut.log
-from mrestimator.coefficients import *
+from mrestimator.coefficients import CoefficientResult, coefficients
 from mrestimator.input_output import *
 from mrestimator.fit import *
 
