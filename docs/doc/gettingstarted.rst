@@ -159,7 +159,7 @@ First of all, you will find the exact same plot with the specified
 
 `dt` and `dtunit` set the time scale, how far measurement points are apart.
 In the example, we have a recording every 4ms. With `tmin` and `tmax` we
-specify the interval (in `dtunits`) over which the autocrellations are fitted.
+specify the interval (in `dtunits`) over which the autocorrelations are fitted.
 In the third plot you see that we fitted up to `tmax=8000` ms and used the
 three builtin `fitfunctions`
 (a plain exponential, exponential with offset and the complex function, see
