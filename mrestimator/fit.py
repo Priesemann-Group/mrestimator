@@ -8,7 +8,7 @@ import scipy.stats
 import scipy.optimize
 
 from mrestimator import utility as ut
-log = logging.getLogger(__name__)
+log = ut.log
 from mrestimator import CoefficientResult
 
 def f_linear(k, A, O):
