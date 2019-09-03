@@ -53,9 +53,10 @@ def default_fitpars(fitfunc):
     if fitfunc == f_linear:
         return np.array([(1, 0)])
     elif fitfunc == f_exponential:
-        return np.array([(20, 1), (200, 1), (-20, 1), (-200, 1)])
+        return np.array([(20, 1), (200, 1), (-20, 1), (-200, 1), (-1, 1)])
     elif fitfunc == f_exponential_offset:
-        return np.array([(20, 1, 0), (200, 1, 0), (-20, 1, 0), (-50, 1, 0)])
+        return np.array([(20, 1, 0), (200, 1, 0), (-20, 1, 0), (-50, 1, 0),
+            (-1, 1, 0)])
     elif fitfunc == f_complex:
         res = np.array([
             # tau     A       O    tosc      B    gam      nu  tgs      C
