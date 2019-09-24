@@ -4,9 +4,6 @@
 Fitfunctions
 ============
 
-.. toctree::
-    :titlesonly:
-
 The builtin fitfunctions all follow this form:
 
 .. py:function:: mre.f_fitfunction(k, arg1, arg2, ...)

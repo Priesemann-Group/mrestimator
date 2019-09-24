@@ -38,6 +38,11 @@ setup(
         "scipy >= 1.0.0",
         "matplotlib >= 1.5.3",
     ],
+    extras_require={
+        # we want to make matplotlib optional, too
+        'full':  ["numba>=0.44"],
+        'numba':  ["numba>=0.44"],
+    },
     classifiers=[
         "License :: OSI Approved :: GNU General Public License v3 (GPLv3)"
     ]

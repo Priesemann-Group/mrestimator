@@ -76,7 +76,6 @@ autodoc_mock_imports = [
     'neo'
 ]
 
-
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
 
@@ -134,7 +133,7 @@ html_theme = 'sphinx_rtd_theme'
 html_theme_options = {
     'collapse_navigation': False,
     'display_version': False,
-    'navigation_depth': 3,
+    'navigation_depth': 4,
     'sticky_navigation': True,
 }
 

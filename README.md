@@ -2,8 +2,8 @@
 
 Welcome to the Toolbox for the Multistep Regression Estimator ("Mister Estimator").
 
-**This is work in progress!**
-If you find bugs, encounter unexpected behaviour or want to comment, please let us know or open an issue. Any input is greatly appreciated.
+**Under development!**
+If you find bugs, encounter unexpected behaviour or want to comment, please let us know via mail or open an issue. Any input is greatly appreciated.
 
 - [Documentation](https://mrestimator.readthedocs.io/en/latest/)
 - [Getting Started](https://mrestimator.readthedocs.io/en/latest/doc/gettingstarted.html)
@@ -20,6 +20,18 @@ If you find bugs, encounter unexpected behaviour or want to comment, please let 
 
 We recommend (and develop with) the latest stable versions of the dependencies, at the time of writing that is
 Python 3.7.0, numpy 1.15.1, scipy 1.1.0 and matplotlib 2.2.3.
+
+
+## What's new
+
+### [v0.1.5](https://pypi.org/project/mrestimator/0.1.5) (24.09.2019)
+
+* __Changed__: One-file spaghetti code was separated into submodules.
+* __Fixed__: `stationarymean` method for coefficients should work for `m>1` (Note that this is a non-standard case. A detailed discussion will follow.)
+* __New__: Optional Numba dependency to parallelize and precompile the computation of the correlation coefficients. To install numby along with mrestimator, `pip install -U mrestimator[numba]`
+* __New__: Uploading pre-release versions to pypi. To switch run `pip install -U --pre mrestimator[full]` and to go back to stable `pip install mrestimator==0.1.5`.
+* __New__: Basic unit tests. `python -m unittest mrestimator.test_suite`
+
 
 ## Installation
 Assuming a working Python3 environment, usually you can install via pip:
@@ -84,5 +96,42 @@ automatically when you login, you can add it to your `~/.bashrc` or `~/.profile`
 
 ```
 echo 'export PYTHONPATH="${PYTHONPATH}:'$(pwd)'/mrestimator"' >> ~/.bashrc
+```
+
+### Pre-release versions
+
+You can upgrade to pre-release versions using pip
+
+```
+pip install -U --pre mrestimator[full]
+```
+
+(the optional `[full]` installs numba for parallelization, see below)
+To revert to the stable version, run
+
+```
+pip install mrestimator==0.1.4
+```
+
+or
+
+```
+pip install --force-reinstall mrestimator
+```
+
+for a complete (longer) reinstall of all dependencies.
+
+### Parallelization and running on clusters
+
+Per default, the toolbox and its dependencies use all threads available on the host machine.
+While this is great if running locally, it is undesired for distributed computing as the workload manager expects jobs of serial queues to only use one thread.
+To disable multi-threading, you can set the following environment variables (e.g. at the beginning of a job file)
+
+```
+export OPENBLAS_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+export NUMEXPR_NUM_THREADS=1
+export OMP_NUM_THREADS=1
+export NUMBA_NUM_THREADS=1
 ```
 
