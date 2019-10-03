@@ -377,7 +377,7 @@ def full_analysis(
             warning = 'Not enough trials to calculate confidence intervals.'
 
         # check that tau  from exp and exp_off
-        elif not _c_fits_consistent(fits[0], fits[1]):
+        elif not ut._c_fits_consistent(fits[0], fits[1]):
             # warning = 'Exponential with offset resulted in ' + \
             #     '$\\tau = {:.2f}$ {}'.format(fits[1].tau, fits[1].dtunit)
             warning = 'Results from other fits differed beyond confidence.\n'+\
