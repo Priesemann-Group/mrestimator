@@ -1,5 +1,9 @@
 # Mr. Estimator
 
+[![Latest Version](https://img.shields.io/pypi/v/mrestimator.svg)](https://pypi.python.org/pypi/mrestimator/)
+[![License](https://img.shields.io/pypi/l/mrestimator.svg)](https://opensource.org/licenses/GPL-3.0)
+[![Supported Python Versions](https://img.shields.io/pypi/pyversions/mrestimator.svg)](https://pypi.python.org/pypi/mrestimator/)
+
 Welcome to the Toolbox for the Multistep Regression Estimator ("Mister Estimator").
 
 **Under development!**

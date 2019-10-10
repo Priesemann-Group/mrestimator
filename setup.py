@@ -27,7 +27,7 @@ setup(
     author_email='paul.spitzner@ds.mpg.de',
     packages=['mrestimator'],
     url='https://github.com/Priesemann-Group/mrestimator',
-    license='LICENSE',
+    license='GPL-3.0',
     description='Toolbox for the Multistep Regression Estimator.',
     long_description=long_description,
     long_description_content_type='text/markdown',
@@ -44,6 +44,10 @@ setup(
         'numba':  ["numba>=0.44"],
     },
     classifiers=[
-        "License :: OSI Approved :: GNU General Public License v3 (GPLv3)"
+        "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+        'Programming Language :: Python',
+        'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7'
     ]
 )
