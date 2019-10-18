@@ -114,7 +114,9 @@ def simulate_branching(
     # for m>1 we want exp-increase, else
     # avoid nonstationarity by discarding some steps
     if (h[0] != 0 and h[0] and m < 1):
-        for idx in range(0, np.fmax(100, int(length*0.05))):
+        therm = np.fmax(100, int(length*0.05))
+        log.info('Setting up stationarity, {:d} steps'.format(therm))
+        for idx in range(0, therm):
             a = np.random.poisson(lam=m*a + h[0])
 
     A_t[:, 0] = np.random.poisson(lam=m*a + h[0])

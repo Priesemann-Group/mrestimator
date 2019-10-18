@@ -1,6 +1,7 @@
 # Mr. Estimator
 
 [![Latest Version](https://img.shields.io/pypi/v/mrestimator.svg)](https://pypi.python.org/pypi/mrestimator/)
+[![Documentation](https://readthedocs.org/projects/mrestimator/badge/?version=latest&style=flat)](https://mrestimator.readthedocs.io/en/latest/)
 [![License](https://img.shields.io/pypi/l/mrestimator.svg)](https://opensource.org/licenses/GPL-3.0)
 [![Supported Python Versions](https://img.shields.io/pypi/pyversions/mrestimator.svg)](https://pypi.python.org/pypi/mrestimator/)
 

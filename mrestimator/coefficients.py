@@ -85,11 +85,12 @@ except ImportError:
 # ------------------------------------------------------------------ #
 
 @jit(nopython=True, parallel=True, fastmath=True, cache=True)
-def sm_precompute(data, steps):
+def sm_precompute(data, steps, knownmean=None):
     """
         Part 1 of the >= v0.1.5 stationary mean method.
         Works for m>1
         Computes terms that are reused during bootstrapping.
+        If knownmean is provided, we skip estimating the mean activity.
     """
 
     numsteps  = steps.shape[0]
@@ -99,25 +100,41 @@ def sm_precompute(data, steps):
     # (x-mx)(y-my) = x*y + mx*my - my*x - mx*y
     x_y   = np.empty(shape=(numsteps, numtrials))
     x_x   = np.empty(shape=(numsteps, numtrials))
-    mx    = np.empty(shape=(numsteps, numtrials))
-    my    = np.empty(shape=(numsteps, numtrials))
+    if knownmean is None:
+        mx    = np.empty(shape=(numsteps, numtrials))
+        my    = np.empty(shape=(numsteps, numtrials))
 
-    # precompute things that can be separated by trial and k
-    mm     = sum_2d_ax1(data[:, :]   )
-    mm_squ = sum_2d_ax1(data[:, :]**2)
+        # precompute things that can be separated by trial and k
+        mm     = sum_2d_ax1(data[:, :]   )
+        mm_squ = sum_2d_ax1(data[:, :]**2)
 
-    for idx in prange(len(steps)):
-        k = steps[idx]
-        x = data[:, 0:-k]
-        y = data[:, k:  ]
-        l = data[:, 0: k]
-        r = data[:,-k:  ]
-        x_y[idx] =           sum_2d_ax1(x*y) /(numels-k)
-        x_x[idx] = (mm_squ - sum_2d_ax1(r*r))/(numels-k)
-        mx [idx] = (mm     - sum_2d_ax1(r  ))/(numels-k)
-        my [idx] = (mm     - sum_2d_ax1(l  ))/(numels-k)
+        for idx in prange(len(steps)):
+            k = steps[idx]
+            x = data[:, 0:-k]
+            y = data[:, k:  ]
+            l = data[:, 0: k]
+            r = data[:,-k:  ]
+            x_y[idx] =           sum_2d_ax1(x*y) /(numels-k)
+            x_x[idx] = (mm_squ - sum_2d_ax1(r*r))/(numels-k)
+            mx [idx] = (mm     - sum_2d_ax1(r  ))/(numels-k)
+            my [idx] = (mm     - sum_2d_ax1(l  ))/(numels-k)
 
-    return mm, mm_squ, mx, my, x_y, x_x
+    else:
+        mx    = np.ones(shape=(numsteps, numtrials))*knownmean
+        my    = np.ones(shape=(numsteps, numtrials))*knownmean
+
+        mm_squ = sum_2d_ax1(data[:, :]**2)
+
+        for idx in prange(len(steps)):
+            k = steps[idx]
+            x = data[:, 0:-k]
+            y = data[:, k:  ]
+            l = data[:, 0: k]
+            r = data[:,-k:  ]
+            x_y[idx] =           sum_2d_ax1(x*y) /(numels-k)
+            x_x[idx] = (mm_squ - sum_2d_ax1(r*r))/(numels-k)
+
+    return mx, my, x_y, x_x
 
 @jit(nopython=True, parallel=True, fastmath=True, cache=True)
 def sm_method(precomputed, steps, choices = None):
@@ -127,7 +144,7 @@ def sm_method(precomputed, steps, choices = None):
         Relies on the results from sm_percompute.
         Fun fact: `choices = ...` is equivalent to not specifying the index.
     """
-    mm, mm_squ, mx, my, x_y, x_x = precomputed
+    mx, my, x_y, x_x = precomputed
 
     if choices is None:
         x_y_ = x_y[:, :]
@@ -155,28 +172,39 @@ def sm_method(precomputed, steps, choices = None):
     return res
 
 @jit(nopython=True, parallel=True, fastmath=True, cache=True)
-def ts_precompute(data, steps):
+def ts_precompute(data, steps, knownmean=None):
     """
         Part 1 of the trialseparated method.
         Containts the core of the method.
         For ts, precomputing is not needed, this is only for consistency with
         sm. Hence, ts_method only does one reduction based on the bootstrap
         trial choices.
+        Also, this allows to implement knownmean.
     """
     N = data.shape[0]
     T = data.shape[1]
     res = np.zeros(shape=(N, len(steps)), dtype=np.float64)
-    for idx in prange(len(steps)):
-        k = steps[idx]
-        frontmean = np.empty((N,1), ftype)
-        backmean  = np.empty((N,1), ftype)
-        frontmean[:,0] = sum_2d_ax1( data[:,  :-k]              )/(T-k)
-        frontvar       = sum_2d_ax1((data[:,  :-k]-frontmean)**2)/(T-k)
-        backmean[:,0]  = sum_2d_ax1( data[:, k:  ]              )/(T-k)
+    if knownmean is None:
+        for idx in prange(len(steps)):
+            k = steps[idx]
+            frontmean = np.empty((N,1), ftype)
+            backmean  = np.empty((N,1), ftype)
+            frontmean[:,0] = sum_2d_ax1( data[:,  :-k]              )/(T-k)
+            frontvar       = sum_2d_ax1((data[:,  :-k]-frontmean)**2)/(T-k)
+            backmean[:,0]  = sum_2d_ax1( data[:, k:  ]              )/(T-k)
 
-        res[:, idx] = \
-            sum_2d_ax1((data[:, :-k] - frontmean)*(data[:, k:] - backmean)) \
-            / frontvar / (T-k)
+            res[:, idx] = \
+                sum_2d_ax1((data[:, :-k] -frontmean)*(data[:, k:] -backmean)) \
+                / frontvar / (T-k)
+    else:
+        themean = np.ones((N,1), ftype)*knownmean
+        for idx in prange(len(steps)):
+            k = steps[idx]
+            frontvar = sum_2d_ax1((data[:,  :-k]-themean)**2)/(T-k)
+
+            res[:, idx] = \
+                sum_2d_ax1((data[:, :-k] -themean)*(data[:, k:] -themean))\
+                / frontvar / (T-k)
 
     return res
 
@@ -408,6 +436,7 @@ def coefficients(
     steps=None,
     dt=1, dtunit='ms',
     method=None,
+    knownmean=None,
     numboot=100,
     seed=5330,
     description=None,
@@ -453,7 +482,14 @@ def coefficients(
             over trials. Each trials contribution is weighted with its
             variance.
             ``'sm'`` assumes the mean activity and its variance to be
-            constant across all trials.
+            constant across all trials. The mean activity is then
+            calculated from the larger pool of data from all trials.
+
+        knownmean : float, optional
+            If the (stationary) mean activity is known beforehand, it can be
+            provided here. In this case, the provided value is used instead
+            of approximating the expecation value of the activity using the
+            mean.
 
         numboot : int, optional
             Enable bootstrapping to generate `numboot` (resampled)
@@ -496,6 +532,9 @@ def coefficients(
         description = str(desc);
     if description is not None:
         description = str(description)
+
+    if knownmean is not None:
+        knownmean = float(knownmean)
 
     # check dt
     dt = float(dt)
@@ -582,8 +621,10 @@ def coefficients(
     if (ut._log_locals):
         log.debug('Trusted Locals: {}'.format(locals()))
 
-    log.info("coefficients() with '{}' method for {} trials of length {}" \
-        .format(method, numtrials, numels))
+    log.info("coefficients() with '{}' method for {} trials of length {}.{}" \
+        .format(method, numtrials, numels,
+            " 'knownmean' provided: {}".format(knownmean) \
+            if knownmean is not None else ""))
 
     trialcrs        = []
     bootstrapcrs    = []
@@ -593,7 +634,7 @@ def coefficients(
     coefficients    = None                    # set later
 
     if method == 'trialseparated':
-        ts_prepped   = ts_precompute(data, steps)
+        ts_prepped   = ts_precompute(data, steps, knownmean)
         coefficients = ts_method(ts_prepped, steps)
 
         # save per-trial result
@@ -612,7 +653,7 @@ def coefficients(
             trialcrs.append(temp)
 
     elif method == 'stationarymean':
-        sm_prepped   = sm_precompute(data, steps)
+        sm_prepped   = sm_precompute(data, steps, knownmean)
         coefficients = sm_method(sm_prepped, steps)
 
 
