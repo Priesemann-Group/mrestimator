@@ -2,6 +2,7 @@ import logging
 import os
 
 import numpy as np
+from matplotlib import rc_context
 
 from mrestimator import utility as ut
 log = ut.log
@@ -41,6 +42,8 @@ def full_analysis(
         wrapper function (multiple times).
         Calling the underlying functions individually
         gives slightly more control, though.
+        We recommend to set `showoverview=False` when calling in loops to avoid
+        opening many figures (and wasting RAM).
 
         Parameters
         ----------
@@ -136,6 +139,21 @@ def full_analysis(
             called so that every repeated call returns the same error
             estimates.
 
+        showoverview: bool, optional
+            Whether to show the overview panel. Default is 'True'.
+            Set to 'False' when calling `full_analysis()` repeatedly or just
+            saving the panels to disk with `saveoverview` (this temporarily
+            overwrites your matplotlib rc parameters for more consistency).
+            Otherwise, matplotlib may create large amounts of figures and leak
+            memory.
+            Note that even when set to 'True' the panel might not show if
+            `full_analysis()` is called through a script instead of an
+            (interactive) shell, this depends on your matplotlib configuration.
+
+        saveoverview: bool, optional
+            Whether to save the overview panel in `targetdir`.
+            Default is 'False'.
+
         loglevel: str, optional
             The loglevel to use for the logfile created
             as `title.log` in the `targetdir`.
@@ -151,16 +169,6 @@ def full_analysis(
             Per default, a new figure is created - that cannot be added
             as a subplot to any other figure later on. This is due to
             the way matplotlib handles subplots.
-
-        showoverview: bool, optional
-            Wether to show the overview panel. Default is 'True'.
-            Note that even when set to 'True' the panel might not show if
-            `full_analysis()` is called through a script instead of an
-            (interactive) shell.
-
-        saveoverview: bool, optional
-            Wether to save the overview panel in `targetdir`.
-            Default is 'False'.
 
         Returns
         -------
@@ -244,7 +252,6 @@ def full_analysis(
         if saveoverview:
             log.warning("Cannot save overview since no targetdir specified, "+\
                 "skipping")
-
 
     log.debug("full_analysis()")
     if (ut._log_locals):
@@ -386,35 +393,39 @@ def full_analysis(
         shownfits = fits
         warning = None
 
-    if showoverview or saveoverview:
-        panel = overview(src, [rks], shownfits, title=title,
-            warning=warning)
+    # we do not want to have any python figures poping up when showoverivew
+    # is set to false.
+    # also, interactive: true seems to leak memory when many figures are opened
+    with rc_context(rc={'interactive': showoverview}):
+        if showoverview or saveoverview:
+            panel = overview(src, [rks], shownfits, title=title,
+                warning=warning, interactive=showoverview)
 
-    res = OutputHandler([rks]+shownfits, ax=targetplot)
+        res = OutputHandler([rks]+shownfits, ax=targetplot)
 
-    if targetdir is not None:
-        if (title is not None and title != ''):
-            res.save(targetdir+"/"+title)
-            if saveoverview:
-                panel.savefig(targetdir+"/"+title+"_overview.pdf")
+        if targetdir is not None:
+            if (title is not None and title != ''):
+                res.save(targetdir+"/"+title)
+                if saveoverview:
+                    panel.savefig(targetdir+"/"+title+"_overview.pdf")
+            else:
+                res.save(targetdir+"/full_analysis")
+                if saveoverview:
+                    panel.savefig(targetdir+"/full_analysis_overview.pdf")
+
+        if showoverview:
+            panel.show()
         else:
-            res.save(targetdir+"/full_analysis")
-            if saveoverview:
-                panel.savefig(targetdir+"/full_analysis_overview.pdf")
+            # if interactive mode is on, panel would still be shown
+            try:
+                plt.close(panel)
+            except:
+                log.debug('Exception passed', exc_info=True)
 
-    if showoverview:
-        panel.show()
-    elif saveoverview:
-        # if interactive mode is on, panel would still be shown
         try:
-            plt.close(panel)
+            log.removeHandler(loghandler)
         except:
-            log.debug('Exception passed', exc_info=True)
+            log.debug('No handler to remove')
 
-    try:
-        log.removeHandler(loghandler)
-    except:
-        log.debug('No handler to remove')
-
-    log.info("full_analysis() done")
-    return res
+        log.info("full_analysis() done")
+        return res
