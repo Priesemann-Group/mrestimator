@@ -377,7 +377,7 @@ def full_analysis(
 
     warning = None
     if defaultfits:
-        shownfits = [fits[0]]
+        shownfits = [fits[1]]
 
         # no trials, no confidence
         if src.shape[0] == 1:

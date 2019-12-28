@@ -233,13 +233,13 @@ def math_from_doc(fitfunc, maxlen=np.inf):
             res = res[:term+2]+' ...$'
 
         if len(res) > maxlen:
-            if fitfunc == f_complex:
+            if fitfunc.__name__ == 'f_complex':
                 res = 'Complex'
-            elif fitfunc == f_exponential_offset:
+            elif fitfunc.__name__ == 'f_exponential_offset':
                 res = 'Exp+Offset'
-            elif fitfunc == f_exponential:
+            elif fitfunc.__name__ == 'f_exponential':
                 res = 'Exponential'
-            elif fitfunc == f_linear:
+            elif fitfunc.__name__ == 'f_linear':
                 res = 'Linear'
             else:
                 res = fitfunc.__name__

@@ -313,7 +313,7 @@ class FitResult(namedtuple('FitResultBase', [
 
 def fit(
     data,
-    fitfunc=f_exponential,
+    fitfunc=f_exponential_offset,
     steps=None,
     fitpars=None,
     fitbnds=None,
@@ -344,8 +344,8 @@ def fit(
             It must take the independent variable as
             the first argument and the parameters to fit as separate remaining
             arguments.
-            Default is :obj:`f_exponential`.
-            Other builtin options are :obj:`f_exponential_offset` and
+            Default is :obj:`f_exponential_offset`.
+            Other builtin options are :obj:`f_exponential` and
             :obj:`f_complex`.
 
         steps : ~numpy.array, optional
