@@ -175,12 +175,15 @@ def simulate_subsampling(data, prob=0.1, seed='random'):
     # a_t = np.empty_like(data)
 
     log.debug('simulate_subsampling() seeding to {}'.format(seed))
+
+    # we are always using the global random state device, although stats.binom
+    # can have a local instance.
     if seed is None:
         pass
     elif seed == 'random':
         np.random.seed(None)
     else:
         np.random.seed(seed)
+
     # binomial subsampling, seed = None does not reseed global instance
-    return scipy.stats.binom.rvs(data.astype(int), prob, random_state=seed,
-        size=data.shape)
+    return scipy.stats.binom.rvs(data.astype(int), prob, size=data.shape)

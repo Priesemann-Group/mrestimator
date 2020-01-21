@@ -607,6 +607,10 @@ def coefficients(
             else:
                 steps = steps[correct]
                 log.debug('Only using steps that are >= 1')
+        if (steps>data.shape[1]/2).any():
+            log.warning('Provided steps include values that seem too large: ' +
+                "Steps greater than half the time series length cause problems. " +
+                "Proceeding nonetheless...")
         log.debug('Using provided custom steps between {} and {}'.format(
             steps[0], steps[-1]))
 

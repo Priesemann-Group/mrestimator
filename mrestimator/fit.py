@@ -50,6 +50,7 @@ def default_fitpars(fitfunc):
             The default parameters of the given function, 2d array for
             multiple sets of initial conditions.
     """
+    fitfunc = fitfunc_check(fitfunc)
     if fitfunc == f_linear:
         return np.array([(1, 0)])
     elif fitfunc == f_exponential:
@@ -98,6 +99,7 @@ def default_fitpars(fitfunc):
 
 
 def default_fitbnds(fitfunc):
+    fitfunc = fitfunc_check(fitfunc)
     if fitfunc == f_linear:
         return None
     elif fitfunc == f_exponential:
@@ -132,13 +134,16 @@ def fitfunc_check(f):
             return f_exponential
     elif f is f_exponential_offset or \
         str(f).lower() in ['f_exponential_offset', 'exponentialoffset',
-        'exponential_offset','offset', 'exp_off', 'exp_offs', 'eo']:
+        'exponential_offset','offset', 'exp_off', 'exp_offset', 'exp_offs', 'eo']:
             return f_exponential_offset
     elif f is f_complex or \
         str(f).lower() in ['f_complex', 'complex', 'cplx', 'c']:
             return f_complex
-    else:
+    elif callable(f) or hasattr(f, '__call__') :
         return f
+    else:
+        log.exception(f"{f} of type {type(f).__name__} is not a valid fit function.")
+        raise TypeError
 
 # ------------------------------------------------------------------ #
 # Fitting
@@ -416,7 +421,7 @@ def fit(
         dtunit  = data.dtunit
     else:
         try:
-            log.warning("Given data is no CoefficientResult. Guessing format")
+            log.info("Given data is no CoefficientResult. Guessing format")
             dt      = 1
             dtunit  = 'ms'
             srcerrs = None
@@ -427,7 +432,7 @@ def fit(
                     log.debug("using steps provided in 'steps'")
                     tempsteps = np.copy(steps)
                 else:
-                    log.debug("using steps linear steps starting at 1")
+                    log.debug("using linear steps starting at 1")
                     tempsteps = np.arange(1, len(data)+1)
                 src = CoefficientResult(
                     coefficients = data,
@@ -500,7 +505,11 @@ def fit(
     if desc is not None and description is None:
         description = str(desc);
     if description is None:
-        description = data.description
+        try:
+            # this only works when data is a coefficient result
+            description = data.description
+        except Exception as e:
+            log.debug('Exception passed', exc_info=True)
     else:
         description = str(description)
 
