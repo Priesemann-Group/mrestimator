@@ -24,6 +24,13 @@ Python 3.7.0, numpy 1.15.1, scipy 1.1.0 and matplotlib 2.2.3.
 
 ## What's new
 
+### (13.02.2020)
+We are currently finishing up our paper and version `v0.1.6` of the toolbox that will be consistent with the publication.
+`v0.1.6` also fixes some severe bugs. Until we push this into the stable branch, I encourage using the most recent version:
+```
+pip install -U --pre mrestimator[full]
+```
+
 ### [v0.1.5](https://pypi.org/project/mrestimator/0.1.5) (24.09.2019)
 
 * __Changed__: One-file spaghetti code was separated into submodules.
