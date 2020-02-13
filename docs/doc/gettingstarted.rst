@@ -28,7 +28,7 @@ either follow step by step by copying snippets into a python console
 or run the full script and modify it to your needs.
 
 You can grab the resources on
-`github <https://github.com/Priesemann-Group/mrestimator/tree/master/example>`_.
+`github <https://github.com/Priesemann-Group/mrestimator/tree/master/examples/getting_started>`_.
 
 Preparing Data
 --------------
@@ -50,7 +50,7 @@ In a typical scenario, you want to read your data from disk. For reading
 plain text files we will use the :func:`input_handler`.
 
 Download
-`the example data <https://github.com/Priesemann-Group/mrestimator/raw/master/example/data.zip>`_
+`the example data <https://github.com/Priesemann-Group/mrestimator/raw/master/examples/getting_started/data.zip>`_
 and remember where you saved it, e.g. `/Users/me/example/data/`.
 In a new python shell, set the work directory so we can use relative paths and create an
 `output` directory to save results
