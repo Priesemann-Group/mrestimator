@@ -490,8 +490,8 @@ class OutputHandler:
                 log.warning(
                     "New 'dt={}' is not an integer multiple of ".format(dt) +
                     "the previous 'dt={}\n".format(self.dt) +
-                    "\tPlotting with '[different units]'\n" +
-                    "\tAs a workaround, try adding the data with the " +
+                    "Plotting with '[different units]'\n" +
+                    "As a workaround, try adding the data with the " +
                     "smallest 'dt' first")
                 try:
                     regex = r'\[.*?\]'
@@ -513,8 +513,11 @@ class OutputHandler:
                 try:
                     regex = r'\[.*?\]'
                     oldlabel = self.ax.get_xlabel()
-                    newlabel = str('[{}{}]'.format(
-                        ut._printeger(self.dt), self.dtunit))
+                    if self.dt == 1:
+                        newlabel = str('[{}]'.format(self.dtunit))
+                    else:
+                        newlabel = str('[{}{}]'.format(
+                            ut._printeger(self.dt), self.dtunit))
                     self.ax.set_xlabel(re.sub(regex, newlabel, oldlabel))
                     self.xlabel = re.sub(regex, newlabel, self.xlabel)
                 except TypeError:
@@ -626,10 +629,14 @@ class OutputHandler:
         if len(self.rks) == 0:
             self.dt     = data.dt
             self.dtunit = data.dtunit
-            self.xlabel = \
-                'steps[{}{}]'.format(ut._printeger(data.dt, 5), data.dtunit)
-            self.ax.set_xlabel(
-                'k [{}{}]'.format(ut._printeger(data.dt, 5), data.dtunit))
+            if self.dt == 1:
+                self.xlabel = 'steps[{}]'.format(data.dtunit)
+                self.ax.set_xlabel('k [{}]'.format(data.dtunit))
+            else:
+                self.xlabel = \
+                    'steps[{}{}]'.format(ut._printeger(data.dt, 5), data.dtunit)
+                self.ax.set_xlabel(
+                    'k [{}{}]'.format(ut._printeger(data.dt, 5), data.dtunit))
             self.ax.set_ylabel('$r_{k}$')
             self.ax.set_title('Correlation')
 
@@ -696,7 +703,6 @@ class OutputHandler:
 
         kwargs = dict(kwargs, label=label)
 
-
         # redraw plot
         p, = self.ax.plot(rk.steps*rk.dt/self.dt, rk.coefficients, **kwargs)
         self.rkcurves[indrk].append(p)
@@ -719,6 +725,13 @@ class OutputHandler:
 
         if label is not None:
             self.ax.legend()
+
+        # confirm ticks, it's confusing that we should have a tick at k=0
+        old_limit = self.ax.get_xlim()
+        old_ticks = list(self.ax.get_xticks())
+        new_ticks = [1] + [i for i in old_ticks if i > 1]
+        self.ax.set_xticks(new_ticks)
+        self.ax.set_xlim(old_limit)  # matplotlib might change xlim to match ticks
 
     def add_fit(self, data, **kwargs):
         """
@@ -858,6 +871,13 @@ class OutputHandler:
 
         if label is not None:
             self.ax.legend()
+
+        # confirm ticks, it's confusing that we should have a tick at k=0
+        old_limit = self.ax.get_xlim()
+        old_ticks = list(self.ax.get_xticks())
+        new_ticks = [1] + [i for i in old_ticks if i > 1]
+        self.ax.set_xticks(new_ticks)
+        self.ax.set_xlim(old_limit)  # matplotlib might change xlim to match ticks
 
     def add_ts(self, data, **kwargs):
         """
