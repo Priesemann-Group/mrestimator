@@ -250,9 +250,11 @@ class CoefficientResult(namedtuple('CoefficientResultBase', [
     'steps',
     'dt',
     'dtunit',
+    'method',
     'stderrs',
     'trialactivities',
     'trialvariances',
+    'triallen',
     'bootstrapcrs',
     'trialcrs',
     'desc',
@@ -282,6 +284,9 @@ class CoefficientResult(namedtuple('CoefficientResultBase', [
 
         dtunit : str
             Units of step size. Default is `'ms'`.
+
+        method : str or None
+            The method that was used to calculate the coefficients
 
         stderrs : ~numpy.ndarray or None
             Standard errors of the :math:`r_k`.
@@ -367,9 +372,11 @@ class CoefficientResult(namedtuple('CoefficientResultBase', [
         steps,
         dt              = 1.0,
         dtunit          = 'ms',
+        method          = None,
         stderrs         = None,
         trialactivities = np.array([]),
         trialvariances  = np.array([]),
+        triallen        = 0,
         bootstrapcrs    = np.array([]),
         trialcrs        = np.array([]),
         description     = None,
@@ -380,9 +387,11 @@ class CoefficientResult(namedtuple('CoefficientResultBase', [
         steps           = np.asarray(steps)
         dt              = float(dt)
         dtunit          = str(dtunit)
+        method          = None if method is None else str(method)
         stderrs         = None if stderrs is None else np.asarray(stderrs)
         trialactivities = np.asarray(trialactivities)
         trialvariances  = np.asarray(trialvariances)
+        triallen        = int(triallen)
         bootstrapcrs    = bootstrapcrs if isinstance(bootstrapcrs, list) else \
             [bootstrapcrs]
         trialcrs        = trialcrs if isinstance(trialcrs, list) else \
@@ -401,9 +410,11 @@ class CoefficientResult(namedtuple('CoefficientResultBase', [
             steps,
             dt,
             dtunit,
+            method,
             stderrs,
             trialactivities,
             trialvariances,
+            triallen,
             bootstrapcrs,
             trialcrs,
             desc,
@@ -427,9 +438,6 @@ class CoefficientResult(namedtuple('CoefficientResultBase', [
 
  # for idx, k in enumerate(steps):
 
-# ------------------------------------------------------------------ #
-# Wrapper
-# ------------------------------------------------------------------ #
 
 def coefficients(
     data,
@@ -549,11 +557,11 @@ def coefficients(
         if dim == 1:
             log.warning('You should provide an ndarray of ' +
                 'shape(numtrials, datalength)\n' +
-                '\tContinuing with one trial, reshaping your input')
+                'Continuing with one trial, reshaping your input')
             data = np.reshape(data, (1, len(data)))
         elif dim >= 3:
             log.exception('Provided ndarray is of dim {}\n'.format(dim) +
-                  '\tPlease provide a two dimensional ndarray')
+                  'Please provide a two dimensional ndarray')
             raise ValueError
     except Exception as e:
         log.exception('Please provide a two dimensional ndarray')
@@ -650,6 +658,7 @@ def coefficients(
                 coefficients    = ts_prepped[tdx],
                 trialactivities = np.array([trialactivities[tdx]]),
                 trialvariances  = np.array([trialvariances[tdx]]),
+                triallen        = numels,
                 steps           = steps,
                 dt              = dt,
                 dtunit          = dtunit,
@@ -702,6 +711,7 @@ def coefficients(
                 coefficients    = bscoefficients[tdx],
                 trialactivities = np.array([bsmean]),
                 trialvariances  = np.array([bsvar]),
+                triallen        = numels,
                 steps           = steps,
                 dt              = dt,
                 dtunit          = dtunit,
@@ -718,12 +728,14 @@ def coefficients(
         coefficients    = coefficients,
         trialactivities = trialactivities,
         trialvariances  = trialvariances,
+        triallen        = numels,
         steps           = steps,
         stderrs         = stderrs,
         trialcrs        = trialcrs,
         bootstrapcrs    = bootstrapcrs,
         dt              = dt,
         dtunit          = dtunit,
+        method          = method,
         description     = description)
 
     return fulres

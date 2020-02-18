@@ -550,7 +550,7 @@ def fit(
             ic = ('{0:<6} = {1:8.3f} in ({2:9.4f}, {3:9.4f})'
                 .format(a, b, c, d) for a, b, c, d
                     in zip(ic, fitpars[0], fitbnds[0, :], fitbnds[1, :]))
-            log.debug('First parameters:\n\t'+'\n\t'.join(ic))
+            log.debug('First parameters:\n'+'\n'.join(ic))
     except Exception as e:
         log.debug('Exception when logging fitpars', exc_info=True)
 
@@ -667,7 +667,7 @@ def fit(
         if numboot > src.numboot:
             log.debug("The provided data does not contain enough " +
                 "bootstrapsamples (%d) to do the requested " +
-                "'numboot=%d' fits.\n\tCall 'coefficeints()' and 'fit()' " +
+                "'numboot=%d' fits.\nCall 'coefficeints()' and 'fit()' " +
                 "with the same 'numboot' argument to avoid this.",
                 src.numboot, numboot)
             numboot = src.numboot
@@ -751,7 +751,7 @@ def fit(
     # ------------------------------------------------------------------ #
 
     log.info('Finished fitting ' +
-        '{} to {}, mre = {}, tau = {}{}, ssres = {:.5f}'.format(
+        '{} to {},\nmre = {}, tau = {}{}, ssres = {:.5f}'.format(
             'the data' if description is None else "'"+description+"'",
             fitfunc.__name__,
             ut._prerror(fulres.mre, fulres.mrestderr),
@@ -761,19 +761,35 @@ def fit(
     if fulres.tau is None:
         return fulres
 
+    try:
+        if src.method == 'trialseparated':
+            if fulres.tau > 0.001*(src.triallen*dt):
+                log.warning(
+                    "The obtained autocorrelationtime " +
+                    "tau~{:.0f}{} ".format(fulres.tau, dtunit) +
+                    "is larger than 10% of the trial length " +
+                    "({:d} steps).".format(src.triallen) +
+                    ("\nThe 'stationarymean' method might be more suitable." if \
+                        src.numtrials > 1 else "")
+                )
+    except:
+        log.debug('Exception passed', exc_info=True)
+
+    # this was really just some back of the envelope suggestion.
+    # not sure if we want to keep this
     if fulres.tau >= 0.75*(steps[-1]*dt):
         log.warning('The obtained autocorrelationtime is large compared '+
-            'to the fitrange: tmin~{:.0f}{}, tmax~{:.0f}{}, tau~{:.0f}{}'
-            .format(steps[0]*dt, dtunit, steps[-1]*dt, dtunit,
-                fulres.tau, dtunit))
-        log.warning('Consider fitting with a larger \'maxstep\'')
+            'to the fitrange:\n' +
+            "tmin~{:.0f}{}, tmax~{:.0f}{}, tau~{:.0f}{}\n"
+            .format(steps[0]*dt, dtunit, steps[-1]*dt, dtunit, fulres.tau, dtunit) +
+            'Consider fitting with a larger \'maxstep\'')
 
     if fulres.tau <= 0.05*(steps[-1]*dt) or fulres.tau <= steps[0]*dt:
         log.warning('The obtained autocorrelationtime is small compared '+
-            'to the fitrange: tmin~{:.0f}{}, tmax~{:.0f}{}, tau~{:.0f}{}'
-            .format(steps[0]*dt, dtunit, steps[-1]*dt, dtunit,
-                fulres.tau, dtunit))
-        log.warning("Consider fitting with smaller 'minstep' and 'maxstep'")
+            "to the fitrange:\n" +
+            "tmin~{:.0f}{}, tmax~{:.0f}{}, tau~{:.0f}{}\n"
+            .format(steps[0]*dt, dtunit, steps[-1]*dt, dtunit, fulres.tau, dtunit) +
+            "Consider fitting with smaller 'minstep' and 'maxstep'")
 
     if fitfunc is f_complex:
         # check for amplitudes A>B, A>C, A>O

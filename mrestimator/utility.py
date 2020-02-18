@@ -19,7 +19,7 @@ _targetdir = None
 _logfilehandler = None
 _logstreamhandler = None
 _log_locals = False
-_log_trace = False
+_log_trace = True  # keep this on. seriously.
 
 # ------------------------------------------------------------------ #
 # helper functions
@@ -272,14 +272,14 @@ class CustomExceptionFormatter(logging.Formatter, object):
 
     def format(self, record):
         # we want to indent after a newline
+        # seems that this also indents exceptions/traces
         s = super(CustomExceptionFormatter, self).format(record)
         s = s.replace('\n', '\n'+self._padding)
         return s
 
     def formatException(self, exc_info):
         # original formatted exception
-        exc_text = \
-            super(CustomExceptionFormatter, self).formatException(exc_info)
+        exc_text = super(CustomExceptionFormatter, self).formatException(exc_info)
         # if not self._log_locals:
         if not _log_locals:
             # avoid printing 'NoneType' calling log.exception wihout try
@@ -288,7 +288,7 @@ class CustomExceptionFormatter(logging.Formatter, object):
             or self._force_disable_trace:
                 exc_text = ''
             else:
-                exc_text = self._padding+exc_text.replace('\n', '\n'+self._padding)
+                exc_text = '\t'+exc_text.replace('\n', '\n\t')
             # k = exc_text.rfind('\n')
             # if k != -1:
                 # exc_text = exc_text[:k]
@@ -309,7 +309,7 @@ class CustomExceptionFormatter(logging.Formatter, object):
             if not self._force_disable_trace and _log_trace:
                 res.append(exc_text)
 
-            res = self._padding+'\n'.join(res).replace('\n', '\n'+self._padding)
+            res = '\t'+'\n'.join(res).replace('\n', '\n\t')
             # k = res.rfind('\n')
             # if k != -1:
                 # res = res[:k]
@@ -384,6 +384,7 @@ def initialize():
         _set_permissions(_targetdir+'mre.log')
         _logfilehandler.setFormatter(CustomExceptionFormatter(
             '%(asctime)s %(levelname)8s: %(message)s', "%Y-%m-%d %H:%M:%S",
+             force_disable_trace=False,
             indent_after_newline=30))
         _logfilehandler.setLevel(logging.DEBUG)
         log.addHandler(_logfilehandler)
@@ -393,7 +394,7 @@ def initialize():
         _logstreamhandler = logging.StreamHandler()
         _logstreamhandler.setFormatter(CustomExceptionFormatter(
             '%(levelname)-8s %(message)s',
-            force_disable_trace=True,
+            force_disable_trace=False,
             indent_after_newline=9))
         _logstreamhandler.setLevel(logging.INFO)
         log.addHandler(_logstreamhandler)
