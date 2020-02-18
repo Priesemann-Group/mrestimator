@@ -11,8 +11,8 @@ from mrestimator.input_output import *
 from mrestimator.fit import *
 
 def full_analysis(
-    data,
-    dt,
+    data=None,
+    dt=None,
     kmax=None,
     dtunit=' time unit',
     fitfuncs=None,
@@ -200,6 +200,9 @@ def full_analysis(
     # Arguments
     # ------------------------------------------------------------------ #
 
+    how_to_str = "full_analysis() requires the following arguments:\n" +\
+        "'data', 'dt' and either one of 'kmax', 'tmax' or 'steps'"
+
     # workaround: if full_analysis() does not reach its end where we remove
     # the local loghandler, it survives and keps logging with the old level
     for hdlr in log.handlers:
@@ -208,9 +211,12 @@ def full_analysis(
                 hdlr.close()
                 log.removeHandler(hdlr)
 
+    if data is None or dt is None:
+        log.exception(how_to_str)
+        raise TypeError
+
     if kmax is None and tmax is None and steps is None:
-        log.exception("full_analysis() requires one of the following keyword" +
-            "arguments: 'kmax', 'tmax' or 'steps'")
+        log.exception(how_to_str)
         raise TypeError
 
     # if there is a targetdir specified, create and use for various output
@@ -289,8 +295,12 @@ def full_analysis(
             tmax=float(tmax)
             assert(tmin>=0 and tmax>tmin)
         except Exception as e:
-            log.exception("Arguments: 'tmax' and 'tmin' " +
-                "need to be floats with 'tmax' > 'tmin' >= 0")
+            if kmax is None:
+                log.exception("Arguments: 'tmax' and 'tmin' " +
+                    "need to be floats with 'tmax' > 'tmin' >= 0")
+            else:
+                log.exception("Argument: 'kmax' is too small")
+
             raise
         steps = (int(tmin/dt), int(tmax/dt))
     else:
@@ -311,14 +321,6 @@ def full_analysis(
             "a list e.g. ['exponential', 'exponential_offset']")
         raise TypeError
 
-    if coefficientmethod is None:
-        coefficientmethod = 'trialseparated'
-    if coefficientmethod not in [
-    'trialseparated', 'ts', 'stationarymean', 'sm']:
-        log.exception("Optional argument 'coefficientmethod' needs " +
-            "to be either 'trialseparated' or 'stationarymean'")
-        raise TypeError
-
     if targetplot is not None \
     and not isinstance(targetplot, matplotlib.axes.Axes):
         log.exception("Optional argument 'targetplot' needs " +
@@ -328,14 +330,34 @@ def full_analysis(
     if title is not None:
         title = str(title)
 
+    # as of v0.1.6 we decided to choose the default method based on the number of trials
+    src = input_handler(data)
+
+    if coefficientmethod is None and src.shape[0] == 1:
+        coefficientmethod = 'trialseparated'
+    elif coefficientmethod is None and src.shape[0] > 1:
+        log.exception(
+            "The provided data seems to have a trial structure. " +
+            "Please specify a 'coefficientmethod':\n" +
+            "'trialseparated' -- if your trials are long, or\n" +
+            "'stationarymean' -- if you are sure that activity is stationary " +
+            "across trials.\n" +
+            "If you are unsure, we suggest to compare results from both methods."
+            )
+        raise TypeError
+
+    if coefficientmethod not in [
+    'trialseparated', 'ts', 'stationarymean', 'sm']:
+        log.exception("Optional argument 'coefficientmethod' needs " +
+            "to be either 'trialseparated' or 'stationarymean'")
+        raise TypeError
+
     if (ut._log_locals):
         log.debug('Finished argument check. Locals: {}'.format(locals()))
 
     # ------------------------------------------------------------------ #
     # Continue with trusted arguments
     # ------------------------------------------------------------------ #
-
-    src = input_handler(data)
 
     if substracttrialaverage:
         src = src - np.mean(src, axis=0)

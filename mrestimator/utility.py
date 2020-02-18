@@ -263,9 +263,18 @@ class CustomExceptionFormatter(logging.Formatter, object):
         # this is needed since i have not found an easy way to disable the
         # printing of the stack trace to console.
         force_disable_trace=False,
+        indent_after_newline=0,
         **kwargs):
             self._force_disable_trace  = force_disable_trace
+            self._padding = ' '*indent_after_newline
             super(CustomExceptionFormatter, self).__init__(*args, **kwargs)
+
+
+    def format(self, record):
+        # we want to indent after a newline
+        s = super(CustomExceptionFormatter, self).format(record)
+        s = s.replace('\n', '\n'+self._padding)
+        return s
 
     def formatException(self, exc_info):
         # original formatted exception
@@ -279,7 +288,7 @@ class CustomExceptionFormatter(logging.Formatter, object):
             or self._force_disable_trace:
                 exc_text = ''
             else:
-                exc_text = '\t'+exc_text.replace('\n', '\n\t')
+                exc_text = self._padding+exc_text.replace('\n', '\n'+self._padding)
             # k = exc_text.rfind('\n')
             # if k != -1:
                 # exc_text = exc_text[:k]
@@ -300,7 +309,7 @@ class CustomExceptionFormatter(logging.Formatter, object):
             if not self._force_disable_trace and _log_trace:
                 res.append(exc_text)
 
-            res = '\t'+'\n'.join(res).replace('\n', '\n\t')
+            res = self._padding+'\n'.join(res).replace('\n', '\n'+self._padding)
             # k = res.rfind('\n')
             # if k != -1:
                 # res = res[:k]
@@ -374,7 +383,8 @@ def initialize():
             mode='w', maxBytes=50*1024*1024, backupCount=9)
         _set_permissions(_targetdir+'mre.log')
         _logfilehandler.setFormatter(CustomExceptionFormatter(
-            '%(asctime)s %(levelname)8s: %(message)s', "%Y-%m-%d %H:%M:%S"))
+            '%(asctime)s %(levelname)8s: %(message)s', "%Y-%m-%d %H:%M:%S",
+            indent_after_newline=30))
         _logfilehandler.setLevel(logging.DEBUG)
         log.addHandler(_logfilehandler)
 
@@ -382,7 +392,9 @@ def initialize():
         global _logstreamhandler
         _logstreamhandler = logging.StreamHandler()
         _logstreamhandler.setFormatter(CustomExceptionFormatter(
-            '%(levelname)-8s %(message)s', force_disable_trace=True))
+            '%(levelname)-8s %(message)s',
+            force_disable_trace=True,
+            indent_after_newline=9))
         _logstreamhandler.setLevel(logging.INFO)
         log.addHandler(_logstreamhandler)
 
