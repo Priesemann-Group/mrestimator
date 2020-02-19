@@ -491,6 +491,15 @@ def fit(
             log.exception('Provided data has no compatible format')
             raise
 
+    # check that input coefficients do not contain nans or infs
+    if not np.isfinite(src.coefficients).all():
+        log.exception(
+            "Provided coefficients contain elements that are not finite. " +
+            "Fits would not converge.\n" +
+            "One can use `np.isfinite(data.coefficients)` to find problematic elements."
+        )
+        raise ValueError
+
     # check steps
     if steps is None:
         steps = (None, None)
