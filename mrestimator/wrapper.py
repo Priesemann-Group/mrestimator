@@ -334,13 +334,13 @@ def full_analysis(
     src = input_handler(data)
 
     if coefficientmethod is None and src.shape[0] == 1:
-        coefficientmethod = 'trialseparated'
+        coefficientmethod = 'stationarymean'  # redundant with coefficients()
     elif coefficientmethod is None and src.shape[0] > 1:
         log.exception(
-            "The provided data seems to have a trial structure. " +
+            "The provided data seems to have more than one trial. " +
             "Please specify a 'coefficientmethod':\n" +
-            "'trialseparated' -- if your trials are long, or\n" +
-            "'stationarymean' -- if you are sure that activity is stationary " +
+            "'trialseparated' --- if your trials are long, or\n" +
+            "'stationarymean' --- if you are sure that activity is stationary " +
             "across trials.\n" +
             "If you are unsure, we suggest to compare results from both methods."
             )

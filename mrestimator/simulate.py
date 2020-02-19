@@ -101,11 +101,12 @@ def simulate_branching(
         log.warning('activity a=0 and initial h=0')
 
     log.info('Generating branching process with m={}'.format(ut._printeger(m)))
-    log.debug('Details:\n' +
-        '\t{:d} trials with {:d} time steps each\n'.format(numtrials, length) +
-        '\tbranchign ratio m={}\n'.format(m) +
-        '\t(initial) activity a={}\n'.format(a) +
-        '\t(initial) drive rate h={}'.format(h[0]))
+    log.debug(
+        '{:d} trials with {:d} time steps each\n'.format(numtrials, length) +
+        'branchign ratio m={}\n'.format(m) +
+        '(initial) activity a={}\n'.format(a) +
+        '(initial) drive rate h={}'.format(h[0])
+    )
 
     A_t = np.zeros(shape=(numtrials, length), dtype=int)
     a = np.ones_like(A_t[:, 0])*a

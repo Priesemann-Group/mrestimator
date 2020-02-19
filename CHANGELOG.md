@@ -1,8 +1,10 @@
 Changelog
 =========
 
-[v0.1.6](https://pypi.org/project/mrestimator/0.1.6) (21.01.2020)
+[v0.1.6](https://pypi.org/project/mrestimator/0.1.6) (19.02.2020)
 -----------------------------------------------------------------
+* __Changed__: When the data has more than one trial, we now require the user to choose which coefficient method to use (`ts` or `sm`) in `mre.coefficients()` and `mre.full_analysis()`. We showed that the resulting time scale that one finds can differ severely between the two methods. If unsure, compare results from both. We explain the difference in the paper and print some recommendation from the toolbox.
+* __Changed__: Due to above, `method` is now the second positional argument (this might break scripts that gave `steps`, `dt`, or `dtunit` as positonal arguments). Call `mre.coefficients(data, 'ts')` or as before via keyword `mre.coefficients(data, method='ts')`
 * __Fixed__: Typo that caused `full_analysis()` to crash when calling the consistency check.
 * __Fixed__: Workaround to prevent a memory leak when calling `full_analysis()` repeatedly. Always set `showoverview=False` when using `full_analysis()` in for loops.
 We now temporarily set `matplotlib.rcParams['interactive'] = showoverview` to avoid opening a new figure every time. This should make the panel and `showoverview` argument feel more consistent. The same workaround can be used in your custom scripts when using the `OutputHandler` (that also opens figures): Nest the loop inside a `with matplotlib.rc_context(rc={'interactive': False}):` (or adjust your rc parameters) to avoid figures.

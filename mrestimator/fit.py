@@ -800,33 +800,45 @@ def fit(
 
     try:
         if src.method == 'trialseparated':
-            if fulres.tau > 0.001*(src.triallen*dt):
+            if fulres.tau > 0.1*(src.triallen*dt):
                 log.warning(
                     "The obtained autocorrelationtime " +
-                    "tau~{:.0f}{} ".format(fulres.tau, dtunit) +
+                    "(tau~{:.0f}{}) ".format(fulres.tau, dtunit) +
                     "is larger than 10% of the trial length " +
-                    "({:d} steps).".format(src.triallen) +
+                    "({:.0f}{}).".format(src.triallen*dt) +
                     ("\nThe 'stationarymean' method might be more suitable." if \
                         src.numtrials > 1 else "")
                 )
     except:
         log.debug('Exception passed', exc_info=True)
 
-    # this was really just some back of the envelope suggestion.
-    # not sure if we want to keep this
-    if fulres.tau >= 0.75*(steps[-1]*dt):
-        log.warning('The obtained autocorrelationtime is large compared '+
-            'to the fitrange:\n' +
-            "tmin~{:.0f}{}, tmax~{:.0f}{}, tau~{:.0f}{}\n"
-            .format(steps[0]*dt, dtunit, steps[-1]*dt, dtunit, fulres.tau, dtunit) +
-            'Consider fitting with a larger \'maxstep\'')
+    try:
+        if src.method == 'stationarymean':
+            if fulres.tau > (src.triallen*dt):
+                log.warning(
+                    "The obtained autocorrelationtime " +
+                    "(tau~{:.0f}{}) ".format(fulres.tau, dtunit) +
+                    "is larger than the trial length " +
+                    "({:.0f}{}).".format(src.triallen*dt, dtunit) +
+                    "\nDon't trust this estimate!"
+                )
+    except:
+        log.debug('Exception passed', exc_info=True)
 
-    if fulres.tau <= 0.05*(steps[-1]*dt) or fulres.tau <= steps[0]*dt:
-        log.warning('The obtained autocorrelationtime is small compared '+
-            "to the fitrange:\n" +
-            "tmin~{:.0f}{}, tmax~{:.0f}{}, tau~{:.0f}{}\n"
-            .format(steps[0]*dt, dtunit, steps[-1]*dt, dtunit, fulres.tau, dtunit) +
-            "Consider fitting with smaller 'minstep' and 'maxstep'")
+    # this was really just some back of the envelope suggestion.
+    # if fulres.tau >= 0.75*(steps[-1]*dt):
+    #     log.warning('The obtained autocorrelationtime is large compared '+
+    #         'to the fitrange:\n' +
+    #         "tmin~{:.0f}{}, tmax~{:.0f}{}, tau~{:.0f}{}\n"
+    #         .format(steps[0]*dt, dtunit, steps[-1]*dt, dtunit, fulres.tau, dtunit) +
+    #         'Consider fitting with a larger \'maxstep\'')
+
+    # if fulres.tau <= 0.05*(steps[-1]*dt) or fulres.tau <= steps[0]*dt:
+    #     log.warning('The obtained autocorrelationtime is small compared '+
+    #         "to the fitrange:\n" +
+    #         "tmin~{:.0f}{}, tmax~{:.0f}{}, tau~{:.0f}{}\n"
+    #         .format(steps[0]*dt, dtunit, steps[-1]*dt, dtunit, fulres.tau, dtunit) +
+    #         "Consider fitting with smaller 'minstep' and 'maxstep'")
 
     if fitfunc is f_complex:
         # check for amplitudes A>B, A>C, A>O

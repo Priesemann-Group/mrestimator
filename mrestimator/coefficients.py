@@ -441,9 +441,9 @@ class CoefficientResult(namedtuple('CoefficientResultBase', [
 
 def coefficients(
     data,
+    method=None,
     steps=None,
     dt=1, dtunit='ms',
-    method=None,
     knownmean=None,
     numboot=100,
     seed=5330,
@@ -459,6 +459,18 @@ def coefficients(
             Input data, containing the time series of activity in the trial
             structure. If a one dimensional array is provieded instead, we
             assume a single trial and reshape the input.
+
+        method : str
+            The estimation method to use, either `'trialseparated'` (``'ts'``) or
+            `'stationarymean'` (``'sm'``).
+            ``'ts'`` calculates the :math:`r_k` for each trial separately and averages
+            over trials. The resulting coefficients can be biased if the trials are
+            too short.
+            ``'sm'`` assumes the mean activity and its variance to be constant across
+            all trials. The mean activity is then calculated from the larger pool
+            of data from all trials and the short-trial-bias might be compensated.
+            If you are unsure, compare results from both methods. If they agree,
+            trials should be long enough.
 
         steps : ~numpy.array, optional
             Specify the steps :math:`k` for which to compute coefficients
@@ -482,16 +494,6 @@ def coefficients(
 
         Other Parameters
         ----------------
-        method : str, optional
-            The estimation method to use, either `'trialseparated'` (``'ts'``,
-            default) or
-            `'stationarymean'` (``'sm'``). ``'ts'``
-            calculates the :math:`r_k` for each trial separately and averages
-            over trials. Each trials contribution is weighted with its
-            variance.
-            ``'sm'`` assumes the mean activity and its variance to be
-            constant across all trials. The mean activity is then
-            calculated from the larger pool of data from all trials.
 
         knownmean : float, optional
             If the (stationary) mean activity is known beforehand, it can be
@@ -525,16 +527,6 @@ def coefficients(
     # ------------------------------------------------------------------ #
     # Check arguments to offer some more convenience
     # ------------------------------------------------------------------ #
-    log.debug('coefficients() using \'{}\' method:'.format(method))
-    if method is None:
-        method = 'ts'
-    if method not in ['trialseparated', 'ts', 'stationarymean', 'sm']:
-        log.exception('Unknown method: "{}"'.format(method))
-        raise NotImplementedError
-    if method == 'ts':
-        method = 'trialseparated'
-    elif method == 'sm':
-        method = 'stationarymean'
 
     if desc is not None and description is None:
         description = str(desc);
@@ -551,6 +543,7 @@ def coefficients(
         raise ValueError
     dtunit = str(dtunit)
 
+    # check data
     dim = -1
     try:
         dim = len(data.shape)
@@ -567,6 +560,34 @@ def coefficients(
         log.exception('Please provide a two dimensional ndarray')
         raise ValueError from e
 
+    # check method
+    log.debug('coefficients() using \'{}\' method:'.format(method))
+    if method is None:
+        if data.shape[0] == 1:
+            method = 'sm'  # sm has a more useful warning when tau is large
+            log.debug(
+                "No coefficient method provided, using 'stationarymean' for one trial"
+            )
+        else:
+            log.exception(
+                "The provided data seems to have more than one trial. " +
+                "Please specify a 'method':\n" +
+                "'trialseparated' --- if your trials are long, or\n" +
+                "'stationarymean' --- if you are sure that activity is stationary " +
+                "across trials.\n" +
+                "If you are unsure, we suggest to compare results from both methods."
+            )
+            raise ValueError
+
+    if method not in ['trialseparated', 'ts', 'stationarymean', 'sm']:
+        log.exception('Unknown method: "{}"'.format(method))
+        raise NotImplementedError
+    if method == 'ts':
+        method = 'trialseparated'
+    elif method == 'sm':
+        method = 'stationarymean'
+
+    # check steps
     if steps is None:
         steps = (None, None)
     try:
