@@ -35,9 +35,10 @@ def f_complex(k, tau, A, O, tauosc, B, gamma, nu, taugs, C):
 
 def default_fitpars(fitfunc):
     """
-        Called to get the default parameters of built-in fitfunctions that are
-        used to initialise the fitting routine. Timelike values specified
-        here were derived assuming a timescale of miliseconds.
+        Called to get the default starting parameters for the built-in
+        fitfunctions that are used to initialise the fitting routine.
+        Timelike values specified here were derived assuming a timescale
+        of miliseconds.
 
         Parameters
         ----------
@@ -124,6 +125,33 @@ def default_fitbnds(fitfunc):
     else:
         log.debug('Requesting default bounds for unknown fitfunction.')
         return None
+
+def fitpars_check(pars, fitfunc):
+    # we want 2d numpy arrays, first dim for each fit attempt, second dim matching func
+    fitfunc = fitfunc_check(fitfunc)
+    if pars is None:
+        return default_fitpars(fitfunc)
+    else:
+        try:
+            res = np.asfarray(pars)
+        except Exception as e:
+            log.exception("Failed to cast parameters. Check dimension!")
+            raise
+        numargs = int(len(list(inspect.signature(fitfunc).parameters)) - 1)
+        if numargs != res.shape[-1]:
+            log.exception(
+                "Dimension of fitparameters ({:d}) ".format(res.shape[-1]) +
+                "needs to match the number of (parametric) arguments " +
+                "of the fitfunction ({:d})".format(numargs)
+            )
+            raise TypeError
+
+        # if 1d then cast to 2d so we loop over multiple values
+        if (len(res.shape)==1):
+            res = res.reshape(1, len(res))
+
+        return res
+
 
 def fitfunc_check(f):
     if f is f_linear or \
@@ -528,12 +556,12 @@ def fit(
     if fitfunc not in [f_exponential, f_exponential_offset, f_complex]:
         log.info('Custom fitfunction specified {}'.format(fitfunc))
 
-    if fitpars is None: fitpars = default_fitpars(fitfunc)
+    fitpars = fitpars_check(fitpars, fitfunc)
+
+    # should implement fitbnds_check(bnds, fitfunc)
     if fitbnds is None: fitbnds = default_fitbnds(fitfunc)
 
-    if (len(fitpars.shape)<2): fitpars = fitpars.reshape(1, len(fitpars))
-
-    # logging this should not cause an actual exception
+    # logging this should not cause an actual exception. ugly, needs rework
     try:
         if fitbnds is None:
             bnds = np.array([-np.inf, np.inf])
