@@ -29,6 +29,7 @@ def full_analysis(
     targetplot=None,
     showoverview=True,
     saveoverview=False,
+    method=None,                    # overload for coefficientmethod
     ):
     """
         Wrapper function that performs the following four steps:
@@ -201,7 +202,7 @@ def full_analysis(
     # ------------------------------------------------------------------ #
 
     how_to_str = "full_analysis() requires the following arguments:\n" +\
-        "'data', 'dt' and either one of 'kmax', 'tmax' or 'steps'"
+        "'data', 'dt', 'method' and either one of 'kmax', 'tmax' or 'steps'"
 
     # workaround: if full_analysis() does not reach its end where we remove
     # the local loghandler, it survives and keps logging with the old level
@@ -333,6 +334,16 @@ def full_analysis(
     # as of v0.1.6 we decided to choose the default method based on the number of trials
     src = input_handler(data)
 
+    if coefficientmethod is None and method is not None:
+        coefficientmethod = method
+    elif coefficientmethod is not None and method is not None:
+        log.exception(
+            "Keywords 'method' and 'coefficientmethod' are synonymous.\n" +
+            "Provide one or the other!"
+        )
+        raise ValueError
+
+    # for one trial the two methods are equal
     if coefficientmethod is None and src.shape[0] == 1:
         coefficientmethod = 'stationarymean'  # redundant with coefficients()
     elif coefficientmethod is None and src.shape[0] > 1:

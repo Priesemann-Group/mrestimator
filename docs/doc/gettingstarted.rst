@@ -134,12 +134,13 @@ before updating, so your scripts dont break.
 
     auto = mre.full_analysis(
         data='./data/sub_*.tsv',
+        coefficientmethod='ts',
         targetdir='./output',
         title='Full Analysis',
         dt=4, dtunit='ms',
         tmin=0, tmax=8000,
         fitfuncs=['exp', 'exp_offs', 'complex'],
-        )
+    )
 
     plt.show()
 ..
@@ -225,7 +226,7 @@ the :func:`coefficients` function.
 
 .. code-block:: python
 
-    rkdefault = mre.coefficients(srcful)
+    rkdefault = mre.coefficients(srcful, method='ts')
     print(rkdefault)
     print('this guy has the following attributes: ', rkdefault._fields)
 ..
@@ -240,7 +241,8 @@ We can manually specify the time steps for which we want to calculate coefficien
 
 .. code-block:: python
 
-    rk = mre.coefficients(srcsub, steps=(1, 5000), dt=4, dtunit='ms', desc='mydat')
+    rk = mre.coefficients(srcsub, method='ts',
+        steps=(1, 5000), dt=4, dtunit='ms', desc='mydat')
 ..
 
 Here we want all coefficients from :math:`1\times 4 \rm{ms}` to :math:`5000\times 4 \rm{ms}`, where, again, the measurement points of our data `srcsub` are 4ms apart.

@@ -343,7 +343,7 @@ class CoefficientResult(namedtuple('CoefficientResultBase', [
             bp = mre.simulate_branching(m=0.995, a=10, numtrials=15)
 
             # the bp returns data already in the right format
-            rk = mre.coefficients(bp, dtunit='step')
+            rk = mre.coefficients(bp, method='ts', dtunit='step')
 
             # fit
             ft = mre.fit(rk)
