@@ -20,6 +20,8 @@ _logfilehandler = None
 _logstreamhandler = None
 _log_locals = False
 _log_trace = True  # keep this on. seriously.
+_print_progress = True
+_keep_progress = False
 
 # ------------------------------------------------------------------ #
 # helper functions
@@ -255,6 +257,38 @@ def math_from_doc(fitfunc, maxlen=np.inf):
 # ------------------------------------------------------------------ #
 # logging
 # ------------------------------------------------------------------ #
+
+# import tqdm if available and set some defaults
+try:
+    from tqdm import tqdm as __tqdm
+
+    # we want to overload for custom defaults
+    def tqdm(*args, **kwargs):
+
+        if 'bar_format' not in kwargs:
+            kwargs = dict(kwargs,
+                bar_format="PROGRESS {percentage:3.0f}%|{bar}" +
+                    "| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]",
+            )
+
+        if 'leave' not in kwargs:
+            kwargs = dict(kwargs, leave=True)
+
+        if not _keep_progress:
+            kwargs = dict(kwargs, leave=False)
+
+        # this gives us two ways to disable printing of the progress bar.
+        # globally via ut._print_progress and for individual function calls via disable
+        if not _print_progress:
+            kwargs = dict(kwargs, disable=True)
+
+        return __tqdm(*args, **kwargs)
+
+except ImportError:
+    def tqdm(*args, **kwargs):
+        if args:
+            return args[0]
+        return kwargs.get('iterable', None)
 
 class CustomExceptionFormatter(logging.Formatter, object):
 

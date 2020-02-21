@@ -5,6 +5,7 @@ import numpy as np
 
 from mrestimator import utility as ut
 log = ut.log
+tqdm = ut.tqdm
 
 # set precision of temporary results for numpy and numba
 # ftype = np.longdouble # very slow, maybe float64 is enough

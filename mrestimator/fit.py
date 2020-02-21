@@ -9,6 +9,7 @@ import scipy.optimize
 
 from mrestimator import utility as ut
 log = ut.log
+tqdm = ut.tqdm
 from mrestimator import CoefficientResult
 
 def f_linear(k, A, O):
@@ -606,11 +607,11 @@ def fit(
         ssresmin = np.inf
         fulpopt = None
         fulpcov = None
-        if fitlog:
-            ut._logstreamhandler.terminator = "\r"
-        for idx, pars in enumerate(fitpars):
-            if len(fitpars)!=1 and fitlog:
-                log.info('{}/{} fits'.format(idx+1, len(fitpars)))
+
+        if len(fitpars)!=1 and fitlog:
+            log.info('Fitting with {} different start values'.format(len(fitpars)))
+
+        for idx, pars in enumerate(tqdm(fitpars,  disable=(not fitlog))):
 
             try:
                 popt, pcov = scipy.optimize.curve_fit(
@@ -626,11 +627,8 @@ def fit(
                 popt  = None
                 pcov  = None
                 if fitlog:
-                    ut._logstreamhandler.terminator = "\n"
-                    log.debug(
-                        'Fit %d did not converge. Ignoring this fit', idx+1)
+                    log.debug('Fit %d did not converge. Ignoring this fit', idx+1)
                     log.debug('Exception passed', exc_info=True)
-                    ut._logstreamhandler.terminator = "\r"
 
             if ssres < ssresmin:
                 ssresmin = ssres
@@ -638,8 +636,8 @@ def fit(
                 fulpcov  = pcov
 
         if fitlog:
-            ut._logstreamhandler.terminator = "\n"
-            log.info('Finished %d fit(s)', len(fitpars))
+            pass
+            # log.info('Finished %d fit(s)', len(fitpars))
 
         return fulpopt, fulpcov, ssresmin
 
@@ -728,9 +726,7 @@ def fit(
             # use scipy default maxfev for errors
             maxfev = 100*(len(fitpars[0])+1)
 
-            ut._logstreamhandler.terminator = "\r"
-            for tdx in range(numboot):
-                log.info('{}/{} replicas'.format(tdx+1, numboot))
+            for tdx in tqdm(range(numboot)):
                 bspopt, bspcov, bsres = fitloop(
                     src.bootstrapcrs[tdx].coefficients[stepinds],
                     int(maxfev), False)
@@ -742,8 +738,7 @@ def fit(
                     bstau[tdx] = np.nan
                     bsmre[tdx] = np.nan
 
-            ut._logstreamhandler.terminator = "\n"
-            log.info('{} Bootstrap replicas done'.format(numboot))
+            # log.info('{} Bootstrap replicas done'.format(numboot))
 
             # add source sample?
             bstau[-1] = fulpopt[0]
