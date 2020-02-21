@@ -374,9 +374,15 @@ def full_analysis(
         nbt = 100
     else:
         nbt = numboot
-    rks =coefficients(
-        src, steps, dt, dtunit, method=coefficientmethod,
-        numboot=nbt, seed=rkseed)
+    rks = coefficients(
+        data=src,
+        steps=steps,
+        dt=dt,
+        dtunit=dtunit,
+        method=coefficientmethod,
+        numboot=nbt,
+        seed=rkseed,
+    )
 
     fits = []
     for f in fitfuncs:
