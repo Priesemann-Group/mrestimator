@@ -516,7 +516,7 @@ class OutputHandler:
                     if self.dt == 1:
                         newlabel = str('[{}]'.format(self.dtunit))
                     else:
-                        newlabel = str('[{}{}]'.format(
+                        newlabel = str('[{} {}]'.format(
                             ut._printeger(self.dt), self.dtunit))
                     self.ax.set_xlabel(re.sub(regex, newlabel, oldlabel))
                     self.xlabel = re.sub(regex, newlabel, self.xlabel)
@@ -634,9 +634,9 @@ class OutputHandler:
                 self.ax.set_xlabel('k [{}]'.format(data.dtunit))
             else:
                 self.xlabel = \
-                    'steps[{}{}]'.format(ut._printeger(data.dt, 5), data.dtunit)
+                    'steps[{} {}]'.format(ut._printeger(data.dt, 5), data.dtunit)
                 self.ax.set_xlabel(
-                    'k [{}{}]'.format(ut._printeger(data.dt, 5), data.dtunit))
+                    'k [{} {}]'.format(ut._printeger(data.dt, 5), data.dtunit))
             self.ax.set_ylabel('$r_{k}$')
             self.ax.set_title('Correlation')
 
@@ -767,7 +767,7 @@ class OutputHandler:
         if self.xdata is None:
             self.dt     = data.dt
             self.dtunit = data.dtunit
-            self.ax.set_xlabel('k [{}{}]'.format(data.dt, data.dtunit))
+            self.ax.set_xlabel('k [{} {}]'.format(data.dt, data.dtunit))
             self.ax.set_ylabel('$r_{k}$')
             self.ax.set_title('Correlation')
         inds = self.set_xdata(data.steps, dt=data.dt, dtunit=data.dtunit)
@@ -1053,7 +1053,7 @@ class OutputHandler:
                         hdr += '{:8.3f} | '.format(fit.tauquantiles[i])
                         hdr += '{:8.8f}\n'.format(fit.mrequantiles[i])
                     hdr += '\n'
-                hdr += 'fitrange: {} <= k <= {} [{}{}]\n' .format(fit.steps[0],
+                hdr += 'fitrange: {} <= k <= {} [{} {}]\n' .format(fit.steps[0],
                     fit.steps[-1], ut._printeger(fit.dt), fit.dtunit)
                 hdr += 'function: ' + ut.math_from_doc(fit.fitfunc) + '\n'
                 # hdr += '\twith parameters:\n'
@@ -1124,7 +1124,8 @@ def overview(src, rks, fits, **kwargs):
 
     tsout.ax.set_title('Time Series (Input Data)')
     tsout.ax.set_xlabel('t [{}{}]'.format(
-        ut._printeger(rks[0].dt), rks[0].dtunit))
+        ut._printeger(rks[0].dt) + " " if rks[0].dt != 1 else "",
+        rks[0].dtunit))
 
     # ------------------------------------------------------------------ #
     # Mean Trial Activity

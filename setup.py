@@ -40,7 +40,7 @@ setup(
     ],
     extras_require={
         # we want to make matplotlib optional, too
-        'full':  ["numba>=0.44"],
+        'full':  ["numba>=0.44", "tqdm"],
         'numba':  ["numba>=0.44"],
     },
     classifiers=[
