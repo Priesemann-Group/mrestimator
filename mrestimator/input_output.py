@@ -638,7 +638,7 @@ class OutputHandler:
                 self.ax.set_xlabel(
                     'k [{} {}]'.format(ut._printeger(data.dt, 5), data.dtunit))
             self.ax.set_ylabel('$r_{k}$')
-            self.ax.set_title('Correlation')
+            self.ax.set_title('Correlation', fontweight="bold")
 
         # we dont support adding duplicates
         oldcurves=[]
@@ -769,7 +769,7 @@ class OutputHandler:
             self.dtunit = data.dtunit
             self.ax.set_xlabel('k [{} {}]'.format(data.dt, data.dtunit))
             self.ax.set_ylabel('$r_{k}$')
-            self.ax.set_title('Correlation')
+            self.ax.set_title('Correlation', fontweigh="bold")
         inds = self.set_xdata(data.steps, dt=data.dt, dtunit=data.dtunit)
 
         # description for fallback
@@ -943,7 +943,7 @@ class OutputHandler:
                 self.xlabel = 'timesteps'
                 self.ax.set_xlabel('t')
                 self.ax.set_ylabel('$A_{t}$')
-                self.ax.set_title('Time Series')
+                self.ax.set_title('Time Series', fontweight="bold")
             elif len(self.xdata) != len(dat):
                 log.exception('Time series have different length')
                 raise NotImplementedError
@@ -1093,13 +1093,12 @@ def overview(src, rks, fits, **kwargs):
         No Argument checks are done
     """
 
-    # ratios = np.ones(4)*.75
-    # ratios[3] = 0.25
-    ratios=None
-    # A4 in inches, should check rc params in the future
+    ratios = np.ones(5)
+    ratios[4] = .0001
+    # ratios=None
+    # A5 in inches, should check rc params in the future
     # matplotlib changes the figure size when modifying subplots
-    topshift = 0.925
-    fig, axes = plt.subplots(nrows=4, figsize=(8.27, 11.69*topshift),
+    fig, axes = plt.subplots(nrows=5, figsize=(5.8, 8.3),
         gridspec_kw={"height_ratios":ratios})
 
     # avoid huge file size for many trials due to separate layers.
@@ -1122,7 +1121,8 @@ def overview(src, rks, fits, **kwargs):
     else:
         tsout.ax.legend().set_visible(False)
 
-    tsout.ax.set_title('Time Series (Input Data)')
+    tsout.ax.set_title('Time Series', fontweight="bold", loc="center")
+    tsout.ax.set_title('(Input Data)', fontsize="medium", color="#646464", loc="right")
     tsout.ax.set_xlabel('t [{}{}]'.format(
         ut._printeger(rks[0].dt) + " " if rks[0].dt != 1 else "",
         rks[0].dtunit))
@@ -1143,7 +1143,7 @@ def overview(src, rks, fits, **kwargs):
                 color=prevclr, alpha=0.2)
         except Exception as e:
             log.debug('Exception adding std deviation to plot', exc_info=True)
-        taout.ax.set_title('Mean Trial Activity and Std. Deviation')
+        taout.ax.set_title('Mean Trial Activity and Std. Deviation',  fontweight="bold")
         taout.ax.set_xlabel('Trial i')
         taout.ax.set_ylabel('$\\bar{A}_i$')
     else:
@@ -1169,7 +1169,8 @@ def overview(src, rks, fits, **kwargs):
         except Exception as e:
             log.debug('Exception adding std deviation to plot', exc_info=True)
         taout.ax.set_title(
-            'Average Activity and Stddev for {} Intervals'.format(numsegs))
+            'Average Activity and Stddev for {} Intervals'.format(numsegs),
+             fontweight="bold")
         taout.ax.set_xlabel('Interval i')
         taout.ax.set_ylabel('$\\bar{A}_i$')
 
@@ -1231,15 +1232,21 @@ def overview(src, rks, fits, **kwargs):
     # apply stile and fill legend
     axes[3].get_legend().get_frame().set_linewidth(0.5)
     axes[3].axis('off')
-    axes[3].set_title('Fitresults\n[$12.5\\%$:$87.5\\%$]')
+    axes[3].set_title('Fitresults',  fontweight="bold", loc="center",)
+    axes[3].set_title(' (with CI: [$12.5\\%:87.5\\%$])', color="#646464",
+        fontsize="medium", loc="right")
     for a in axes:
         a.xaxis.set_tick_params(width=0.5)
         a.yaxis.set_tick_params(width=0.5)
         for s in a.spines:
             a.spines[s].set_linewidth(0.5)
 
-    fig.tight_layout(h_pad=2.0)
-    plt.subplots_adjust(top=topshift)
+    # dummy axes for version and warnings
+    axes[4].axis('off')
+
+    # fig.tight_layout(h_pad=1.0)
+    fig.tight_layout()
+
     title = kwargs.get('title') if 'title' in kwargs else None
     if (title is not None and title != ''):
         fig.suptitle(title+'\n', fontsize=14)
@@ -1252,7 +1259,12 @@ def overview(src, rks, fits, **kwargs):
             color='red')
 
     fig.text(.995,.005, 'v{}'.format(__version__),
-            fontsize=8,
+            fontsize="small",
             horizontalalignment='right',
-            color='silver')
+            color='#646464')
+
+    plt.subplots_adjust(hspace=.8, top=0.95, bottom=0.0, left=0.1, right=0.99)
+
+
+
     return fig

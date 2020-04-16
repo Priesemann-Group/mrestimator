@@ -467,4 +467,4 @@ def full_analysis(
             log.debug('No handler to remove')
 
         log.info("full_analysis() done")
-        return res
+        return res, panel
