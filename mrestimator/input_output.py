@@ -5,6 +5,7 @@ import inspect
 import logging
 
 from mrestimator import utility as ut
+
 log = ut.log
 from mrestimator import CoefficientResult
 from mrestimator import FitResult
@@ -12,10 +13,12 @@ from mrestimator import __version__
 
 import numpy as np
 import matplotlib
-if os.environ.get('DISPLAY', '') == '':
-    log.info('No display found. Using non-interactive Agg backend for plotting')
-    matplotlib.use('Agg')
+
+if os.environ.get("DISPLAY", "") == "":
+    log.info("No display found. Using non-interactive Agg backend for plotting")
+    matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+
 
 def input_handler(items, **kwargs):
     """
@@ -76,108 +79,118 @@ def input_handler(items, **kwargs):
             pt = prepared[3, 10]
         ..
     """
-    invstr = '\nInvalid input, please provide one of the following:\n' \
-        '\t- path to pickle or plain file as string,\n' \
-        '\t  wildcards should work "/path/to/filepattern*"\n' \
-        '\t- numpy array or list containing spike data or filenames\n'
+    invstr = (
+        "\nInvalid input, please provide one of the following:\n"
+        "\t- path to pickle or plain file as string,\n"
+        '\t  wildcards should work "/path/to/filepattern*"\n'
+        "\t- numpy array or list containing spike data or filenames\n"
+    )
 
-    log.debug('input_handler()')
+    log.debug("input_handler()")
     situation = -1
     # cast tuple to list, maybe this can be done for other types in the future
     if isinstance(items, tuple):
-        log.debug('input_handler() detected tuple, casting to list')
-        items=list(items)
+        log.debug("input_handler() detected tuple, casting to list")
+        items = list(items)
     if isinstance(items, np.ndarray):
-        if items.dtype.kind in ['i', 'f', 'u']:
-            log.info('input_handler() detected ndarray of numbers')
+        if items.dtype.kind in ["i", "f", "u"]:
+            log.info("input_handler() detected ndarray of numbers")
             situation = 0
-        elif items.dtype.kind in ['S', 'U']:
-            log.info('input_handler() detected ndarray of strings')
+        elif items.dtype.kind in ["S", "U"]:
+            log.info("input_handler() detected ndarray of strings")
             situation = 1
             temp = set()
-            for item in items.astype('U'):
+            for item in items.astype("U"):
                 temp.update(glob.glob(os.path.expanduser(item)))
             if len(items) != len(temp):
-                log.debug('{} duplicate files were excluded'
-                    .format(len(items)-len(temp)))
+                log.debug(
+                    "{} duplicate files were excluded".format(len(items) - len(temp))
+                )
             items = temp
         else:
-            log.exception(
-                'Numpy.ndarray is neither data nor file path.%s', invstr)
+            log.exception("Numpy.ndarray is neither data nor file path.%s", invstr)
             raise ValueError
     elif isinstance(items, list):
         if all(isinstance(item, str) for item in items):
-            log.info('input_handler() detected list of strings')
+            log.info("input_handler() detected list of strings")
             try:
-                log.debug('Parsing to numpy ndarray as float')
+                log.debug("Parsing to numpy ndarray as float")
                 items = np.asarray(items, dtype=float)
                 situation = 0
             except Exception as e:
-                log.debug('Exception caught, parsing as file path',
-                    exc_info=True)
+                log.debug("Exception caught, parsing as file path", exc_info=True)
             situation = 1
             temp = set()
-            for item in items: temp.update(glob.glob(os.path.expanduser(item)))
+            for item in items:
+                temp.update(glob.glob(os.path.expanduser(item)))
             if len(items) != len(temp):
-                log.debug('{} duplicate files were excluded'
-                    .format(len(items)-len(temp)))
+                log.debug(
+                    "{} duplicate files were excluded".format(len(items) - len(temp))
+                )
             items = temp
         elif all(isinstance(item, np.ndarray) for item in items):
-            log.info('input_handler() detected list of ndarrays')
+            log.info("input_handler() detected list of ndarrays")
             situation = 0
         else:
             try:
-                log.info('input_handler() detected list, ' +
-                    'parsing to numpy ndarray as float')
+                log.info(
+                    "input_handler() detected list, "
+                    + "parsing to numpy ndarray as float"
+                )
                 situation = 0
                 items = np.asarray(items, dtype=float)
             except Exception as e:
-                log.exception('%s', invstr)
+                log.exception("%s", invstr)
                 raise
     elif isinstance(items, str):
-        log.info('input_handler() detected filepath \'{}\''.format(items))
+        log.info("input_handler() detected filepath '{}'".format(items))
         items = glob.glob(os.path.expanduser(items))
         situation = 1
     else:
-        log.exception('Unknown argument type,%s', invstr)
+        log.exception("Unknown argument type,%s", invstr)
         raise TypeError
-
 
     if situation == 0:
         retdata = np.stack((items), axis=0)
-        if len(retdata.shape) == 1: retdata = retdata.reshape((1, len(retdata)))
+        if len(retdata.shape) == 1:
+            retdata = retdata.reshape((1, len(retdata)))
     elif situation == 1:
         if len(items) == 0:
             # glob of earlyier analysis returns nothing if file not found
-            log.exception('Specifying absolute file path is recommended, ' +
-                'input_handler() was looking in {}\n'.format(os.getcwd()) +
-                '\tUse \'os.chdir(os.path.dirname(__file__))\' to set the ' +
-                'working directory to the location of your script file')
+            log.exception(
+                "Specifying absolute file path is recommended, "
+                + "input_handler() was looking in {}\n".format(os.getcwd())
+                + "\tUse 'os.chdir(os.path.dirname(__file__))' to set the "
+                + "working directory to the location of your script file"
+            )
             raise FileNotFoundError
 
         data = []
         for idx, item in enumerate(items):
             try:
-                log.debug('Loading with np.loadtxt: {}'.format(item))
-                if 'unpack' in kwargs and not kwargs.get('unpack'):
-                    log.warning("Argument 'unpack=False' is not recommended," +
-                        ' data is usually stored in columns')
+                log.debug("Loading with np.loadtxt: {}".format(item))
+                if "unpack" in kwargs and not kwargs.get("unpack"):
+                    log.warning(
+                        "Argument 'unpack=False' is not recommended,"
+                        + " data is usually stored in columns"
+                    )
                 else:
                     kwargs = dict(kwargs, unpack=True)
-                if 'ndmin' in kwargs and kwargs.get('ndmin') != 2:
+                if "ndmin" in kwargs and kwargs.get("ndmin") != 2:
                     log.exception("Argument ndmin other than 2 not supported")
                     raise ValueError
                 else:
                     kwargs = dict(kwargs, ndmin=2)
                 # fix for numpy 1.11
-                if 'usecols' in kwargs \
-                and isinstance(kwargs.get('usecols'), int):
-                    kwargs = dict(kwargs, usecols=[kwargs.get('usecols')])
+                if "usecols" in kwargs and isinstance(kwargs.get("usecols"), int):
+                    kwargs = dict(kwargs, usecols=[kwargs.get("usecols")])
                 result = np.loadtxt(item, **kwargs)
                 data.append(result)
             except Exception as e:
-                log.debug('Exception caught, Loading with np.load ' +
-                    '{}'.format(item), exc_info=True)
+                log.debug(
+                    "Exception caught, Loading with np.load " + "{}".format(item),
+                    exc_info=True,
+                )
                 result = np.load(item)
                 data.append(result)
 
@@ -187,24 +200,32 @@ def input_handler(items, **kwargs):
             minlenx = min(l.shape[0] for l in data)
             minleny = min(l.shape[1] for l in data)
 
-            log.debug('Files have different length, resizing to shortest '
-                'one ({}, {})'.format(minlenx, minleny), exc_info=True)
+            log.debug(
+                "Files have different length, resizing to shortest "
+                "one ({}, {})".format(minlenx, minleny),
+                exc_info=True,
+            )
             for d, dat in enumerate(data):
                 data[d] = np.resize(dat, (minlenx, minleny))
             retdata = np.vstack(data)
 
     else:
-        log.exception('Unknown situation%s', invstr)
+        log.exception("Unknown situation%s", invstr)
         raise NotImplementedError
 
     # final check
     if len(retdata.shape) == 2:
-        log.info('input_handler() returning ndarray with %d trial(s) and %d ' +
-            'datapoints', retdata.shape[0], retdata.shape[1])
+        log.info(
+            "input_handler() returning ndarray with %d trial(s) and %d " + "datapoints",
+            retdata.shape[0],
+            retdata.shape[1],
+        )
         return retdata
     else:
-        log.warning('input_handler() guessed data type incorrectly to shape ' +
-            '{}, please try something else'.format(retdata.shape))
+        log.warning(
+            "input_handler() guessed data type incorrectly to shape "
+            + "{}, please try something else".format(retdata.shape)
+        )
         return retdata
 
 
@@ -291,6 +312,7 @@ class OutputHandler:
             plt.draw()
         ..
     """
+
     def __init__(self, data=None, ax=None):
         """
             Construct a new OutputHandler, optionally you can provide
@@ -319,10 +341,12 @@ class OutputHandler:
             # everything below zorder 0 gets rastered to one layer
             self.ax.set_rasterization_zorder(0)
         else:
-            log.exception("Argument 'ax' provided to OutputHandler is not " +
-            " an instance of matplotlib.axes.Axes\n"+
-            '\tIn case you want to add multiple items, pass them in a list ' +
-            'as the first argument')
+            log.exception(
+                "Argument 'ax' provided to OutputHandler is not "
+                + " an instance of matplotlib.axes.Axes\n"
+                + "\tIn case you want to add multiple items, pass them in a list "
+                + "as the first argument"
+            )
             raise TypeError
 
         self.rks = []
@@ -331,20 +355,22 @@ class OutputHandler:
         self.rkkwargs = []
         self.fits = []
         self.fitlabels = []
-        self.fitcurves = []     # list of lists of drawn curves for each fit
+        self.fitcurves = []  # list of lists of drawn curves for each fit
         self.fitkwargs = []
         self.dt = 1
         self.dtunit = None
         self.type = None
         self.xdata = None
-        self.ydata = []         # list of 1d np arrays
+        self.ydata = []  # list of 1d np arrays
         self.xlabel = None
         self.ylabels = []
 
         # single argument to list
-        if isinstance(data, CoefficientResult) \
-        or isinstance(data, FitResult) \
-        or isinstance(data, np.ndarray):
+        if (
+            isinstance(data, CoefficientResult)
+            or isinstance(data, FitResult)
+            or isinstance(data, np.ndarray)
+        ):
             data = [data]
 
         for d in data or []:
@@ -355,8 +381,10 @@ class OutputHandler:
             elif isinstance(d, np.ndarray):
                 self.add_ts(d)
             else:
-                log.exception('Please provide a list containing '
-                    '\tCoefficientResults and/or FitResults\n')
+                log.exception(
+                    "Please provide a list containing "
+                    "\tCoefficientResults and/or FitResults\n"
+                )
                 raise ValueError
 
     def __del__(self):
@@ -368,8 +396,7 @@ class OutputHandler:
                 plt.close(self.ax.figure)
                 # pass
             except Exception as e:
-                log.debug('Exception passed', exc_info=True)
-
+                log.debug("Exception passed", exc_info=True)
 
     def set_xdata(self, data=None, dt=1, dtunit=None):
         """
@@ -434,38 +461,42 @@ class OutputHandler:
 
             ..
         """
-        log.debug('OutputHandler.set_xdata()')
+        log.debug("OutputHandler.set_xdata()")
         # make sure data is not altered
-        xdata = np.copy(data.astype('float64'))
+        xdata = np.copy(data.astype("float64"))
         # xdata = data
 
         # nothing set so far, no arugment provided, return some default
         if self.xdata is None and xdata is None:
-            self.xdata  = np.arange(0, 1501)
-            self.dtunit = dtunit;
-            self.dt     = dt;
+            self.xdata = np.arange(0, 1501)
+            self.dtunit = dtunit
+            self.dt = dt
             return np.arange(0, 1501)
 
         # set x for the first time, copying input
         if self.xdata is None:
-            self.xdata  = np.array(xdata)
-            self.dtunit = dtunit;
-            self.dt     = dt;
+            self.xdata = np.array(xdata)
+            self.dtunit = dtunit
+            self.dt = dt
             return np.arange(0, self.xdata.size)
 
         # no new data provided, no need to call this
         elif xdata is None:
-            log.debug("set_xdata() called without argument when " +
-                "xdata is already set. Nothing to adjust")
+            log.debug(
+                "set_xdata() called without argument when "
+                + "xdata is already set. Nothing to adjust"
+            )
             return np.arange(0, self.xdata.size)
 
         # compare dtunits
         elif dtunit != self.dtunit and dtunit is not None:
-            log.warning("'dtunit' does not match across added elements, " +
-                "adjusting axis label to '[different units]'")
-            regex = r'\[.*?\]'
+            log.warning(
+                "'dtunit' does not match across added elements, "
+                + "adjusting axis label to '[different units]'"
+            )
+            regex = r"\[.*?\]"
             oldlabel = self.ax.get_xlabel()
-            self.ax.set_xlabel(re.sub(regex, '[different units]', oldlabel))
+            self.ax.set_xlabel(re.sub(regex, "[different units]", oldlabel))
 
         # set dtunit to new value if not assigned yet
         elif self.dtunit is None and dtunit is not None:
@@ -477,70 +508,72 @@ class OutputHandler:
 
         # compare timescales dt
         elif self.dt < dt:
-            log.debug('dt does not match,')
+            log.debug("dt does not match,")
             scd = dt / self.dt
             if float(scd).is_integer():
                 log.debug(
-                    'Changing axis values of new data (dt={})'.format(dt) +
-                    'to match higher resolution of ' +
-                    'old xaxis (dt={})'.format(self.dt))
+                    "Changing axis values of new data (dt={})".format(dt)
+                    + "to match higher resolution of "
+                    + "old xaxis (dt={})".format(self.dt)
+                )
                 scd = dt / self.dt
                 xdata *= scd
             else:
                 log.warning(
-                    "New 'dt={}' is not an integer multiple of ".format(dt) +
-                    "the previous 'dt={}\n".format(self.dt) +
-                    "Plotting with '[different units]'\n" +
-                    "As a workaround, try adding the data with the " +
-                    "smallest 'dt' first")
+                    "New 'dt={}' is not an integer multiple of ".format(dt)
+                    + "the previous 'dt={}\n".format(self.dt)
+                    + "Plotting with '[different units]'\n"
+                    + "As a workaround, try adding the data with the "
+                    + "smallest 'dt' first"
+                )
                 try:
-                    regex = r'\[.*?\]'
+                    regex = r"\[.*?\]"
                     oldlabel = self.ax.get_xlabel()
-                    self.ax.set_xlabel(re.sub(
-                        regex, '[different units]', oldlabel))
-                    self.xlabel = re.sub(
-                        regex, '[different units]', self.xlabel)
+                    self.ax.set_xlabel(re.sub(regex, "[different units]", oldlabel))
+                    self.xlabel = re.sub(regex, "[different units]", self.xlabel)
                 except TypeError:
-                    log.debug('Exception passed', exc_info=True)
+                    log.debug("Exception passed", exc_info=True)
 
         elif self.dt > dt:
             scd = self.dt / dt
             if float(scd).is_integer():
-                log.debug("Changing 'dt' to new value 'dt={}'\n".format(dt) +
-                    "\tAdjusting existing axis values (dt={})".format(self.dt))
+                log.debug(
+                    "Changing 'dt' to new value 'dt={}'\n".format(dt)
+                    + "\tAdjusting existing axis values (dt={})".format(self.dt)
+                )
                 self.xdata *= scd
                 self.dt = dt
                 try:
-                    regex = r'\[.*?\]'
+                    regex = r"\[.*?\]"
                     oldlabel = self.ax.get_xlabel()
                     if self.dt == 1:
-                        newlabel = str('[{}]'.format(self.dtunit))
+                        newlabel = str("[{}]".format(self.dtunit))
                     else:
-                        newlabel = str('[{} {}]'.format(
-                            ut._printeger(self.dt), self.dtunit))
+                        newlabel = str(
+                            "[{} {}]".format(ut._printeger(self.dt), self.dtunit)
+                        )
                     self.ax.set_xlabel(re.sub(regex, newlabel, oldlabel))
                     self.xlabel = re.sub(regex, newlabel, self.xlabel)
                 except TypeError:
                     pass
             else:
                 log.warning(
-                    "old 'dt={}' is not an integer multiple ".format(self.dt) +
-                    "of the new value 'dt={}'\n".format(self.dt) +
-                    "\tPlotting with '[different units]'\n")
+                    "old 'dt={}' is not an integer multiple ".format(self.dt)
+                    + "of the new value 'dt={}'\n".format(self.dt)
+                    + "\tPlotting with '[different units]'\n"
+                )
                 try:
-                    regex = r'\[.*?\]'
+                    regex = r"\[.*?\]"
                     oldlabel = self.ax.get_xlabel()
-                    self.ax.set_xlabel(re.sub(
-                        regex, '[different units]', oldlabel))
-                    self.xlabel = re.sub(
-                        regex, '[different units]', self.xlabel)
+                    self.ax.set_xlabel(re.sub(regex, "[different units]", oldlabel))
+                    self.xlabel = re.sub(regex, "[different units]", self.xlabel)
                 except TypeError:
                     pass
 
         # check if new is subset of old
         temp = np.union1d(self.xdata, xdata)
         if not np.array_equal(self.xdata, temp):
-            log.debug('Rearranging present data')
+            log.debug("Rearranging present data")
             _, indtemp = ut._intersecting_index(self.xdata, temp)
             self.xdata = temp
             for ydx, col in enumerate(self.ydata):
@@ -551,10 +584,9 @@ class OutputHandler:
         # return list of indices where to place new ydata in the existing
         # (higher-resolution) notation
         indold, indnew = ut._intersecting_index(self.xdata, xdata)
-        assert(len(indold) == len(xdata))
+        assert len(indold) == len(xdata)
 
         return indold
-
 
     def add_coefficients(self, data, **kwargs):
         """
@@ -588,65 +620,70 @@ class OutputHandler:
         if not isinstance(data, CoefficientResult):
             log.exception("'data' needs to be of type CoefficientResult")
             raise ValueError
-        if not (self.type is None or self.type == 'correlation'):
-            log.exception("It is not possible to 'add_coefficients()' to " +
-                "an OutputHandler containing a time series\n" +
-                "\tHave you previously called 'add_ts()' on this handler?")
+        if not (self.type is None or self.type == "correlation"):
+            log.exception(
+                "It is not possible to 'add_coefficients()' to "
+                + "an OutputHandler containing a time series\n"
+                + "\tHave you previously called 'add_ts()' on this handler?"
+            )
             raise ValueError
-        self.type = 'correlation'
+        self.type = "correlation"
 
         # description for columns of meta data
         desc = str(data.desc)
 
         # plot legend label
-        if 'label' in kwargs:
-            label = kwargs.get('label')
-            if label == '':
+        if "label" in kwargs:
+            label = kwargs.get("label")
+            if label == "":
                 label = None
             if label is None:
                 labelerr = None
             else:
                 # user wants custom label not intended to hide the legend
                 label = str(label)
-                labelerr = str(label) + ' Errors'
+                labelerr = str(label) + " Errors"
                 # apply to meta data, too
                 desc = str(label)
         else:
             # user has not set anything, copy from desc if set
-            label = 'Data'
-            labelerr = 'Errors'
-            if desc != '':
+            label = "Data"
+            labelerr = "Errors"
+            if desc != "":
                 label = desc
-                labelerr = desc + ' Errors'
+                labelerr = desc + " Errors"
 
-        if desc != '':
-            desc += ' '
+        if desc != "":
+            desc += " "
 
         # dont put errors in the legend. this should become a user choice
-        labelerr = ''
+        labelerr = ""
 
         # no previous coefficients present
         if len(self.rks) == 0:
-            self.dt     = data.dt
+            self.dt = data.dt
             self.dtunit = data.dtunit
             if self.dt == 1:
-                self.xlabel = 'steps[{}]'.format(data.dtunit)
-                self.ax.set_xlabel('k [{}]'.format(data.dtunit))
+                self.xlabel = "steps[{}]".format(data.dtunit)
+                self.ax.set_xlabel("k [{}]".format(data.dtunit))
             else:
-                self.xlabel = \
-                    'steps[{} {}]'.format(ut._printeger(data.dt, 5), data.dtunit)
+                self.xlabel = "steps[{} {}]".format(
+                    ut._printeger(data.dt, 5), data.dtunit
+                )
                 self.ax.set_xlabel(
-                    'k [{} {}]'.format(ut._printeger(data.dt, 5), data.dtunit))
-            self.ax.set_ylabel('$r_{k}$')
-            self.ax.set_title('Correlation', fontweight="bold")
+                    "k [{} {}]".format(ut._printeger(data.dt, 5), data.dtunit)
+                )
+            self.ax.set_ylabel("$r_{k}$")
+            self.ax.set_title("Correlation", fontweight="bold")
 
         # we dont support adding duplicates
-        oldcurves=[]
+        oldcurves = []
         if data in self.rks:
             indrk = self.rks.index(data)
             log.warning(
-                'Coefficients ({}/{}) '.format(self.rklabels[indrk][0],label) +
-                'have already been added\n\tOverwriting with new style')
+                "Coefficients ({}/{}) ".format(self.rklabels[indrk][0], label)
+                + "have already been added\n\tOverwriting with new style"
+            )
             del self.rks[indrk]
             del self.rklabels[indrk]
             oldcurves = self.rkcurves[indrk]
@@ -659,14 +696,13 @@ class OutputHandler:
             ydata = np.full(self.xdata.size, np.nan)
             ydata[inds] = data.coefficients
             self.ydata.append(ydata)
-            self.ylabels.append(desc+'coefficients')
+            self.ylabels.append(desc + "coefficients")
 
             if data.stderrs is not None:
                 ydata = np.full(self.xdata.size, np.nan)
                 ydata[inds] = data.stderrs
                 self.ydata.append(ydata)
-                self.ylabels.append(desc+'stderrs')
-
+                self.ylabels.append(desc + "stderrs")
 
         self.rks.append(data)
         self.rklabels.append([label, labelerr])
@@ -691,33 +727,38 @@ class OutputHandler:
         # reset curves and recover color
         color = None
         for idx, curve in enumerate(self.rkcurves[indrk]):
-            if idx==0:
+            if idx == 0:
                 color = curve.get_color()
             curve.remove()
         self.rkcurves[indrk] = []
 
-        if 'color' not in kwargs:
+        if "color" not in kwargs:
             kwargs = dict(kwargs, color=color)
-        if 'zorder' not in kwargs:
-            kwargs = dict(kwargs, zorder=1+0.01*indrk)
+        if "zorder" not in kwargs:
+            kwargs = dict(kwargs, zorder=1 + 0.01 * indrk)
 
         kwargs = dict(kwargs, label=label)
 
         # redraw plot
-        p, = self.ax.plot(rk.steps*rk.dt/self.dt, rk.coefficients, **kwargs)
+        (p,) = self.ax.plot(rk.steps * rk.dt / self.dt, rk.coefficients, **kwargs)
         self.rkcurves[indrk].append(p)
 
         try:
-            if rk.stderrs is not None and 'alpha' not in kwargs:
-                err1 = rk.coefficients-rk.stderrs
-                err2 = rk.coefficients+rk.stderrs
-                kwargs.pop('color')
-                kwargs.pop('zorder')
-                kwargs = dict(kwargs,
-                    label=labelerr, alpha=0.2, facecolor=p.get_color(),
-                    zorder=p.get_zorder()-1)
-                d = self.ax.fill_between(rk.steps*rk.dt/self.dt, err1, err2,
-                    **kwargs)
+            if rk.stderrs is not None and "alpha" not in kwargs:
+                err1 = rk.coefficients - rk.stderrs
+                err2 = rk.coefficients + rk.stderrs
+                kwargs.pop("color")
+                kwargs.pop("zorder")
+                kwargs = dict(
+                    kwargs,
+                    label=labelerr,
+                    alpha=0.2,
+                    facecolor=p.get_color(),
+                    zorder=p.get_zorder() - 1,
+                )
+                d = self.ax.fill_between(
+                    rk.steps * rk.dt / self.dt, err1, err2, **kwargs
+                )
                 self.rkcurves[indrk].append(d)
         # not all kwargs are compaible with fill_between
         except AttributeError:
@@ -757,45 +798,48 @@ class OutputHandler:
         if not isinstance(data, FitResult):
             log.exception("'data' needs to be of type FitResult")
             raise ValueError
-        if not (self.type is None or self.type == 'correlation'):
-            log.exception("It is not possible to 'add_fit()' to " +
-                "an OutputHandler containing a time series\n" +
-                "\tHave you previously called 'add_ts()' on this handler?")
+        if not (self.type is None or self.type == "correlation"):
+            log.exception(
+                "It is not possible to 'add_fit()' to "
+                + "an OutputHandler containing a time series\n"
+                + "\tHave you previously called 'add_ts()' on this handler?"
+            )
             raise ValueError
-        self.type = 'correlation'
+        self.type = "correlation"
 
         if self.xdata is None:
-            self.dt     = data.dt
+            self.dt = data.dt
             self.dtunit = data.dtunit
-            self.ax.set_xlabel('k [{} {}]'.format(data.dt, data.dtunit))
-            self.ax.set_ylabel('$r_{k}$')
-            self.ax.set_title('Correlation', fontweigh="bold")
+            self.ax.set_xlabel("k [{} {}]".format(data.dt, data.dtunit))
+            self.ax.set_ylabel("$r_{k}$")
+            self.ax.set_title("Correlation", fontweigh="bold")
         inds = self.set_xdata(data.steps, dt=data.dt, dtunit=data.dtunit)
 
         # description for fallback
         desc = str(data.desc)
 
         # plot legend label
-        if 'label' in kwargs:
-            label = kwargs.get('label')
-            if label == '':
+        if "label" in kwargs:
+            label = kwargs.get("label")
+            if label == "":
                 label = None
             else:
                 # user wants custom label not intended to hide the legend
                 label = str(label)
         else:
             # user has not set anything, copy from desc if set
-            label = 'Fit '+ut.math_from_doc(data.fitfunc, 0)
-            if desc != '':
-                label = desc + ' ' + label
+            label = "Fit " + ut.math_from_doc(data.fitfunc, 0)
+            if desc != "":
+                label = desc + " " + label
 
         # we dont support adding duplicates
-        oldcurves=[]
+        oldcurves = []
         if data in self.fits:
             indfit = self.fits.index(data)
             log.warning(
-                'Fit was already added ({})\n'.format(self.fitlabels[indfit]) +
-                '\tOverwriting with new style')
+                "Fit was already added ({})\n".format(self.fitlabels[indfit])
+                + "\tOverwriting with new style"
+            )
             del self.fits[indfit]
             del self.fitlabels[indfit]
             oldcurves = self.fitcurves[indfit]
@@ -822,52 +866,58 @@ class OutputHandler:
         kwargs = self.fitkwargs[indfit].copy()
         color = None
         for idx, curve in enumerate(self.fitcurves[indfit]):
-            if idx==0:
+            if idx == 0:
                 color = curve.get_color()
             curve.remove()
         self.fitcurves[indfit] = []
 
-        if 'color' not in kwargs:
+        if "color" not in kwargs:
             kwargs = dict(kwargs, color=color)
-        if 'zorder' not in kwargs:
-            kwargs = dict(kwargs, zorder=4+0.01*indfit)
+        if "zorder" not in kwargs:
+            kwargs = dict(kwargs, zorder=4 + 0.01 * indfit)
 
         kwargs = dict(kwargs, label=label)
 
         # update plot
-        p, = self.ax.plot(fit.steps*fit.dt/self.dt,
-            fit.fitfunc(fit.steps*fit.dt, *fit.popt), **kwargs)
+        (p,) = self.ax.plot(
+            fit.steps * fit.dt / self.dt,
+            fit.fitfunc(fit.steps * fit.dt, *fit.popt),
+            **kwargs,
+        )
         self.fitcurves[indfit].append(p)
 
         # only draw dashed not-fitted range if no linestyle is specified
         if fit.steps[0] > self.xdata[0] or fit.steps[-1] < self.xdata[-1]:
-            if 'linestyle' not in kwargs and 'ls' not in kwargs:
-                kwargs.pop('label')
-                kwargs = dict(kwargs, ls='dashed', color=p.get_color())
-                d, = self.ax.plot(self.xdata,
-                    fit.fitfunc(self.xdata*self.dt, *fit.popt),
-                    **kwargs)
+            if "linestyle" not in kwargs and "ls" not in kwargs:
+                kwargs.pop("label")
+                kwargs = dict(kwargs, ls="dashed", color=p.get_color())
+                (d,) = self.ax.plot(
+                    self.xdata, fit.fitfunc(self.xdata * self.dt, *fit.popt), **kwargs
+                )
                 self.fitcurves[indfit].append(d)
 
         # errors as shaded area
         if False:
             try:
-                if fit.taustderr is not None and 'alpha' not in kwargs:
+                if fit.taustderr is not None and "alpha" not in kwargs:
                     ptmp = np.copy(fit.popt)
-                    ptmp[0] = fit.tau-fit.taustderr
-                    err1    = fit.fitfunc(self.xdata*self.dt, *ptmp)
-                    ptmp[0] = fit.tau+fit.taustderr
-                    err2    = fit.fitfunc(self.xdata*self.dt, *ptmp)
-                    kwargs.pop('color')
-                    kwargs.pop('label')
-                    kwargs = dict(kwargs, alpha=0.2, facecolor=p.get_color(),
-                        zorder=0+0.01*indfit)
-                    s = self.ax.fill_between(self.xdata, err1, err2,
-                        **kwargs)
+                    ptmp[0] = fit.tau - fit.taustderr
+                    err1 = fit.fitfunc(self.xdata * self.dt, *ptmp)
+                    ptmp[0] = fit.tau + fit.taustderr
+                    err2 = fit.fitfunc(self.xdata * self.dt, *ptmp)
+                    kwargs.pop("color")
+                    kwargs.pop("label")
+                    kwargs = dict(
+                        kwargs,
+                        alpha=0.2,
+                        facecolor=p.get_color(),
+                        zorder=0 + 0.01 * indfit,
+                    )
+                    s = self.ax.fill_between(self.xdata, err1, err2, **kwargs)
                     self.fitcurves[indfit].append(s)
             # not all kwargs are compaible with fill_between
             except AttributeError:
-                log.debug('Exception passed', exc_info=True)
+                log.debug("Exception passed", exc_info=True)
 
         if label is not None:
             self.ax.legend()
@@ -911,41 +961,43 @@ class OutputHandler:
                 plt.show()
             ..
         """
-        if not (self.type is None or self.type == 'timeseries'):
-            log.exception("Adding time series 'add_ts()' is not " +
-                "compatible with an OutputHandler that has coefficients\n" +
-                "\tHave you previously called 'add_coefficients()' or " +
-                "'add_fit()' on this handler?")
+        if not (self.type is None or self.type == "timeseries"):
+            log.exception(
+                "Adding time series 'add_ts()' is not "
+                + "compatible with an OutputHandler that has coefficients\n"
+                + "\tHave you previously called 'add_coefficients()' or "
+                + "'add_fit()' on this handler?"
+            )
             raise ValueError
-        self.type = 'timeseries'
+        self.type = "timeseries"
         if not isinstance(data, np.ndarray):
             data = np.array(data)
         if len(data.shape) < 2:
             data = data.reshape((1, len(data)))
         elif len(data.shape) > 2:
-            log.exception('Only compatible with up to two dimensions')
+            log.exception("Only compatible with up to two dimensions")
             raise NotImplementedError
 
-        desc = kwargs.get('label') if 'label' in kwargs else 'ts'
-        color = kwargs.get('color') if 'color' in kwargs else None
-        alpha = kwargs.get('alpha') if 'alpha' in kwargs else None
+        desc = kwargs.get("label") if "label" in kwargs else "ts"
+        color = kwargs.get("color") if "color" in kwargs else None
+        alpha = kwargs.get("alpha") if "alpha" in kwargs else None
         # per default, if more than one series provided reduce alpha
-        if data.shape[0] > 1 and not 'alpha' in kwargs:
-            alpha=0.1
+        if data.shape[0] > 1 and not "alpha" in kwargs:
+            alpha = 0.1
         kwargs = dict(kwargs, alpha=alpha)
 
-        if 'zorder' not in kwargs:
+        if "zorder" not in kwargs:
             kwargs = dict(kwargs, zorder=-1)
 
         for idx, dat in enumerate(data):
             if self.xdata is None:
-                self.set_xdata(np.arange(1, data.shape[1]+1))
-                self.xlabel = 'timesteps'
-                self.ax.set_xlabel('t')
-                self.ax.set_ylabel('$A_{t}$')
-                self.ax.set_title('Time Series', fontweight="bold")
+                self.set_xdata(np.arange(1, data.shape[1] + 1))
+                self.xlabel = "timesteps"
+                self.ax.set_xlabel("t")
+                self.ax.set_ylabel("$A_{t}$")
+                self.ax.set_title("Time Series", fontweight="bold")
             elif len(self.xdata) != len(dat):
-                log.exception('Time series have different length')
+                log.exception("Time series have different length")
                 raise NotImplementedError
             # if self.ydata is None:
             #     self.ydata = np.full((1, len(self.xdata)), np.nan)
@@ -954,13 +1006,11 @@ class OutputHandler:
             #     self.ydata = np.vstack((self.ydata, dat))
             self.ydata.append(dat)
 
-            self.ylabels.append(desc+'[{}]'.format(idx)
-                if len(data) > 1 else desc)
-            p, = self.ax.plot(self.xdata, dat, **kwargs)
+            self.ylabels.append(desc + "[{}]".format(idx) if len(data) > 1 else desc)
+            (p,) = self.ax.plot(self.xdata, dat, **kwargs)
 
             # dont plot an empty legend
-            if kwargs.get('label') is not None \
-            and kwargs.get('label') != '':
+            if kwargs.get("label") is not None and kwargs.get("label") != "":
                 self.ax.legend()
 
             # only add to legend once
@@ -968,8 +1018,7 @@ class OutputHandler:
                 kwargs = dict(kwargs, label=None)
                 kwargs = dict(kwargs, color=p.get_color())
 
-
-    def save(self, fname='', ftype='pdf', dpi=300):
+    def save(self, fname="", ftype="pdf", dpi=300):
         """
             Saves plots (ax element of this handler) and source that it was
             created from to the specified location.
@@ -982,7 +1031,7 @@ class OutputHandler:
         self.save_plot(fname, ftype=ftype, dpi=dpi)
         self.save_meta(fname)
 
-    def save_plot(self, fname='', ftype='pdf', dpi=300):
+    def save_plot(self, fname="", ftype="pdf", dpi=300):
         """
             Only saves plots (ignoring the source) to the specified location.
 
@@ -994,27 +1043,30 @@ class OutputHandler:
             ftype: str, optional
                 So far, only 'pdf' and 'png' are implemented.
         """
-        if not isinstance(fname, str): fname = str(fname)
-        if fname == '': fname = './mre'
+        if not isinstance(fname, str):
+            fname = str(fname)
+        if fname == "":
+            fname = "./mre"
 
         # try creating enclosing dir if not existing
-        tempdir = os.path.abspath(os.path.expanduser(fname+"/../"))
+        tempdir = os.path.abspath(os.path.expanduser(fname + "/../"))
         os.makedirs(tempdir, exist_ok=True)
 
         fname = os.path.expanduser(fname)
 
-        if isinstance(ftype, str): ftype = [ftype]
+        if isinstance(ftype, str):
+            ftype = [ftype]
         for t in list(ftype):
-            log.info('Saving plot to {}.{}'.format(fname, t.lower()))
-            if t.lower() == 'pdf':
-                self.ax.figure.savefig(fname+'.pdf', dpi=dpi)
-            elif t.lower() == 'png':
-                self.ax.figure.savefig(fname+'.png', dpi=dpi)
+            log.info("Saving plot to {}.{}".format(fname, t.lower()))
+            if t.lower() == "pdf":
+                self.ax.figure.savefig(fname + ".pdf", dpi=dpi)
+            elif t.lower() == "png":
+                self.ax.figure.savefig(fname + ".png", dpi=dpi)
             else:
                 log.exception("Unsupported file format '{}'".format(t))
                 raise ValueError
 
-    def save_meta(self, fname=''):
+    def save_meta(self, fname=""):
         """
             Saves only the details/source used to create the plot. It is
             recommended to call this manually, if you decide to save
@@ -1025,67 +1077,72 @@ class OutputHandler:
             fname : str, optional
                 Path where to save, without file extension. Defaults to "./mre"
         """
-        if not isinstance(fname, str): fname = str(fname)
-        if fname == '': fname = './mre'
+        if not isinstance(fname, str):
+            fname = str(fname)
+        if fname == "":
+            fname = "./mre"
 
         # try creating enclosing dir if not existing
-        tempdir = os.path.abspath(os.path.expanduser(fname+"/../"))
+        tempdir = os.path.abspath(os.path.expanduser(fname + "/../"))
         os.makedirs(tempdir, exist_ok=True)
 
         fname = os.path.expanduser(fname)
 
-        log.info('Saving meta to {}.tsv'.format(fname))
+        log.info("Saving meta to {}.tsv".format(fname))
         # fits
-        hdr = 'Mr. Estimator v{}\n'.format(__version__)
+        hdr = "Mr. Estimator v{}\n".format(__version__)
         try:
             for fdx, fit in enumerate(self.fits):
-                hdr += '{}\n'.format('-'*72)
-                hdr += 'legendlabel: ' + str(self.fitlabels[fdx]) + '\n'
-                hdr += '{}\n'.format('-'*72)
-                if fit.desc != '':
-                    hdr += 'description: ' + str(fit.desc) + '\n'
-                hdr += 'm = {}\ntau = {} [{}]\n' \
-                    .format(fit.mre, fit.tau, fit.dtunit)
+                hdr += "{}\n".format("-" * 72)
+                hdr += "legendlabel: " + str(self.fitlabels[fdx]) + "\n"
+                hdr += "{}\n".format("-" * 72)
+                if fit.desc != "":
+                    hdr += "description: " + str(fit.desc) + "\n"
+                hdr += "m = {}\ntau = {} [{}]\n".format(fit.mre, fit.tau, fit.dtunit)
                 if fit.quantiles is not None:
-                    hdr += 'quantiles | tau [{}] | m:\n'.format(fit.dtunit)
+                    hdr += "quantiles | tau [{}] | m:\n".format(fit.dtunit)
                     for i, q in enumerate(fit.quantiles):
-                        hdr += '{:6.3f} | '.format(fit.quantiles[i])
-                        hdr += '{:8.3f} | '.format(fit.tauquantiles[i])
-                        hdr += '{:8.8f}\n'.format(fit.mrequantiles[i])
-                    hdr += '\n'
-                hdr += 'fitrange: {} <= k <= {} [{} {}]\n' .format(fit.steps[0],
-                    fit.steps[-1], ut._printeger(fit.dt), fit.dtunit)
-                hdr += 'function: ' + ut.math_from_doc(fit.fitfunc) + '\n'
+                        hdr += "{:6.3f} | ".format(fit.quantiles[i])
+                        hdr += "{:8.3f} | ".format(fit.tauquantiles[i])
+                        hdr += "{:8.8f}\n".format(fit.mrequantiles[i])
+                    hdr += "\n"
+                hdr += "fitrange: {} <= k <= {} [{} {}]\n".format(
+                    fit.steps[0], fit.steps[-1], ut._printeger(fit.dt), fit.dtunit
+                )
+                hdr += "function: " + ut.math_from_doc(fit.fitfunc) + "\n"
                 # hdr += '\twith parameters:\n'
                 parname = list(inspect.signature(fit.fitfunc).parameters)[1:]
                 parlen = len(max(parname, key=len))
                 for pdx, par in enumerate(self.fits[fdx].popt):
-                    unit = ''
-                    if parname[pdx] == 'nu':
-                        unit += '[1/{}]'.format(fit.dtunit)
-                    elif parname[pdx].find('tau') != -1:
-                        unit += '[{}]'.format(fit.dtunit)
-                    hdr += '\t{: <{width}}'.format(parname[pdx]+' '+unit,
-                        width=parlen+5+len(fit.dtunit))
-                    hdr += ' = {}\n'.format(par)
-                hdr += '\n'
+                    unit = ""
+                    if parname[pdx] == "nu":
+                        unit += "[1/{}]".format(fit.dtunit)
+                    elif parname[pdx].find("tau") != -1:
+                        unit += "[{}]".format(fit.dtunit)
+                    hdr += "\t{: <{width}}".format(
+                        parname[pdx] + " " + unit, width=parlen + 5 + len(fit.dtunit)
+                    )
+                    hdr += " = {}\n".format(par)
+                hdr += "\n"
         except Exception as e:
-            log.debug('Exception passed', exc_info=True)
+            log.debug("Exception passed", exc_info=True)
 
         # rks / ts
-        labels = ''
+        labels = ""
         dat = []
         if self.ydata is not None and len(self.ydata) != 0:
-            hdr += '{}\n'.format('-'*72)
-            hdr += 'Data\n'
-            hdr += '{}\n'.format('-'*72)
-            labels += '1_'+self.xlabel
+            hdr += "{}\n".format("-" * 72)
+            hdr += "Data\n"
+            hdr += "{}\n".format("-" * 72)
+            labels += "1_" + self.xlabel
             for ldx, label in enumerate(self.ylabels):
-                labels += '\t'+str(ldx+2)+'_'+label
-            labels = labels.replace(' ', '_')
+                labels += "\t" + str(ldx + 2) + "_" + label
+            labels = labels.replace(" ", "_")
             dat = np.vstack((self.xdata, np.asarray(self.ydata)))
         np.savetxt(
-            fname+'.tsv', np.transpose(dat), delimiter='\t', header=hdr+labels)
+            fname + ".tsv", np.transpose(dat), delimiter="\t", header=hdr + labels
+        )
+
 
 def overview(src, rks, fits, **kwargs):
     """
@@ -1094,12 +1151,13 @@ def overview(src, rks, fits, **kwargs):
     """
 
     ratios = np.ones(5)
-    ratios[4] = .0001
+    ratios[4] = 0.0001
     # ratios=None
     # A5 in inches, should check rc params in the future
     # matplotlib changes the figure size when modifying subplots
-    fig, axes = plt.subplots(nrows=5, figsize=(5.8, 8.3),
-        gridspec_kw={"height_ratios":ratios})
+    fig, axes = plt.subplots(
+        nrows=5, figsize=(5.8, 8.3), gridspec_kw={"height_ratios": ratios}
+    )
 
     # avoid huge file size for many trials due to separate layers.
     # everything below 0 gets rastered to the same layer.
@@ -1110,28 +1168,30 @@ def overview(src, rks, fits, **kwargs):
     # ------------------------------------------------------------------ #
 
     tsout = OutputHandler(ax=axes[0])
-    tsout.add_ts(src, label='Trials')
-    if (src.shape[0] > 1):
+    tsout.add_ts(src, label="Trials")
+    if src.shape[0] > 1:
         try:
             prevclr = plt.rcParams["axes.prop_cycle"].by_key()["color"][0]
         except Exception:
-            prevclr = 'navy'
-            log.debug('Exception getting color cycle', exc_info=True)
-        tsout.add_ts(np.mean(src, axis=0), color=prevclr, label='Average')
+            prevclr = "navy"
+            log.debug("Exception getting color cycle", exc_info=True)
+        tsout.add_ts(np.mean(src, axis=0), color=prevclr, label="Average")
     else:
         tsout.ax.legend().set_visible(False)
 
-    tsout.ax.set_title('Time Series', fontweight="bold", loc="center")
-    tsout.ax.set_title('(Input Data)', fontsize="medium", color="#646464", loc="right")
-    tsout.ax.set_xlabel('t [{}{}]'.format(
-        ut._printeger(rks[0].dt) + " " if rks[0].dt != 1 else "",
-        rks[0].dtunit))
+    tsout.ax.set_title("Time Series", fontweight="bold", loc="center")
+    tsout.ax.set_title("(Input Data)", fontsize="medium", color="#646464", loc="right")
+    tsout.ax.set_xlabel(
+        "t [{}{}]".format(
+            ut._printeger(rks[0].dt) + " " if rks[0].dt != 1 else "", rks[0].dtunit
+        )
+    )
 
     # ------------------------------------------------------------------ #
     # Mean Trial Activity
     # ------------------------------------------------------------------ #
 
-    if (src.shape[0] > 1):
+    if src.shape[0] > 1:
         # average trial activites as function of trial number
         taout = OutputHandler(rks[0].trialactivities, ax=axes[1])
         try:
@@ -1139,24 +1199,24 @@ def overview(src, rks, fits, **kwargs):
             err2 = rks[0].trialactivities + np.sqrt(rks[0].trialvariances)
             prevclr = plt.rcParams["axes.prop_cycle"].by_key()["color"][0]
             taout.ax.fill_between(
-                np.arange(1, rks[0].numtrials+1), err1, err2,
-                color=prevclr, alpha=0.2)
+                np.arange(1, rks[0].numtrials + 1), err1, err2, color=prevclr, alpha=0.2
+            )
         except Exception as e:
-            log.debug('Exception adding std deviation to plot', exc_info=True)
-        taout.ax.set_title('Mean Trial Activity and Std. Deviation',  fontweight="bold")
-        taout.ax.set_xlabel('Trial i')
-        taout.ax.set_ylabel('$\\bar{A}_i$')
+            log.debug("Exception adding std deviation to plot", exc_info=True)
+        taout.ax.set_title("Mean Trial Activity and Std. Deviation", fontweight="bold")
+        taout.ax.set_xlabel("Trial i")
+        taout.ax.set_ylabel("$\\bar{A}_i$")
     else:
         # running average over the one trial to see if stays stationary
-        numsegs = kwargs.get(numsegs) if 'numsegs' in kwargs else 50
+        numsegs = kwargs.get(numsegs) if "numsegs" in kwargs else 50
         ravg = np.zeros(numsegs)
         err1 = np.zeros(numsegs)
         err2 = np.zeros(numsegs)
-        seglen = int(src.shape[1]/numsegs)
+        seglen = int(src.shape[1] / numsegs)
         for s in range(numsegs):
-            temp = np.mean(src[0][s*seglen : (s+1)*seglen])
+            temp = np.mean(src[0][s * seglen : (s + 1) * seglen])
             ravg[s] = temp
-            stddev = np.sqrt(np.var(src[0][s*seglen : (s+1)*seglen]))
+            stddev = np.sqrt(np.var(src[0][s * seglen : (s + 1) * seglen]))
             err1[s] = temp - stddev
             err2[s] = temp + stddev
 
@@ -1164,61 +1224,62 @@ def overview(src, rks, fits, **kwargs):
         try:
             prevclr = plt.rcParams["axes.prop_cycle"].by_key()["color"][0]
             taout.ax.fill_between(
-                np.arange(1, numsegs+1), err1, err2,
-                color=prevclr, alpha=0.2)
+                np.arange(1, numsegs + 1), err1, err2, color=prevclr, alpha=0.2
+            )
         except Exception as e:
-            log.debug('Exception adding std deviation to plot', exc_info=True)
+            log.debug("Exception adding std deviation to plot", exc_info=True)
         taout.ax.set_title(
-            'Average Activity and Stddev for {} Intervals'.format(numsegs),
-             fontweight="bold")
-        taout.ax.set_xlabel('Interval i')
-        taout.ax.set_ylabel('$\\bar{A}_i$')
+            "Average Activity and Stddev for {} Intervals".format(numsegs),
+            fontweight="bold",
+        )
+        taout.ax.set_xlabel("Interval i")
+        taout.ax.set_ylabel("$\\bar{A}_i$")
 
     # ------------------------------------------------------------------ #
     # Coefficients and Fit results
     # ------------------------------------------------------------------ #
 
-    cout = OutputHandler(rks+fits, ax=axes[2])
+    cout = OutputHandler(rks + fits, ax=axes[2])
 
     fitcurves = []
     fitlabels = []
     for i, f in enumerate(cout.fits):
         fitcurves.append(cout.fitcurves[i][0])
         label = ut.math_from_doc(f.fitfunc, 5)
-        label += '\n\n$\\tau={:.2f}${}\n'.format(f.tau, f.dtunit)
+        label += "\n\n$\\tau={:.2f}${}\n".format(f.tau, f.dtunit)
         if f.tauquantiles is not None:
-            label += '$[{:.2f}:{:.2f}]$\n\n' \
-                .format(f.tauquantiles[0], f.tauquantiles[-1])
+            label += "$[{:.2f}:{:.2f}]$\n\n".format(
+                f.tauquantiles[0], f.tauquantiles[-1]
+            )
         else:
-            label += '\n\n'
-        label += '$m={:.5f}$\n'.format(f.mre)
+            label += "\n\n"
+        label += "$m={:.5f}$\n".format(f.mre)
         if f.mrequantiles is not None:
-            label +='$[{:.5f}:{:.5f}]$' \
-                .format(f.mrequantiles[0], f.mrequantiles[-1])
+            label += "$[{:.5f}:{:.5f}]$".format(f.mrequantiles[0], f.mrequantiles[-1])
         else:
-            label += '\n'
+            label += "\n"
         fitlabels.append(label)
 
     tempkwargs = {
         # 'title': 'Fitresults',
-        'ncol': len(fitlabels),
-        'loc': 'upper center',
-        'mode': 'expand',
-        'frameon': True,
-        'markerfirst': True,
-        'fancybox': False,
+        "ncol": len(fitlabels),
+        "loc": "upper center",
+        "mode": "expand",
+        "frameon": True,
+        "markerfirst": True,
+        "fancybox": False,
         # 'framealpha': 1,
-        'borderaxespad': 0,
-        'edgecolor': 'black',
+        "borderaxespad": 0,
+        "edgecolor": "black",
         # hide handles
-        'handlelength': 0,
-        'handletextpad': 0,
-        }
+        "handlelength": 0,
+        "handletextpad": 0,
+    }
     try:
         axes[3].legend(fitcurves, fitlabels, **tempkwargs)
     except Exception:
-        log.debug('Exception passed', exc_info=True)
-        del tempkwargs['edgecolor']
+        log.debug("Exception passed", exc_info=True)
+        del tempkwargs["edgecolor"]
         axes[3].legend(fitcurves, fitlabels, **tempkwargs)
 
     # hide handles
@@ -1227,14 +1288,20 @@ def overview(src, rks, fits, **kwargs):
 
     # center text
     for t in axes[3].get_legend().texts:
-        t.set_multialignment('center')
+        t.set_multialignment("center")
 
     # apply stile and fill legend
     axes[3].get_legend().get_frame().set_linewidth(0.5)
-    axes[3].axis('off')
-    axes[3].set_title('Fitresults',  fontweight="bold", loc="center",)
-    axes[3].set_title(' (with CI: [$12.5\\%:87.5\\%$])', color="#646464",
-        fontsize="medium", loc="right")
+    axes[3].axis("off")
+    axes[3].set_title(
+        "Fitresults", fontweight="bold", loc="center",
+    )
+    axes[3].set_title(
+        " (with CI: [$12.5\\%:87.5\\%$])",
+        color="#646464",
+        fontsize="medium",
+        loc="right",
+    )
     for a in axes:
         a.xaxis.set_tick_params(width=0.5)
         a.yaxis.set_tick_params(width=0.5)
@@ -1242,29 +1309,28 @@ def overview(src, rks, fits, **kwargs):
             a.spines[s].set_linewidth(0.5)
 
     # dummy axes for version and warnings
-    axes[4].axis('off')
+    axes[4].axis("off")
 
     # fig.tight_layout(h_pad=1.0)
     fig.tight_layout()
 
-    title = kwargs.get('title') if 'title' in kwargs else None
-    if (title is not None and title != ''):
-        fig.suptitle(title+'\n', fontsize=14)
+    title = kwargs.get("title") if "title" in kwargs else None
+    if title is not None and title != "":
+        fig.suptitle(title + "\n", fontsize=14)
 
-    if 'warning' in kwargs and kwargs.get('warning') is not None:
-        s = u'\u26A0 {}'.format(kwargs.get('warning'))
-        fig.text(.5,.01, s,
-            fontsize=13,
-            horizontalalignment='center',
-            color='red')
+    if "warning" in kwargs and kwargs.get("warning") is not None:
+        s = "\u26A0 {}".format(kwargs.get("warning"))
+        fig.text(0.5, 0.01, s, fontsize=13, horizontalalignment="center", color="red")
 
-    fig.text(.995,.005, 'v{}'.format(__version__),
-            fontsize="small",
-            horizontalalignment='right',
-            color='#646464')
+    fig.text(
+        0.995,
+        0.005,
+        "v{}".format(__version__),
+        fontsize="small",
+        horizontalalignment="right",
+        color="#646464",
+    )
 
-    plt.subplots_adjust(hspace=.8, top=0.95, bottom=0.0, left=0.1, right=0.99)
-
-
+    plt.subplots_adjust(hspace=0.8, top=0.95, bottom=0.0, left=0.1, right=0.99)
 
     return fig
