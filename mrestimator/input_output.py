@@ -1311,12 +1311,13 @@ def overview(src, rks, fits, **kwargs):
     # dummy axes for version and warnings
     axes[4].axis("off")
 
-    # fig.tight_layout(h_pad=1.0)
     fig.tight_layout()
+    plt.subplots_adjust(hspace=0.8, top=0.95, bottom=0.0, left=0.1, right=0.99)
 
     title = kwargs.get("title") if "title" in kwargs else None
     if title is not None and title != "":
-        fig.suptitle(title + "\n", fontsize=14)
+        fig.suptitle(title, fontsize=14)
+        plt.subplots_adjust(top=0.91)
 
     if "warning" in kwargs and kwargs.get("warning") is not None:
         s = "\u26A0 {}".format(kwargs.get("warning"))
@@ -1330,7 +1331,5 @@ def overview(src, rks, fits, **kwargs):
         horizontalalignment="right",
         color="#646464",
     )
-
-    plt.subplots_adjust(hspace=0.8, top=0.95, bottom=0.0, left=0.1, right=0.99)
 
     return fig
