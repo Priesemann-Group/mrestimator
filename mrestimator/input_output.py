@@ -15,7 +15,10 @@ import numpy as np
 import matplotlib
 
 if os.environ.get("DISPLAY", "") == "":
-    log.info("No display found. Using non-interactive Agg backend for plotting")
+    log.info(
+        "No display found. Using non-interactive Agg backend for plotting. " +
+        "Check your $DISPLAY environment variable."
+    )
     matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 

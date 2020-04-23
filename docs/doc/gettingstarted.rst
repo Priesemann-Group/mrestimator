@@ -127,7 +127,7 @@ like we have just done manually.
 Please note: :func:`full_analysis` might change in the future as we are
 still experimenting to find out what the easiest interface is.
 Check the
-`changelog <https://pspitzn.pages.gwdg.de/mrestimator/changelog.html>`_
+`changelog <https://mrestimator.readthedocs.io/en/latest/doc/changelog.html>`_
 before updating, so your scripts dont break.
 
 .. code-block:: python
@@ -218,7 +218,7 @@ options to specify in the `matplotlib documentation
 .. image:: ../media/gettingstarted/manual_01.png
     :width: 66%
 
-(Note: matplotlib's ability to deal with colors has increased a lot since version 1.5.3. The code above uses backwards compatible styling but we recommend using the newer syntax e.g. ``color='C0'``, if available. See the matplotlib api refernces `v2.2.3 <https://matplotlib.org/2.2.3/api/colors_api.html>`_ compared to `v1.5.3 <https://matplotlib.org/1.5.3/api/colors_api.html>`_)
+(Note: matplotlib's ability to deal with colors has increased a lot since version 1.5.3. The code above uses backwards compatible styling but we recommend using the newer syntax e.g. ``color='C0'``, if available. See the `latest <https://matplotlib.org/api/colors_api.html>`_ matplotlib api refernces compared to `v1.5.3 <https://matplotlib.org/1.5.3/api/colors_api.html>`_)
 
 So far, so good. After checking that the input is indeed what we want, we
 calculate the correlation coefficients :math:`r_k` using
