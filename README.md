@@ -7,21 +7,24 @@
 
 Welcome to the Toolbox for the Multistep Regression Estimator ("Mister Estimator").
 
-**Under development!**
-If you find bugs, encounter unexpected behaviour or want to comment, please let us know via mail or open an issue. Any input is greatly appreciated.
+If you find bugs, encounter unexpected behaviour or want to comment, please let us know via mail or open an issue on github. Any input is greatly appreciated.
 
 - [Documentation](https://mrestimator.readthedocs.io/en/latest/)
 - [Getting Started](https://mrestimator.readthedocs.io/en/latest/doc/gettingstarted.html)
 - [Python Package index](https://pypi.org/project/mrestimator)
 - [Github](https://github.com/Priesemann-Group/mrestimator)
-- Details on the estimator: [J. Wilting and V. Priesemann, Nat. Commun. 9, 2325 (2018)](https://doi.org/10.1038/s41467-018-04725-4)
+- Details on the multistep regression estimator: [J. Wilting and V. Priesemann, Nat. Commun. 9, 2325 (2018)](https://doi.org/10.1038/s41467-018-04725-4)
 
 
-## Requirements
+## Dependencies
 - Python (>=3.5)
 - numpy (>=1.11.0)
 - scipy (>=1.0.0)
 - matplotlib (>=1.5.3)
+
+## Optional Dependencies
+- numba (>=0.44), for parallelization
+- tqdm, for progress bars
 
 We recommend (and develop with) the latest stable versions of the dependencies, at the time of writing that is
 Python 3.7.0, numpy 1.15.1, scipy 1.1.0 and matplotlib 2.2.3.
@@ -29,20 +32,22 @@ Python 3.7.0, numpy 1.15.1, scipy 1.1.0 and matplotlib 2.2.3.
 
 ## What's new
 
-### [v0.1.5](https://pypi.org/project/mrestimator/0.1.5) (24.09.2019)
+### [v0.1.6](https://pypi.org/project/mrestimator/0.1.6) (23.04.2020)
 
-* __Changed__: One-file spaghetti code was separated into submodules.
-* __Fixed__: `stationarymean` method for coefficients should work for `m>1` (Note that this is a non-standard case. A detailed discussion will follow.)
-* __New__: Optional Numba dependency to parallelize and precompile the computation of the correlation coefficients. To install numby along with mrestimator, `pip install -U mrestimator[numba]`
-* __New__: Uploading pre-release versions to pypi. To switch run `pip install -U --pre mrestimator[full]` and to go back to stable `pip install mrestimator==0.1.5`.
-* __New__: Basic unit tests. `python -m unittest mrestimator.test_suite`
+This is a cleanup version that tries to be consistent with the paper (in prep). See the [full changelog](https://mrestimator.readthedocs.io/en/latest/doc/changelog.html).
 
 
 ## Installation
 Assuming a working Python3 environment, usually you can install via pip:
 
 ```
-pip3 install -U mrestimator
+pip3 install mrestimator
+```
+
+To install (or update an existing installation) with optional dependecies:
+
+```
+pip3 install -U 'mrestimator[full]'
 ```
 
 If you run into problems during installation, they are most likely due to numpy and scipy.
@@ -77,7 +82,7 @@ Now install using pip: ```pip install mrestimator``` and afterwards you should b
 ```
 python
 >>> import mrestimator as mre
-INFO     Loaded mrestimator v0.1.1b1, writing to /tmp/mre_output/
+INFO     Loaded mrestimator v0.1.6, writing to /tmp/mre_paul/
 ```
 
 ### Manual Installation
@@ -108,14 +113,13 @@ echo 'export PYTHONPATH="${PYTHONPATH}:'$(pwd)'/mrestimator"' >> ~/.bashrc
 You can upgrade to pre-release versions using pip
 
 ```
-pip install -U --pre mrestimator[full]
+pip install -U --pre 'mrestimator[full]'
 ```
 
-(the optional `[full]` installs numba for parallelization, see below)
 To revert to the stable version, run
 
 ```
-pip install mrestimator==0.1.4
+pip install mrestimator==0.1.6
 ```
 
 or

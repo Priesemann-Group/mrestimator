@@ -1,7 +1,7 @@
 Changelog
 =========
 
-[v0.1.6](https://pypi.org/project/mrestimator/0.1.6) (19.02.2020)
+[v0.1.6](https://pypi.org/project/mrestimator/0.1.6) (23.04.2020)
 -----------------------------------------------------------------
 * __Changed__: Now under BSD 3-Clause License
 * __Changed__: When the data has more than one trial, we now require the user to choose which coefficient method to use (`ts` or `sm`) in `mre.coefficients()` and `mre.full_analysis()`. We showed that the resulting time scale that one finds can differ severely between the two methods. If unsure, compare results from both. We explain the difference in the paper and print some recommendation from the toolbox.
