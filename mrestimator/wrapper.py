@@ -2,6 +2,7 @@ import logging
 import os
 
 import numpy as np
+from matplotlib import rc_context
 
 from mrestimator import utility as ut
 log = ut.log
@@ -10,8 +11,8 @@ from mrestimator.input_output import *
 from mrestimator.fit import *
 
 def full_analysis(
-    data,
-    dt,
+    data=None,
+    dt=None,
     kmax=None,
     dtunit=' time unit',
     fitfuncs=None,
@@ -28,6 +29,7 @@ def full_analysis(
     targetplot=None,
     showoverview=True,
     saveoverview=False,
+    method=None,                    # overload for coefficientmethod
     ):
     """
         Wrapper function that performs the following four steps:
@@ -41,6 +43,8 @@ def full_analysis(
         wrapper function (multiple times).
         Calling the underlying functions individually
         gives slightly more control, though.
+        We recommend to set `showoverview=False` when calling in loops to avoid
+        opening many figures (and wasting RAM).
 
         Parameters
         ----------
@@ -136,6 +140,21 @@ def full_analysis(
             called so that every repeated call returns the same error
             estimates.
 
+        showoverview: bool, optional
+            Whether to show the overview panel. Default is 'True'.
+            Set to 'False' when calling `full_analysis()` repeatedly or just
+            saving the panels to disk with `saveoverview` (this temporarily
+            overwrites your matplotlib rc parameters for more consistency).
+            Otherwise, matplotlib may create large amounts of figures and leak
+            memory.
+            Note that even when set to 'True' the panel might not show if
+            `full_analysis()` is called through a script instead of an
+            (interactive) shell, this depends on your matplotlib configuration.
+
+        saveoverview: bool, optional
+            Whether to save the overview panel in `targetdir`.
+            Default is 'False'.
+
         loglevel: str, optional
             The loglevel to use for the logfile created
             as `title.log` in the `targetdir`.
@@ -151,16 +170,6 @@ def full_analysis(
             Per default, a new figure is created - that cannot be added
             as a subplot to any other figure later on. This is due to
             the way matplotlib handles subplots.
-
-        showoverview: bool, optional
-            Wether to show the overview panel. Default is 'True'.
-            Note that even when set to 'True' the panel might not show if
-            `full_analysis()` is called through a script instead of an
-            (interactive) shell.
-
-        saveoverview: bool, optional
-            Wether to save the overview panel in `targetdir`.
-            Default is 'False'.
 
         Returns
         -------
@@ -192,6 +201,9 @@ def full_analysis(
     # Arguments
     # ------------------------------------------------------------------ #
 
+    how_to_str = "full_analysis() requires the following arguments:\n" +\
+        "'data', 'dt', 'method' and either one of 'kmax', 'tmax' or 'steps'"
+
     # workaround: if full_analysis() does not reach its end where we remove
     # the local loghandler, it survives and keps logging with the old level
     for hdlr in log.handlers:
@@ -200,9 +212,12 @@ def full_analysis(
                 hdlr.close()
                 log.removeHandler(hdlr)
 
+    if data is None or dt is None:
+        log.exception(how_to_str)
+        raise TypeError
+
     if kmax is None and tmax is None and steps is None:
-        log.exception("full_analysis() requires one of the following keyword" +
-            "arguments: 'kmax', 'tmax' or 'steps'")
+        log.exception(how_to_str)
         raise TypeError
 
     # if there is a targetdir specified, create and use for various output
@@ -245,7 +260,6 @@ def full_analysis(
             log.warning("Cannot save overview since no targetdir specified, "+\
                 "skipping")
 
-
     log.debug("full_analysis()")
     if (ut._log_locals):
         log.debug('Locals: {}'.format(locals()))
@@ -282,8 +296,12 @@ def full_analysis(
             tmax=float(tmax)
             assert(tmin>=0 and tmax>tmin)
         except Exception as e:
-            log.exception("Arguments: 'tmax' and 'tmin' " +
-                "need to be floats with 'tmax' > 'tmin' >= 0")
+            if kmax is None:
+                log.exception("Arguments: 'tmax' and 'tmin' " +
+                    "need to be floats with 'tmax' > 'tmin' >= 0")
+            else:
+                log.exception("Argument: 'kmax' is too small")
+
             raise
         steps = (int(tmin/dt), int(tmax/dt))
     else:
@@ -304,14 +322,6 @@ def full_analysis(
             "a list e.g. ['exponential', 'exponential_offset']")
         raise TypeError
 
-    if coefficientmethod is None:
-        coefficientmethod = 'trialseparated'
-    if coefficientmethod not in [
-    'trialseparated', 'ts', 'stationarymean', 'sm']:
-        log.exception("Optional argument 'coefficientmethod' needs " +
-            "to be either 'trialseparated' or 'stationarymean'")
-        raise TypeError
-
     if targetplot is not None \
     and not isinstance(targetplot, matplotlib.axes.Axes):
         log.exception("Optional argument 'targetplot' needs " +
@@ -321,14 +331,44 @@ def full_analysis(
     if title is not None:
         title = str(title)
 
+    # as of v0.1.6 we decided to choose the default method based on the number of trials
+    src = input_handler(data)
+
+    if coefficientmethod is None and method is not None:
+        coefficientmethod = method
+    elif coefficientmethod is not None and method is not None:
+        log.exception(
+            "Keywords 'method' and 'coefficientmethod' are synonymous.\n" +
+            "Provide one or the other!"
+        )
+        raise ValueError
+
+    # for one trial the two methods are equal
+    if coefficientmethod is None and src.shape[0] == 1:
+        coefficientmethod = 'stationarymean'  # redundant with coefficients()
+    elif coefficientmethod is None and src.shape[0] > 1:
+        log.exception(
+            "The provided data seems to have more than one trial. " +
+            "Please specify a 'coefficientmethod':\n" +
+            "'trialseparated' --- if your trials are long, or\n" +
+            "'stationarymean' --- if you are sure that activity is stationary " +
+            "across trials.\n" +
+            "If you are unsure, we suggest to compare results from both methods."
+            )
+        raise TypeError
+
+    if coefficientmethod not in [
+    'trialseparated', 'ts', 'stationarymean', 'sm']:
+        log.exception("Optional argument 'coefficientmethod' needs " +
+            "to be either 'trialseparated' or 'stationarymean'")
+        raise TypeError
+
     if (ut._log_locals):
         log.debug('Finished argument check. Locals: {}'.format(locals()))
 
     # ------------------------------------------------------------------ #
     # Continue with trusted arguments
     # ------------------------------------------------------------------ #
-
-    src = input_handler(data)
 
     if substracttrialaverage:
         src = src - np.mean(src, axis=0)
@@ -345,9 +385,15 @@ def full_analysis(
         nbt = 100
     else:
         nbt = numboot
-    rks =coefficients(
-        src, steps, dt, dtunit, method=coefficientmethod,
-        numboot=nbt, seed=rkseed)
+    rks = coefficients(
+        data=src,
+        steps=steps,
+        dt=dt,
+        dtunit=dtunit,
+        method=coefficientmethod,
+        numboot=nbt,
+        seed=rkseed,
+    )
 
     fits = []
     for f in fitfuncs:
@@ -370,7 +416,7 @@ def full_analysis(
 
     warning = None
     if defaultfits:
-        shownfits = [fits[0]]
+        shownfits = [fits[1]]
 
         # no trials, no confidence
         if src.shape[0] == 1:
@@ -386,35 +432,39 @@ def full_analysis(
         shownfits = fits
         warning = None
 
-    if showoverview or saveoverview:
-        panel = overview(src, [rks], shownfits, title=title,
-            warning=warning)
+    # we do not want to have any python figures poping up when showoverivew
+    # is set to false.
+    # also, interactive: true seems to leak memory when many figures are opened
+    with rc_context(rc={'interactive': showoverview}):
+        if showoverview or saveoverview:
+            panel = overview(src, [rks], shownfits, title=title,
+                warning=warning, interactive=showoverview)
 
-    res = OutputHandler([rks]+shownfits, ax=targetplot)
+        res = OutputHandler([rks]+shownfits, ax=targetplot)
 
-    if targetdir is not None:
-        if (title is not None and title != ''):
-            res.save(targetdir+"/"+title)
-            if saveoverview:
-                panel.savefig(targetdir+"/"+title+"_overview.pdf")
+        if targetdir is not None:
+            if (title is not None and title != ''):
+                res.save(targetdir+"/"+title)
+                if saveoverview:
+                    panel.savefig(targetdir+"/"+title+"_overview.pdf")
+            else:
+                res.save(targetdir+"/full_analysis")
+                if saveoverview:
+                    panel.savefig(targetdir+"/full_analysis_overview.pdf")
+
+        if showoverview:
+            panel.show()
         else:
-            res.save(targetdir+"/full_analysis")
-            if saveoverview:
-                panel.savefig(targetdir+"/full_analysis_overview.pdf")
+            # if interactive mode is on, panel would still be shown
+            try:
+                plt.close(panel)
+            except:
+                log.debug('Exception passed', exc_info=True)
 
-    if showoverview:
-        panel.show()
-    elif saveoverview:
-        # if interactive mode is on, panel would still be shown
         try:
-            plt.close(panel)
+            log.removeHandler(loghandler)
         except:
-            log.debug('Exception passed', exc_info=True)
+            log.debug('No handler to remove')
 
-    try:
-        log.removeHandler(loghandler)
-    except:
-        log.debug('No handler to remove')
-
-    log.info("full_analysis() done")
-    return res
+        log.info("full_analysis() done")
+        return res

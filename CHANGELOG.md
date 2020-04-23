@@ -1,6 +1,17 @@
 Changelog
 =========
 
+[v0.1.6](https://pypi.org/project/mrestimator/0.1.6) (23.04.2020)
+-----------------------------------------------------------------
+* __Changed__: Now under BSD 3-Clause License
+* __Changed__: When the data has more than one trial, we now require the user to choose which coefficient method to use (`ts` or `sm`) in `mre.coefficients()` and `mre.full_analysis()`. We showed that the resulting time scale that one finds can differ severely between the two methods. If unsure, compare results from both. We explain the difference in the paper and print some recommendation from the toolbox.
+* __Changed__: Due to above, `method` is now the second positional argument (this might break scripts that gave `steps`, `dt`, or `dtunit` as positonal arguments). Call `mre.coefficients(data, 'ts')` or as before via keyword `mre.coefficients(data, method='ts')`
+* __Fixed__: Typo that caused `full_analysis()` to crash when calling the consistency check.
+* __Fixed__: Workaround to prevent a memory leak when calling `full_analysis()` repeatedly. Always set `showoverview=False` when using `full_analysis()` in for loops.
+We now temporarily set `matplotlib.rcParams['interactive'] = showoverview` to avoid opening a new figure every time. This should make the panel and `showoverview` argument feel more consistent. The same workaround can be used in your custom scripts when using the `OutputHandler` (that also opens figures): Nest the loop inside a `with matplotlib.rc_context(rc={'interactive': False}):` (or adjust your rc parameters) to avoid figures.
+* __Fixed__: Various small bugs
+* __New__: `coefficients` has a new keyword argument `knownmean` to provide a known mean activity. If provdied, it will be used as the expectation value of the activity instead of calculating the mean as an approximation (both, in `stationarymean` and `trialseparated` method). This allows for custom estimates but, for instance, `m>1` will not be detectable as the covariance cannot diverge when the same (time independent) expectation value is used for `<a_{t}>` and `<a_{t+k}>`. As one example, `knownmean=0` restrains the fitted line (with slope `r_k`) to go through the origin `(0,0)`. See [Zierenberg et al., in press](https://arxiv.org/abs/1905.10402).
+
 [v0.1.5](https://pypi.org/project/mrestimator/0.1.5) (24.09.2019)
 -----------------------------------------------------------------
 * __Changed__: One-file spaghetti code was separated into submodules.

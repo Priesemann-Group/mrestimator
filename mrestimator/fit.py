@@ -9,6 +9,7 @@ import scipy.optimize
 
 from mrestimator import utility as ut
 log = ut.log
+tqdm = ut.tqdm
 from mrestimator import CoefficientResult
 
 def f_linear(k, A, O):
@@ -35,9 +36,10 @@ def f_complex(k, tau, A, O, tauosc, B, gamma, nu, taugs, C):
 
 def default_fitpars(fitfunc):
     """
-        Called to get the default parameters of built-in fitfunctions that are
-        used to initialise the fitting routine. Timelike values specified
-        here were derived assuming a timescale of miliseconds.
+        Called to get the default starting parameters for the built-in
+        fitfunctions that are used to initialise the fitting routine.
+        Timelike values specified here were derived assuming a timescale
+        of miliseconds.
 
         Parameters
         ----------
@@ -50,6 +52,7 @@ def default_fitpars(fitfunc):
             The default parameters of the given function, 2d array for
             multiple sets of initial conditions.
     """
+    fitfunc = fitfunc_check(fitfunc)
     if fitfunc == f_linear:
         return np.array([(1, 0)])
     elif fitfunc == f_exponential:
@@ -98,6 +101,7 @@ def default_fitpars(fitfunc):
 
 
 def default_fitbnds(fitfunc):
+    fitfunc = fitfunc_check(fitfunc)
     if fitfunc == f_linear:
         return None
     elif fitfunc == f_exponential:
@@ -123,6 +127,33 @@ def default_fitbnds(fitfunc):
         log.debug('Requesting default bounds for unknown fitfunction.')
         return None
 
+def fitpars_check(pars, fitfunc):
+    # we want 2d numpy arrays, first dim for each fit attempt, second dim matching func
+    fitfunc = fitfunc_check(fitfunc)
+    if pars is None:
+        return default_fitpars(fitfunc)
+    else:
+        try:
+            res = np.asfarray(pars)
+        except Exception as e:
+            log.exception("Failed to cast parameters. Check dimension!")
+            raise
+        numargs = int(len(list(inspect.signature(fitfunc).parameters)) - 1)
+        if numargs != res.shape[-1]:
+            log.exception(
+                "Dimension of fitparameters ({:d}) ".format(res.shape[-1]) +
+                "needs to match the number of (parametric) arguments " +
+                "of the fitfunction ({:d})".format(numargs)
+            )
+            raise TypeError
+
+        # if 1d then cast to 2d so we loop over multiple values
+        if (len(res.shape)==1):
+            res = res.reshape(1, len(res))
+
+        return res
+
+
 def fitfunc_check(f):
     if f is f_linear or \
         str(f).lower() in ['f_linear', 'linear', 'lin', 'l']:
@@ -132,13 +163,16 @@ def fitfunc_check(f):
             return f_exponential
     elif f is f_exponential_offset or \
         str(f).lower() in ['f_exponential_offset', 'exponentialoffset',
-        'exponential_offset','offset', 'exp_off', 'exp_offs', 'eo']:
+        'exponential_offset','offset', 'exp_off', 'exp_offset', 'exp_offs', 'eo']:
             return f_exponential_offset
     elif f is f_complex or \
         str(f).lower() in ['f_complex', 'complex', 'cplx', 'c']:
             return f_complex
-    else:
+    elif callable(f) or hasattr(f, '__call__') :
         return f
+    else:
+        log.exception(f"{f} of type {type(f).__name__} is not a valid fit function.")
+        raise TypeError
 
 # ------------------------------------------------------------------ #
 # Fitting
@@ -313,7 +347,7 @@ class FitResult(namedtuple('FitResultBase', [
 
 def fit(
     data,
-    fitfunc=f_exponential,
+    fitfunc=f_exponential_offset,
     steps=None,
     fitpars=None,
     fitbnds=None,
@@ -344,8 +378,8 @@ def fit(
             It must take the independent variable as
             the first argument and the parameters to fit as separate remaining
             arguments.
-            Default is :obj:`f_exponential`.
-            Other builtin options are :obj:`f_exponential_offset` and
+            Default is :obj:`f_exponential_offset`.
+            Other builtin options are :obj:`f_exponential` and
             :obj:`f_complex`.
 
         steps : ~numpy.array, optional
@@ -416,7 +450,7 @@ def fit(
         dtunit  = data.dtunit
     else:
         try:
-            log.warning("Given data is no CoefficientResult. Guessing format")
+            log.info("Given data is no CoefficientResult. Guessing format")
             dt      = 1
             dtunit  = 'ms'
             srcerrs = None
@@ -427,7 +461,7 @@ def fit(
                     log.debug("using steps provided in 'steps'")
                     tempsteps = np.copy(steps)
                 else:
-                    log.debug("using steps linear steps starting at 1")
+                    log.debug("using linear steps starting at 1")
                     tempsteps = np.arange(1, len(data)+1)
                 src = CoefficientResult(
                     coefficients = data,
@@ -457,6 +491,15 @@ def fit(
         except Exception as e:
             log.exception('Provided data has no compatible format')
             raise
+
+    # check that input coefficients do not contain nans or infs
+    if not np.isfinite(src.coefficients).all():
+        log.exception(
+            "Provided coefficients contain elements that are not finite. " +
+            "Fits would not converge.\n" +
+            "One can use `np.isfinite(data.coefficients)` to find problematic elements."
+        )
+        raise ValueError
 
     # check steps
     if steps is None:
@@ -500,7 +543,11 @@ def fit(
     if desc is not None and description is None:
         description = str(desc);
     if description is None:
-        description = data.description
+        try:
+            # this only works when data is a coefficient result
+            description = data.description
+        except Exception as e:
+            log.debug('Exception passed', exc_info=True)
     else:
         description = str(description)
 
@@ -519,12 +566,12 @@ def fit(
     if fitfunc not in [f_exponential, f_exponential_offset, f_complex]:
         log.info('Custom fitfunction specified {}'.format(fitfunc))
 
-    if fitpars is None: fitpars = default_fitpars(fitfunc)
+    fitpars = fitpars_check(fitpars, fitfunc)
+
+    # should implement fitbnds_check(bnds, fitfunc)
     if fitbnds is None: fitbnds = default_fitbnds(fitfunc)
 
-    if (len(fitpars.shape)<2): fitpars = fitpars.reshape(1, len(fitpars))
-
-    # logging this should not cause an actual exception
+    # logging this should not cause an actual exception. ugly, needs rework
     try:
         if fitbnds is None:
             bnds = np.array([-np.inf, np.inf])
@@ -541,7 +588,7 @@ def fit(
             ic = ('{0:<6} = {1:8.3f} in ({2:9.4f}, {3:9.4f})'
                 .format(a, b, c, d) for a, b, c, d
                     in zip(ic, fitpars[0], fitbnds[0, :], fitbnds[1, :]))
-            log.debug('First parameters:\n\t'+'\n\t'.join(ic))
+            log.debug('First parameters:\n'+'\n'.join(ic))
     except Exception as e:
         log.debug('Exception when logging fitpars', exc_info=True)
 
@@ -560,11 +607,11 @@ def fit(
         ssresmin = np.inf
         fulpopt = None
         fulpcov = None
-        if fitlog:
-            ut._logstreamhandler.terminator = "\r"
-        for idx, pars in enumerate(fitpars):
-            if len(fitpars)!=1 and fitlog:
-                log.info('{}/{} fits'.format(idx+1, len(fitpars)))
+
+        if len(fitpars)!=1 and fitlog:
+            log.info('Fitting with {} different start values'.format(len(fitpars)))
+
+        for idx, pars in enumerate(tqdm(fitpars,  disable=(not fitlog))):
 
             try:
                 popt, pcov = scipy.optimize.curve_fit(
@@ -580,11 +627,8 @@ def fit(
                 popt  = None
                 pcov  = None
                 if fitlog:
-                    ut._logstreamhandler.terminator = "\n"
-                    log.debug(
-                        'Fit %d did not converge. Ignoring this fit', idx+1)
+                    log.debug('Fit %d did not converge. Ignoring this fit', idx+1)
                     log.debug('Exception passed', exc_info=True)
-                    ut._logstreamhandler.terminator = "\r"
 
             if ssres < ssresmin:
                 ssresmin = ssres
@@ -592,8 +636,8 @@ def fit(
                 fulpcov  = pcov
 
         if fitlog:
-            ut._logstreamhandler.terminator = "\n"
-            log.info('Finished %d fit(s)', len(fitpars))
+            pass
+            # log.info('Finished %d fit(s)', len(fitpars))
 
         return fulpopt, fulpcov, ssresmin
 
@@ -658,7 +702,7 @@ def fit(
         if numboot > src.numboot:
             log.debug("The provided data does not contain enough " +
                 "bootstrapsamples (%d) to do the requested " +
-                "'numboot=%d' fits.\n\tCall 'coefficeints()' and 'fit()' " +
+                "'numboot=%d' fits.\nCall 'coefficeints()' and 'fit()' " +
                 "with the same 'numboot' argument to avoid this.",
                 src.numboot, numboot)
             numboot = src.numboot
@@ -682,9 +726,7 @@ def fit(
             # use scipy default maxfev for errors
             maxfev = 100*(len(fitpars[0])+1)
 
-            ut._logstreamhandler.terminator = "\r"
-            for tdx in range(numboot):
-                log.info('{}/{} replicas'.format(tdx+1, numboot))
+            for tdx in tqdm(range(numboot)):
                 bspopt, bspcov, bsres = fitloop(
                     src.bootstrapcrs[tdx].coefficients[stepinds],
                     int(maxfev), False)
@@ -696,8 +738,7 @@ def fit(
                     bstau[tdx] = np.nan
                     bsmre[tdx] = np.nan
 
-            ut._logstreamhandler.terminator = "\n"
-            log.info('{} Bootstrap replicas done'.format(numboot))
+            # log.info('{} Bootstrap replicas done'.format(numboot))
 
             # add source sample?
             bstau[-1] = fulpopt[0]
@@ -742,7 +783,7 @@ def fit(
     # ------------------------------------------------------------------ #
 
     log.info('Finished fitting ' +
-        '{} to {}, mre = {}, tau = {}{}, ssres = {:.5f}'.format(
+        '{} to {},\nmre = {}, tau = {}{}, ssres = {:.5f}'.format(
             'the data' if description is None else "'"+description+"'",
             fitfunc.__name__,
             ut._prerror(fulres.mre, fulres.mrestderr),
@@ -752,19 +793,47 @@ def fit(
     if fulres.tau is None:
         return fulres
 
-    if fulres.tau >= 0.75*(steps[-1]*dt):
-        log.warning('The obtained autocorrelationtime is large compared '+
-            'to the fitrange: tmin~{:.0f}{}, tmax~{:.0f}{}, tau~{:.0f}{}'
-            .format(steps[0]*dt, dtunit, steps[-1]*dt, dtunit,
-                fulres.tau, dtunit))
-        log.warning('Consider fitting with a larger \'maxstep\'')
+    try:
+        if src.method == 'trialseparated':
+            if fulres.tau > 0.1*(src.triallen*dt):
+                log.warning(
+                    "The obtained autocorrelationtime " +
+                    "(tau~{:.0f}{}) ".format(fulres.tau, dtunit) +
+                    "is larger than 10% of the trial length " +
+                    "({:.0f}{}).".format(src.triallen*dt) +
+                    ("\nThe 'stationarymean' method might be more suitable." if \
+                        src.numtrials > 1 else "")
+                )
+    except:
+        log.debug('Exception passed', exc_info=True)
 
-    if fulres.tau <= 0.05*(steps[-1]*dt) or fulres.tau <= steps[0]*dt:
-        log.warning('The obtained autocorrelationtime is small compared '+
-            'to the fitrange: tmin~{:.0f}{}, tmax~{:.0f}{}, tau~{:.0f}{}'
-            .format(steps[0]*dt, dtunit, steps[-1]*dt, dtunit,
-                fulres.tau, dtunit))
-        log.warning("Consider fitting with smaller 'minstep' and 'maxstep'")
+    try:
+        if src.method == 'stationarymean':
+            if fulres.tau > (src.triallen*dt):
+                log.warning(
+                    "The obtained autocorrelationtime " +
+                    "(tau~{:.0f}{}) ".format(fulres.tau, dtunit) +
+                    "is larger than the trial length " +
+                    "({:.0f}{}).".format(src.triallen*dt, dtunit) +
+                    "\nDon't trust this estimate!"
+                )
+    except:
+        log.debug('Exception passed', exc_info=True)
+
+    # this was really just some back of the envelope suggestion.
+    # if fulres.tau >= 0.75*(steps[-1]*dt):
+    #     log.warning('The obtained autocorrelationtime is large compared '+
+    #         'to the fitrange:\n' +
+    #         "tmin~{:.0f}{}, tmax~{:.0f}{}, tau~{:.0f}{}\n"
+    #         .format(steps[0]*dt, dtunit, steps[-1]*dt, dtunit, fulres.tau, dtunit) +
+    #         'Consider fitting with a larger \'maxstep\'')
+
+    # if fulres.tau <= 0.05*(steps[-1]*dt) or fulres.tau <= steps[0]*dt:
+    #     log.warning('The obtained autocorrelationtime is small compared '+
+    #         "to the fitrange:\n" +
+    #         "tmin~{:.0f}{}, tmax~{:.0f}{}, tau~{:.0f}{}\n"
+    #         .format(steps[0]*dt, dtunit, steps[-1]*dt, dtunit, fulres.tau, dtunit) +
+    #         "Consider fitting with smaller 'minstep' and 'maxstep'")
 
     if fitfunc is f_complex:
         # check for amplitudes A>B, A>C, A>O

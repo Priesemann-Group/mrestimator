@@ -108,5 +108,55 @@ class TestCorrCoeff(unittest.TestCase):
             self.assertTrue(test_similarity_abs(mre_res.coefficients, np.mean(bootstrap_mat, axis=0),
                                                 max_difference=0.04/np.sqrt(numboot)))
 
+
+from mrestimator.coefficients import *
+from mrestimator.simulate import simulate_branching
+
+class TestCCKnownMean(unittest.TestCase):
+    def test_sm(self):
+        print("Testing knownmean argument to sm_method")
+        data  = simulate_branching(m=.98, a=100, numtrials=5)
+        steps = np.arange(1,25,1)
+        mx, my, x_y, x_x = sm_precompute(data, steps, 0.0)
+        assert(np.all(mx == 0))
+        assert(np.all(my == 0))
+
+        mx, my, x_y, x_x = sm_precompute(data, steps, 5.0)
+        assert(np.all(mx == 5))
+        assert(np.all(my == 5))
+
+        sm_prepped = mx, my, x_y, x_x
+        rk = sm_method(sm_prepped, steps)
+        rk2 = coefficients(data, steps=steps, method='sm',
+            knownmean = 5.0).coefficients
+        assert(test_similarity(rk, rk2, ratio_different = 1e-8))
+
+        mx2, my2, x_y2, x_x2 = sm_precompute(data, steps, None)
+        assert(mx2.shape  == mx.shape)
+        assert(my2.shape  == my.shape)
+        assert(x_y2.shape == x_y.shape)
+        assert(x_x2.shape == x_x.shape)
+
+        sm_prepped = mx2, my2, x_y2, x_x2
+        rk = sm_method(sm_prepped, steps)
+        # check that this matches the default.
+        rk2 = coefficients(data, steps=steps, method='sm').coefficients
+        assert(test_similarity(rk, rk2, ratio_different = 1e-8))
+
+    def test_ts(self):
+        print("Testing knownmean argument to ts_method")
+        data  = simulate_branching(m=.98, a=100, numtrials=5)
+        steps = np.arange(1,25,1)
+        ts_prepped = ts_precompute(data, steps, 0.0)
+        rk = ts_method(ts_prepped, steps)
+        rk2 = coefficients(data, steps=steps, method='ts',
+            knownmean=0.0).coefficients
+        # nothing we can access here to compare...
+
+        ts_prepped = ts_precompute(data, steps, None)
+        rk = ts_method(ts_prepped, steps)
+        rk2 = coefficients(data, steps=steps, method='ts').coefficients
+        assert(test_similarity(rk, rk2, ratio_different = 1e-8))
+
 if __name__ == "__main__":
     unittest.main()

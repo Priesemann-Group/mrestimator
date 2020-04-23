@@ -19,7 +19,9 @@ _targetdir = None
 _logfilehandler = None
 _logstreamhandler = None
 _log_locals = False
-_log_trace = False
+_log_trace = True  # keep this on. seriously.
+_print_progress = True
+_keep_progress = False
 
 # ------------------------------------------------------------------ #
 # helper functions
@@ -233,13 +235,13 @@ def math_from_doc(fitfunc, maxlen=np.inf):
             res = res[:term+2]+' ...$'
 
         if len(res) > maxlen:
-            if fitfunc == f_complex:
+            if fitfunc.__name__ == 'f_complex':
                 res = 'Complex'
-            elif fitfunc == f_exponential_offset:
+            elif fitfunc.__name__ == 'f_exponential_offset':
                 res = 'Exp+Offset'
-            elif fitfunc == f_exponential:
+            elif fitfunc.__name__ == 'f_exponential':
                 res = 'Exponential'
-            elif fitfunc == f_linear:
+            elif fitfunc.__name__ == 'f_linear':
                 res = 'Linear'
             else:
                 res = fitfunc.__name__
@@ -256,6 +258,38 @@ def math_from_doc(fitfunc, maxlen=np.inf):
 # logging
 # ------------------------------------------------------------------ #
 
+# import tqdm if available and set some defaults
+try:
+    from tqdm import tqdm as __tqdm
+
+    # we want to overload for custom defaults
+    def tqdm(*args, **kwargs):
+
+        if 'bar_format' not in kwargs:
+            kwargs = dict(kwargs,
+                bar_format="PROGRESS {percentage:3.0f}%|{bar}" +
+                    "| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]",
+            )
+
+        if 'leave' not in kwargs:
+            kwargs = dict(kwargs, leave=True)
+
+        if not _keep_progress:
+            kwargs = dict(kwargs, leave=False)
+
+        # this gives us two ways to disable printing of the progress bar.
+        # globally via ut._print_progress and for individual function calls via disable
+        if not _print_progress:
+            kwargs = dict(kwargs, disable=True)
+
+        return __tqdm(*args, **kwargs)
+
+except ImportError:
+    def tqdm(*args, **kwargs):
+        if args:
+            return args[0]
+        return kwargs.get('iterable', None)
+
 class CustomExceptionFormatter(logging.Formatter, object):
 
     def __init__(self,
@@ -263,14 +297,23 @@ class CustomExceptionFormatter(logging.Formatter, object):
         # this is needed since i have not found an easy way to disable the
         # printing of the stack trace to console.
         force_disable_trace=False,
+        indent_after_newline=0,
         **kwargs):
             self._force_disable_trace  = force_disable_trace
+            self._padding = ' '*indent_after_newline
             super(CustomExceptionFormatter, self).__init__(*args, **kwargs)
+
+
+    def format(self, record):
+        # we want to indent after a newline
+        # seems that this also indents exceptions/traces
+        s = super(CustomExceptionFormatter, self).format(record)
+        s = s.replace('\n', '\n'+self._padding)
+        return s
 
     def formatException(self, exc_info):
         # original formatted exception
-        exc_text = \
-            super(CustomExceptionFormatter, self).formatException(exc_info)
+        exc_text = super(CustomExceptionFormatter, self).formatException(exc_info)
         # if not self._log_locals:
         if not _log_locals:
             # avoid printing 'NoneType' calling log.exception wihout try
@@ -374,7 +417,9 @@ def initialize():
             mode='w', maxBytes=50*1024*1024, backupCount=9)
         _set_permissions(_targetdir+'mre.log')
         _logfilehandler.setFormatter(CustomExceptionFormatter(
-            '%(asctime)s %(levelname)8s: %(message)s', "%Y-%m-%d %H:%M:%S"))
+            '%(asctime)s %(levelname)8s: %(message)s', "%Y-%m-%d %H:%M:%S",
+             force_disable_trace=False,
+            indent_after_newline=30))
         _logfilehandler.setLevel(logging.DEBUG)
         log.addHandler(_logfilehandler)
 
@@ -382,7 +427,9 @@ def initialize():
         global _logstreamhandler
         _logstreamhandler = logging.StreamHandler()
         _logstreamhandler.setFormatter(CustomExceptionFormatter(
-            '%(levelname)-8s %(message)s', force_disable_trace=True))
+            '%(levelname)-8s %(message)s',
+            force_disable_trace=False,
+            indent_after_newline=9))
         _logstreamhandler.setLevel(logging.INFO)
         log.addHandler(_logstreamhandler)
 

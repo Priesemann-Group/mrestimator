@@ -5,6 +5,7 @@ import numpy as np
 
 from mrestimator import utility as ut
 log = ut.log
+tqdm = ut.tqdm
 
 # set precision of temporary results for numpy and numba
 # ftype = np.longdouble # very slow, maybe float64 is enough
@@ -85,11 +86,12 @@ except ImportError:
 # ------------------------------------------------------------------ #
 
 @jit(nopython=True, parallel=True, fastmath=True, cache=True)
-def sm_precompute(data, steps):
+def sm_precompute(data, steps, knownmean=None):
     """
         Part 1 of the >= v0.1.5 stationary mean method.
         Works for m>1
         Computes terms that are reused during bootstrapping.
+        If knownmean is provided, we skip estimating the mean activity.
     """
 
     numsteps  = steps.shape[0]
@@ -99,25 +101,41 @@ def sm_precompute(data, steps):
     # (x-mx)(y-my) = x*y + mx*my - my*x - mx*y
     x_y   = np.empty(shape=(numsteps, numtrials))
     x_x   = np.empty(shape=(numsteps, numtrials))
-    mx    = np.empty(shape=(numsteps, numtrials))
-    my    = np.empty(shape=(numsteps, numtrials))
+    if knownmean is None:
+        mx    = np.empty(shape=(numsteps, numtrials))
+        my    = np.empty(shape=(numsteps, numtrials))
 
-    # precompute things that can be separated by trial and k
-    mm     = sum_2d_ax1(data[:, :]   )
-    mm_squ = sum_2d_ax1(data[:, :]**2)
+        # precompute things that can be separated by trial and k
+        mm     = sum_2d_ax1(data[:, :]   )
+        mm_squ = sum_2d_ax1(data[:, :]**2)
 
-    for idx in prange(len(steps)):
-        k = steps[idx]
-        x = data[:, 0:-k]
-        y = data[:, k:  ]
-        l = data[:, 0: k]
-        r = data[:,-k:  ]
-        x_y[idx] =           sum_2d_ax1(x*y) /(numels-k)
-        x_x[idx] = (mm_squ - sum_2d_ax1(r*r))/(numels-k)
-        mx [idx] = (mm     - sum_2d_ax1(r  ))/(numels-k)
-        my [idx] = (mm     - sum_2d_ax1(l  ))/(numels-k)
+        for idx in prange(len(steps)):
+            k = steps[idx]
+            x = data[:, 0:-k]
+            y = data[:, k:  ]
+            l = data[:, 0: k]
+            r = data[:,-k:  ]
+            x_y[idx] =           sum_2d_ax1(x*y) /(numels-k)
+            x_x[idx] = (mm_squ - sum_2d_ax1(r*r))/(numels-k)
+            mx [idx] = (mm     - sum_2d_ax1(r  ))/(numels-k)
+            my [idx] = (mm     - sum_2d_ax1(l  ))/(numels-k)
 
-    return mm, mm_squ, mx, my, x_y, x_x
+    else:
+        mx    = np.ones(shape=(numsteps, numtrials))*knownmean
+        my    = np.ones(shape=(numsteps, numtrials))*knownmean
+
+        mm_squ = sum_2d_ax1(data[:, :]**2)
+
+        for idx in prange(len(steps)):
+            k = steps[idx]
+            x = data[:, 0:-k]
+            y = data[:, k:  ]
+            l = data[:, 0: k]
+            r = data[:,-k:  ]
+            x_y[idx] =           sum_2d_ax1(x*y) /(numels-k)
+            x_x[idx] = (mm_squ - sum_2d_ax1(r*r))/(numels-k)
+
+    return mx, my, x_y, x_x
 
 @jit(nopython=True, parallel=True, fastmath=True, cache=True)
 def sm_method(precomputed, steps, choices = None):
@@ -127,7 +145,7 @@ def sm_method(precomputed, steps, choices = None):
         Relies on the results from sm_percompute.
         Fun fact: `choices = ...` is equivalent to not specifying the index.
     """
-    mm, mm_squ, mx, my, x_y, x_x = precomputed
+    mx, my, x_y, x_x = precomputed
 
     if choices is None:
         x_y_ = x_y[:, :]
@@ -155,28 +173,39 @@ def sm_method(precomputed, steps, choices = None):
     return res
 
 @jit(nopython=True, parallel=True, fastmath=True, cache=True)
-def ts_precompute(data, steps):
+def ts_precompute(data, steps, knownmean=None):
     """
         Part 1 of the trialseparated method.
         Containts the core of the method.
         For ts, precomputing is not needed, this is only for consistency with
         sm. Hence, ts_method only does one reduction based on the bootstrap
         trial choices.
+        Also, this allows to implement knownmean.
     """
     N = data.shape[0]
     T = data.shape[1]
     res = np.zeros(shape=(N, len(steps)), dtype=np.float64)
-    for idx in prange(len(steps)):
-        k = steps[idx]
-        frontmean = np.empty((N,1), ftype)
-        backmean  = np.empty((N,1), ftype)
-        frontmean[:,0] = sum_2d_ax1( data[:,  :-k]              )/(T-k)
-        frontvar       = sum_2d_ax1((data[:,  :-k]-frontmean)**2)/(T-k)
-        backmean[:,0]  = sum_2d_ax1( data[:, k:  ]              )/(T-k)
+    if knownmean is None:
+        for idx in prange(len(steps)):
+            k = steps[idx]
+            frontmean = np.empty((N,1), ftype)
+            backmean  = np.empty((N,1), ftype)
+            frontmean[:,0] = sum_2d_ax1( data[:,  :-k]              )/(T-k)
+            frontvar       = sum_2d_ax1((data[:,  :-k]-frontmean)**2)/(T-k)
+            backmean[:,0]  = sum_2d_ax1( data[:, k:  ]              )/(T-k)
 
-        res[:, idx] = \
-            sum_2d_ax1((data[:, :-k] - frontmean)*(data[:, k:] - backmean)) \
-            / frontvar / (T-k)
+            res[:, idx] = \
+                sum_2d_ax1((data[:, :-k] -frontmean)*(data[:, k:] -backmean)) \
+                / frontvar / (T-k)
+    else:
+        themean = np.ones((N,1), ftype)*knownmean
+        for idx in prange(len(steps)):
+            k = steps[idx]
+            frontvar = sum_2d_ax1((data[:,  :-k]-themean)**2)/(T-k)
+
+            res[:, idx] = \
+                sum_2d_ax1((data[:, :-k] -themean)*(data[:, k:] -themean))\
+                / frontvar / (T-k)
 
     return res
 
@@ -222,9 +251,11 @@ class CoefficientResult(namedtuple('CoefficientResultBase', [
     'steps',
     'dt',
     'dtunit',
+    'method',
     'stderrs',
     'trialactivities',
     'trialvariances',
+    'triallen',
     'bootstrapcrs',
     'trialcrs',
     'desc',
@@ -254,6 +285,9 @@ class CoefficientResult(namedtuple('CoefficientResultBase', [
 
         dtunit : str
             Units of step size. Default is `'ms'`.
+
+        method : str or None
+            The method that was used to calculate the coefficients
 
         stderrs : ~numpy.ndarray or None
             Standard errors of the :math:`r_k`.
@@ -310,7 +344,7 @@ class CoefficientResult(namedtuple('CoefficientResultBase', [
             bp = mre.simulate_branching(m=0.995, a=10, numtrials=15)
 
             # the bp returns data already in the right format
-            rk = mre.coefficients(bp, dtunit='step')
+            rk = mre.coefficients(bp, method='ts', dtunit='step')
 
             # fit
             ft = mre.fit(rk)
@@ -339,9 +373,11 @@ class CoefficientResult(namedtuple('CoefficientResultBase', [
         steps,
         dt              = 1.0,
         dtunit          = 'ms',
+        method          = None,
         stderrs         = None,
         trialactivities = np.array([]),
         trialvariances  = np.array([]),
+        triallen        = 0,
         bootstrapcrs    = np.array([]),
         trialcrs        = np.array([]),
         description     = None,
@@ -352,9 +388,11 @@ class CoefficientResult(namedtuple('CoefficientResultBase', [
         steps           = np.asarray(steps)
         dt              = float(dt)
         dtunit          = str(dtunit)
+        method          = None if method is None else str(method)
         stderrs         = None if stderrs is None else np.asarray(stderrs)
         trialactivities = np.asarray(trialactivities)
         trialvariances  = np.asarray(trialvariances)
+        triallen        = int(triallen)
         bootstrapcrs    = bootstrapcrs if isinstance(bootstrapcrs, list) else \
             [bootstrapcrs]
         trialcrs        = trialcrs if isinstance(trialcrs, list) else \
@@ -373,9 +411,11 @@ class CoefficientResult(namedtuple('CoefficientResultBase', [
             steps,
             dt,
             dtunit,
+            method,
             stderrs,
             trialactivities,
             trialvariances,
+            triallen,
             bootstrapcrs,
             trialcrs,
             desc,
@@ -399,15 +439,13 @@ class CoefficientResult(namedtuple('CoefficientResultBase', [
 
  # for idx, k in enumerate(steps):
 
-# ------------------------------------------------------------------ #
-# Wrapper
-# ------------------------------------------------------------------ #
 
 def coefficients(
     data,
+    method=None,
     steps=None,
     dt=1, dtunit='ms',
-    method=None,
+    knownmean=None,
     numboot=100,
     seed=5330,
     description=None,
@@ -422,6 +460,18 @@ def coefficients(
             Input data, containing the time series of activity in the trial
             structure. If a one dimensional array is provieded instead, we
             assume a single trial and reshape the input.
+
+        method : str
+            The estimation method to use, either `'trialseparated'` (``'ts'``) or
+            `'stationarymean'` (``'sm'``).
+            ``'ts'`` calculates the :math:`r_k` for each trial separately and averages
+            over trials. The resulting coefficients can be biased if the trials are
+            too short.
+            ``'sm'`` assumes the mean activity and its variance to be constant across
+            all trials. The mean activity is then calculated from the larger pool
+            of data from all trials and the short-trial-bias might be compensated.
+            If you are unsure, compare results from both methods. If they agree,
+            trials should be long enough.
 
         steps : ~numpy.array, optional
             Specify the steps :math:`k` for which to compute coefficients
@@ -445,15 +495,12 @@ def coefficients(
 
         Other Parameters
         ----------------
-        method : str, optional
-            The estimation method to use, either `'trialseparated'` (``'ts'``,
-            default) or
-            `'stationarymean'` (``'sm'``). ``'ts'``
-            calculates the :math:`r_k` for each trial separately and averages
-            over trials. Each trials contribution is weighted with its
-            variance.
-            ``'sm'`` assumes the mean activity and its variance to be
-            constant across all trials.
+
+        knownmean : float, optional
+            If the (stationary) mean activity is known beforehand, it can be
+            provided here. In this case, the provided value is used instead
+            of approximating the expecation value of the activity using the
+            mean.
 
         numboot : int, optional
             Enable bootstrapping to generate `numboot` (resampled)
@@ -481,21 +528,14 @@ def coefficients(
     # ------------------------------------------------------------------ #
     # Check arguments to offer some more convenience
     # ------------------------------------------------------------------ #
-    log.debug('coefficients() using \'{}\' method:'.format(method))
-    if method is None:
-        method = 'ts'
-    if method not in ['trialseparated', 'ts', 'stationarymean', 'sm']:
-        log.exception('Unknown method: "{}"'.format(method))
-        raise NotImplementedError
-    if method == 'ts':
-        method = 'trialseparated'
-    elif method == 'sm':
-        method = 'stationarymean'
 
     if desc is not None and description is None:
         description = str(desc);
     if description is not None:
         description = str(description)
+
+    if knownmean is not None:
+        knownmean = float(knownmean)
 
     # check dt
     dt = float(dt)
@@ -504,22 +544,51 @@ def coefficients(
         raise ValueError
     dtunit = str(dtunit)
 
+    # check data
     dim = -1
     try:
         dim = len(data.shape)
         if dim == 1:
             log.warning('You should provide an ndarray of ' +
                 'shape(numtrials, datalength)\n' +
-                '\tContinuing with one trial, reshaping your input')
+                'Continuing with one trial, reshaping your input')
             data = np.reshape(data, (1, len(data)))
         elif dim >= 3:
             log.exception('Provided ndarray is of dim {}\n'.format(dim) +
-                  '\tPlease provide a two dimensional ndarray')
+                  'Please provide a two dimensional ndarray')
             raise ValueError
     except Exception as e:
         log.exception('Please provide a two dimensional ndarray')
         raise ValueError from e
 
+    # check method
+    log.debug('coefficients() using \'{}\' method:'.format(method))
+    if method is None:
+        if data.shape[0] == 1:
+            method = 'sm'  # sm has a more useful warning when tau is large
+            log.debug(
+                "No coefficient method provided, using 'stationarymean' for one trial"
+            )
+        else:
+            log.exception(
+                "The provided data seems to have more than one trial. " +
+                "Please specify a 'method':\n" +
+                "'trialseparated' --- if your trials are long, or\n" +
+                "'stationarymean' --- if you are sure that activity is stationary " +
+                "across trials.\n" +
+                "If you are unsure, we suggest to compare results from both methods."
+            )
+            raise ValueError
+
+    if method not in ['trialseparated', 'ts', 'stationarymean', 'sm']:
+        log.exception('Unknown method: "{}"'.format(method))
+        raise NotImplementedError
+    if method == 'ts':
+        method = 'trialseparated'
+    elif method == 'sm':
+        method = 'stationarymean'
+
+    # check steps
     if steps is None:
         steps = (None, None)
     try:
@@ -568,6 +637,10 @@ def coefficients(
             else:
                 steps = steps[correct]
                 log.debug('Only using steps that are >= 1')
+        if (steps>data.shape[1]/2).any():
+            log.warning('Provided steps include values that seem too large: ' +
+                "Steps greater than half the time series length cause problems. " +
+                "Proceeding nonetheless...")
         log.debug('Using provided custom steps between {} and {}'.format(
             steps[0], steps[-1]))
 
@@ -582,8 +655,10 @@ def coefficients(
     if (ut._log_locals):
         log.debug('Trusted Locals: {}'.format(locals()))
 
-    log.info("coefficients() with '{}' method for {} trials of length {}" \
-        .format(method, numtrials, numels))
+    log.info("coefficients() with '{}' method for {} trials of length {}.{}" \
+        .format(method, numtrials, numels,
+            " 'knownmean' provided: {}".format(knownmean) \
+            if knownmean is not None else ""))
 
     trialcrs        = []
     bootstrapcrs    = []
@@ -593,7 +668,7 @@ def coefficients(
     coefficients    = None                    # set later
 
     if method == 'trialseparated':
-        ts_prepped   = ts_precompute(data, steps)
+        ts_prepped   = ts_precompute(data, steps, knownmean)
         coefficients = ts_method(ts_prepped, steps)
 
         # save per-trial result
@@ -605,6 +680,7 @@ def coefficients(
                 coefficients    = ts_prepped[tdx],
                 trialactivities = np.array([trialactivities[tdx]]),
                 trialvariances  = np.array([trialvariances[tdx]]),
+                triallen        = numels,
                 steps           = steps,
                 dt              = dt,
                 dtunit          = dtunit,
@@ -612,7 +688,7 @@ def coefficients(
             trialcrs.append(temp)
 
     elif method == 'stationarymean':
-        sm_prepped   = sm_precompute(data, steps)
+        sm_prepped   = sm_precompute(data, steps, knownmean)
         coefficients = sm_method(sm_prepped, steps)
 
 
@@ -657,6 +733,7 @@ def coefficients(
                 coefficients    = bscoefficients[tdx],
                 trialactivities = np.array([bsmean]),
                 trialvariances  = np.array([bsvar]),
+                triallen        = numels,
                 steps           = steps,
                 dt              = dt,
                 dtunit          = dtunit,
@@ -673,12 +750,14 @@ def coefficients(
         coefficients    = coefficients,
         trialactivities = trialactivities,
         trialvariances  = trialvariances,
+        triallen        = numels,
         steps           = steps,
         stderrs         = stderrs,
         trialcrs        = trialcrs,
         bootstrapcrs    = bootstrapcrs,
         dt              = dt,
         dtunit          = dtunit,
+        method          = method,
         description     = description)
 
     return fulres

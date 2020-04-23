@@ -101,11 +101,12 @@ def simulate_branching(
         log.warning('activity a=0 and initial h=0')
 
     log.info('Generating branching process with m={}'.format(ut._printeger(m)))
-    log.debug('Details:\n' +
-        '\t{:d} trials with {:d} time steps each\n'.format(numtrials, length) +
-        '\tbranchign ratio m={}\n'.format(m) +
-        '\t(initial) activity a={}\n'.format(a) +
-        '\t(initial) drive rate h={}'.format(h[0]))
+    log.debug(
+        '{:d} trials with {:d} time steps each\n'.format(numtrials, length) +
+        'branchign ratio m={}\n'.format(m) +
+        '(initial) activity a={}\n'.format(a) +
+        '(initial) drive rate h={}'.format(h[0])
+    )
 
     A_t = np.zeros(shape=(numtrials, length), dtype=int)
     a = np.ones_like(A_t[:, 0])*a
@@ -114,7 +115,9 @@ def simulate_branching(
     # for m>1 we want exp-increase, else
     # avoid nonstationarity by discarding some steps
     if (h[0] != 0 and h[0] and m < 1):
-        for idx in range(0, np.fmax(100, int(length*0.05))):
+        therm = np.fmax(100, int(length*0.05))
+        log.info('Setting up stationarity, {:d} steps'.format(therm))
+        for idx in range(0, therm):
             a = np.random.poisson(lam=m*a + h[0])
 
     A_t[:, 0] = np.random.poisson(lam=m*a + h[0])
@@ -173,12 +176,15 @@ def simulate_subsampling(data, prob=0.1, seed='random'):
     # a_t = np.empty_like(data)
 
     log.debug('simulate_subsampling() seeding to {}'.format(seed))
+
+    # we are always using the global random state device, although stats.binom
+    # can have a local instance.
     if seed is None:
         pass
     elif seed == 'random':
         np.random.seed(None)
     else:
         np.random.seed(seed)
+
     # binomial subsampling, seed = None does not reseed global instance
-    return scipy.stats.binom.rvs(data.astype(int), prob, random_state=seed,
-        size=data.shape)
+    return scipy.stats.binom.rvs(data.astype(int), prob, size=data.shape)
