@@ -34,7 +34,8 @@ Python 3.7.0, numpy 1.15.1, scipy 1.1.0 and matplotlib 2.2.3.
 ## What's new
 
 ### 08.07.2020 Our paper draft is now on arXiv
-[arXiv:2007.03367](https://arxiv.org/abs/2007.03367): "MR. Estimator, a toolbox to determine intrinsic timescales from subsampled spiking activity".
+* [arXiv:2007.03367](https://arxiv.org/abs/2007.03367): "MR. Estimator, a toolbox to determine intrinsic timescales from subsampled spiking activity".
+* Additional scripts and downloadable data to recreate the figure on triallength are available on [gin](https://gin.g-node.org/pspitzner/mrestimator_triallength/src/master).
 
 ### 23.04.2020 [v0.1.6](https://pypi.org/project/mrestimator/0.1.6)
 
