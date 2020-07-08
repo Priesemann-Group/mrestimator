@@ -14,6 +14,7 @@ If you find bugs, encounter unexpected behaviour or want to comment, please let 
 - [Python Package index](https://pypi.org/project/mrestimator)
 - [Github](https://github.com/Priesemann-Group/mrestimator)
 - Details on the multistep regression estimator: [J. Wilting and V. Priesemann, Nat. Commun. 9, 2325 (2018)](https://doi.org/10.1038/s41467-018-04725-4)
+- Cite as [arXiv:2007.03367](https://arxiv.org/abs/2007.03367)
 
 
 ## Dependencies
@@ -32,7 +33,10 @@ Python 3.7.0, numpy 1.15.1, scipy 1.1.0 and matplotlib 2.2.3.
 
 ## What's new
 
-### [v0.1.6](https://pypi.org/project/mrestimator/0.1.6) (23.04.2020)
+### 08.07.2020 Our paper draft is now on arXiv
+[arXiv:2007.03367](https://arxiv.org/abs/2007.03367): "MR. Estimator, a toolbox to determine intrinsic timescales from subsampled spiking activity".
+
+### 23.04.2020 [v0.1.6](https://pypi.org/project/mrestimator/0.1.6)
 
 This is a cleanup version that tries to be consistent with the paper (in prep). See the [full changelog](https://mrestimator.readthedocs.io/en/latest/doc/changelog.html).
 
