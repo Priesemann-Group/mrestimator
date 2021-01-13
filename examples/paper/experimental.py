@@ -67,6 +67,7 @@ for i in range(0, 25):
 # in the text file, the frequency of the fitted oscillations can be found.
 
 out = mre.full_analysis(trials, dt=4, dtunit='ms', kmax=800,
+    method='trialseparated',
     fitfuncs=['exponential', 'exponential_offset', 'complex'],
     targetdir='./', saveoverview=True)
 
