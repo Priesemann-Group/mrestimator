@@ -41,13 +41,13 @@ This is a cleanup version that tries to be consistent with the paper (in prep). 
 
 
 ## Installation
-Assuming a working Python3 environment, usually you can install via pip:
+Assuming a working Python3 environment, usually you can install via pip (also installs the optional dependencies):
 
 ```
-pip3 install mrestimator
+pip3 install 'mrestimator[full]'
 ```
 
-To install (or update an existing installation) with optional dependecies:
+To install (or update an existing installation) with optional dependencies:
 
 ```
 pip3 install -U 'mrestimator[full]'
@@ -80,7 +80,7 @@ Optionally, you can create a new environment (e.g. named 'myenv') for the toolbo
 and activate it with ``source activate myenv`` (``activate myenv`` on windows).
 For more details on managing environments with conda, see [here](https://conda.io/docs/user-guide/tasks/manage-environments.html).
 
-Now install using pip: ```pip install mrestimator``` and afterwards you should be able to import the module into any python3 session
+Now install using pip: ```pip install 'mrestimator[full]'``` and afterwards you should be able to import the module into any python3 session
 
 ```
 python
