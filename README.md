@@ -13,8 +13,11 @@ If you find bugs, encounter unexpected behaviour or want to comment, please let 
 - [Getting Started](https://mrestimator.readthedocs.io/en/latest/doc/gettingstarted.html)
 - [Python Package index](https://pypi.org/project/mrestimator)
 - [Github](https://github.com/Priesemann-Group/mrestimator)
+- [Publication reference (in a nicely-formated PDF)](https://arxiv.org/pdf/2007.03367.pdf)
 - Details on the multistep regression estimator: [J. Wilting and V. Priesemann, Nat. Commun. 9, 2325 (2018)](https://doi.org/10.1038/s41467-018-04725-4)
 
+If you use our toolbox for a scientific publication please cite it as 
+`Spitzner FP, Dehning J, Wilting J, Hagemann A, P. Neto J, Zierenberg J, et al. (2021) MR. Estimator, a toolbox to determine intrinsic timescales from subsampled spiking activity. PLoS ONE 16(4): e0249447. https://doi.org/10.1371/journal.pone.0249447`
 
 ## Dependencies
 - Python (>=3.5)
