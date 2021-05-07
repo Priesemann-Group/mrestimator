@@ -27,7 +27,7 @@ fig, ax = plt.subplots(figsize=(4, 2.0))
 out = mre.OutputHandler([rk_full, rk_subs, rk_subz], ax=ax)
 fig.tight_layout()
 
-os.chdir(os.path.dirname(__file__))
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 out.save_plot("./coefficients_and_subsampling")
 
 ax.set_yscale("log")

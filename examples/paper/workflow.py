@@ -53,6 +53,7 @@ out.save('~/mre_example/result')
 
 # gives same output with other file title
 out2 = mre.full_analysis(bp, dt=1, kmax=500,
+  method='trialseparated',
   dtunit=' bp steps', fitfuncs=['e', 'eo'],
   targetdir='~/mre_example/')
 
