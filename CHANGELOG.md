@@ -1,6 +1,11 @@
 Changelog
 =========
 
+[v0.1.7](https://pypi.org/project/mrestimator/0.1.7) (07.05.2021)
+-----------------------------------------------------------------
+* Consistency fixes of the example scripts to comply with the paper
+
+
 [v0.1.6](https://pypi.org/project/mrestimator/0.1.6) (23.04.2020)
 -----------------------------------------------------------------
 * __Changed__: Now under BSD 3-Clause License

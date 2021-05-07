@@ -13,9 +13,12 @@ If you find bugs, encounter unexpected behaviour or want to comment, please let 
 - [Getting Started](https://mrestimator.readthedocs.io/en/latest/doc/gettingstarted.html)
 - [Python Package index](https://pypi.org/project/mrestimator)
 - [Github](https://github.com/Priesemann-Group/mrestimator)
+- [arXiv (a nicely-formated PDF)](https://arxiv.org/abs/2007.03367)
 - Details on the multistep regression estimator: [J. Wilting and V. Priesemann, Nat. Commun. 9, 2325 (2018)](https://doi.org/10.1038/s41467-018-04725-4)
 - Cite as [arXiv:2007.03367](https://arxiv.org/abs/2007.03367)
 
+If you use our toolbox for a scientific publication please cite it as
+`Spitzner FP, Dehning J, Wilting J, Hagemann A, P. Neto J, Zierenberg J, et al. (2021) MR. Estimator, a toolbox to determine intrinsic timescales from subsampled spiking activity. PLoS ONE 16(4): e0249447. https://doi.org/10.1371/journal.pone.0249447`
 
 ## Dependencies
 - Python (>=3.5)
@@ -33,6 +36,8 @@ Python 3.7.0, numpy 1.15.1, scipy 1.1.0 and matplotlib 2.2.3.
 
 ## What's new
 
+### 07.05.2021 Now published in [PLOS ONE](https://doi.org/10.1371/journal.pone.0249447).
+
 ### 08.07.2020 Our paper draft is now on arXiv
 * [arXiv:2007.03367](https://arxiv.org/abs/2007.03367): "MR. Estimator, a toolbox to determine intrinsic timescales from subsampled spiking activity".
 * Additional scripts and downloadable data to recreate the figure on triallength are available on [gin](https://gin.g-node.org/pspitzner/mrestimator_triallength/src/master).
@@ -43,13 +48,13 @@ This is a cleanup version that tries to be consistent with the paper (in prep). 
 
 
 ## Installation
-Assuming a working Python3 environment, usually you can install via pip:
+Assuming a working Python3 environment, usually you can install via pip (also installs the optional dependencies):
 
 ```
-pip3 install mrestimator
+pip3 install 'mrestimator[full]'
 ```
 
-To install (or update an existing installation) with optional dependecies:
+To install (or update an existing installation) with optional dependencies:
 
 ```
 pip3 install -U 'mrestimator[full]'
@@ -82,7 +87,7 @@ Optionally, you can create a new environment (e.g. named 'myenv') for the toolbo
 and activate it with ``source activate myenv`` (``activate myenv`` on windows).
 For more details on managing environments with conda, see [here](https://conda.io/docs/user-guide/tasks/manage-environments.html).
 
-Now install using pip: ```pip install mrestimator``` and afterwards you should be able to import the module into any python3 session
+Now install using pip: ```pip install 'mrestimator[full]'``` and afterwards you should be able to import the module into any python3 session
 
 ```
 python

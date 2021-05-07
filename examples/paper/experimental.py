@@ -19,6 +19,7 @@
 import os
 import numpy as np
 import matplotlib as mpl
+import sys
 import mrestimator as mre
 
 # helper function to convert a list of time stamps
@@ -33,7 +34,7 @@ def bin_spike_times_unitless(spike_times, bin_size):
     return res
 
 # set directory to the location of this script file to use relative paths
-os.chdir(os.path.dirname(__file__))
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 # load the spiketimes
 # res = np.loadtxt('./crcns/hc2/ec014.277/ec014.277.res.3') # ~8Hz oscillations
@@ -67,6 +68,7 @@ for i in range(0, 25):
 # in the text file, the frequency of the fitted oscillations can be found.
 
 out = mre.full_analysis(trials, dt=4, dtunit='ms', kmax=800,
+    method='trialseparated',
     fitfuncs=['exponential', 'exponential_offset', 'complex'],
     targetdir='./', saveoverview=True)
 

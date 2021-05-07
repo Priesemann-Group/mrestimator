@@ -80,6 +80,9 @@ def full_analysis(
             coefficients. See the :func:`coefficients` function for details.
             Default is `ts`.
 
+        method: str, optional
+            same as `coefficientmethod`, introduced in v0.1.6.
+
         tmin: float
             Smallest time separation to use for coefficients, in units of
             `dtunit`.
