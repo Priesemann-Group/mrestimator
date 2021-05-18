@@ -815,7 +815,7 @@ class OutputHandler:
             self.dtunit = data.dtunit
             self.ax.set_xlabel("k [{} {}]".format(data.dt, data.dtunit))
             self.ax.set_ylabel("$r_{k}$")
-            self.ax.set_title("Correlation", fontweigh="bold")
+            self.ax.set_title("Correlation", fontweight="bold")
         inds = self.set_xdata(data.steps, dt=data.dt, dtunit=data.dtunit)
 
         # description for fallback
