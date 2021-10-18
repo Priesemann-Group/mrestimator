@@ -1,1 +1,4 @@
 include README.md
+global-exclude *.zip
+global-exclude *.png
+global-exclude *.pickled
