@@ -85,7 +85,7 @@ except ImportError:
 # Core routines for differnt coefficient methods
 # ------------------------------------------------------------------ #
 
-@jit(nopython=True, parallel=True, fastmath=True, cache=True)
+@jit(nopython=True, parallel=False, fastmath=True, cache=True)
 def sm_precompute(data, steps, knownmean=None):
     """
         Part 1 of the >= v0.1.5 stationary mean method.
@@ -137,7 +137,7 @@ def sm_precompute(data, steps, knownmean=None):
 
     return mx, my, x_y, x_x
 
-@jit(nopython=True, parallel=True, fastmath=True, cache=True)
+@jit(nopython=True, parallel=False, fastmath=True, cache=True)
 def sm_method(precomputed, steps, choices = None):
     """
         Part 2 of the >= v0.1.5 stationary mean method.
@@ -172,7 +172,7 @@ def sm_method(precomputed, steps, choices = None):
 
     return res
 
-@jit(nopython=True, parallel=True, fastmath=True, cache=True)
+@jit(nopython=True, parallel=False, fastmath=True, cache=True)
 def ts_precompute(data, steps, knownmean=None):
     """
         Part 1 of the trialseparated method.
@@ -209,7 +209,7 @@ def ts_precompute(data, steps, knownmean=None):
 
     return res
 
-@jit(nopython=True, parallel=True, fastmath=True, cache=True)
+@jit(nopython=True, parallel=False, fastmath=True, cache=True)
 def ts_method(precomputed, steps, choices = None):
     """
         See ts_precompute.

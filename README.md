@@ -35,15 +35,15 @@ Python 3.7.0, numpy 1.15.1, scipy 1.1.0 and matplotlib 2.2.3.
 
 ## What's new
 
+### 18.10.2021 [v0.1.8](https://pypi.org/project/mrestimator/0.1.8)
+* is a quick bugfix. We had to disable numba parallelization for the time being.
+
 ### 07.05.2021 Now published in [PLOS ONE](https://doi.org/10.1371/journal.pone.0249447).
 
 ### 08.07.2020 Our paper draft is now on arXiv
 * [arXiv:2007.03367](https://arxiv.org/abs/2007.03367): "MR. Estimator, a toolbox to determine intrinsic timescales from subsampled spiking activity".
 * Additional scripts and downloadable data to recreate the figure on triallength are available on [gin](https://gin.g-node.org/pspitzner/mrestimator_triallength/src/master).
 
-### 23.04.2020 [v0.1.6](https://pypi.org/project/mrestimator/0.1.6)
-
-This is a cleanup version that tries to be consistent with the paper (in prep). See the [full changelog](https://mrestimator.readthedocs.io/en/latest/doc/changelog.html).
 
 
 ## Installation

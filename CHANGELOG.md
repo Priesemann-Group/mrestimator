@@ -1,6 +1,11 @@
 Changelog
 =========
 
+[v0.1.8](https://pypi.org/project/mrestimator/0.1.7) (18.10.2021)
+-----------------------------------------------------------------
+* Since a recent update of numba, coefficients are computed incorrectly when parallelizing. This version disables the numba parallelization.
+
+
 [v0.1.7](https://pypi.org/project/mrestimator/0.1.7) (07.05.2021)
 -----------------------------------------------------------------
 * Consistency fixes of the example scripts to comply with the paper
