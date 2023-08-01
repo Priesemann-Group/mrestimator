@@ -18,12 +18,16 @@ def f_linear(k, A, O):
 
 def f_exponential(k, tau, A):
     """:math:`|A| e^{-k/\\tau}`"""
-
     return np.abs(A)*np.exp(-k/tau)
 
 def f_exponential_offset(k, tau, A, O):
     """:math:`|A| e^{-k/\\tau} + O`"""
     return np.abs(A)*np.exp(-k/tau)+O*np.ones_like(k)
+
+def f_two_timescales(k, tau1, A1, tau2, A2):
+    """:math:`|A1| e^{-k/\\tau1} + |A2| e^{-k/\\tau2}`"""
+    # keep in mind to pick the tau with the bigger amplitude. see `tau_from_popt()`
+    return np.abs(A1) * np.exp(-k / tau1) + np.abs(A2) * np.exp(-k / tau2)
 
 def f_complex(k, tau, A, O, tauosc, B, gamma, nu, taugs, C):
     """:math:`|A| e^{-k/\\tau} + B e^{-(k/\\tau_{osc})^\\gamma} """ \
@@ -33,6 +37,50 @@ def f_complex(k, tau, A, O, tauosc, B, gamma, nu, taugs, C):
         + B*np.exp(-(k/tauosc)**gamma)*np.cos(2*np.pi*nu*k) \
         + C*np.exp(-(k/taugs)**2) \
         + O*np.ones_like(k)
+
+def tau_from_popt(fitfunc, popt):
+    """
+        Get the 'selected' tau from the fit parameters. This is necessary in particular
+        for the two-timescale fit, where the chosen tau is not always the
+        first element in popt.
+
+        Parameters
+        ----------
+        fitfunc : callable, The fit function
+        popt : ~numpy.ndarray, The fit parameters
+
+        Returns
+        -------
+        tau : float
+    """
+
+    if fitfunc == f_linear:
+        # tau is not defined for linear fit
+        return None
+    elif fitfunc == f_two_timescales:
+        # choose the timescale with higher coefficient A
+        tau_1 = popt[0]
+        A_1 = np.abs(popt[1])
+        tau_2 = popt[2]
+        A_2 = np.abs(popt[3])
+        tau_selected = (tau_1, tau_2)[np.argmax((A_1, A_2))]
+        # tau_rejected = (tau_1, tau_2)[np.argmin((A_1, A_2))]
+        # A_selected = np.amax((A_1, A_2))
+        # A_rejected = np.amin((A_1, A_2))
+        return tau_selected
+    else:
+        return popt[0]
+
+
+def popt_as_dict(fitfunc, popt):
+    """
+    Takes the popt array and the fitfunc and returns a dictionary with
+    human-readable keys of the parameters.
+    """
+    # from the fitfunc, get the named arguments. exclude first, which is k
+    args = inspect.getfullargspec(fitfunc).args[1:]
+    return dict(zip(args, popt))
+
 
 def default_fitpars(fitfunc):
     """
@@ -58,8 +106,19 @@ def default_fitpars(fitfunc):
     elif fitfunc == f_exponential:
         return np.array([(20, 1), (200, 1), (-20, 1), (-200, 1), (-1, 1)])
     elif fitfunc == f_exponential_offset:
-        return np.array([(20, 1, 0), (200, 1, 0), (-20, 1, 0), (-50, 1, 0),
-            (-1, 1, 0)])
+        return np.array([(20, 1, 0), (200, 1, 0), (-20, 1, 0), (-50, 1, 0), (-1, 1, 0)])
+    elif fitfunc == f_two_timescales:
+        res = np.array([
+            # tau1  A1  tau2 A2
+            (0.1, 0.01, 10, 0.01 ),
+            (0.1, 0.1 , 10, 0.01 ),
+            (0.5, 0.01, 10, 0.001),
+            (0.5, 0.1 , 10, 0.01 ),
+            (0.1, 0.01, 10, 0    ),
+            (0.1, 0.1 , 10, 0    ),
+            (0.5, 0.01, 10, 0    ),
+            (0.5, 0.1 , 10, 0    )])
+        return res
     elif fitfunc == f_complex:
         res = np.array([
             # tau     A       O    tosc      B    gam      nu  tgs      C
@@ -107,6 +166,8 @@ def default_fitbnds(fitfunc):
     elif fitfunc == f_exponential:
         return None
     elif fitfunc == f_exponential_offset:
+        return None
+    elif fitfunc == f_two_timescales:
         return None
     elif fitfunc == f_complex:
         res = np.array(
@@ -165,6 +226,9 @@ def fitfunc_check(f):
         str(f).lower() in ['f_exponential_offset', 'exponentialoffset',
         'exponential_offset','offset', 'exp_off', 'exp_offset', 'exp_offs', 'eo']:
             return f_exponential_offset
+    elif f is f_two_timescales or \
+        str(f).lower() in ['two_ts', 'two_timescales', 'f_two_ts', 'double_exp']:
+            return f_two_timescales
     elif f is f_complex or \
         str(f).lower() in ['f_complex', 'complex', 'cplx', 'c']:
             return f_complex
@@ -753,12 +817,8 @@ def fit(
             tauquantiles = np.nanpercentile(bstau, quantiles*100.)
             mrequantiles = np.nanpercentile(bsmre, quantiles*100.)
 
-    tau = fulpopt[0]
-    mre = np.exp(-1*dt/fulpopt[0])
-
-    if fitfunc == f_linear:
-        tau = None
-        mre = None
+    tau = tau_from_popt(fitfunc, fulpopt)
+    mre = None if tau is None else np.exp(-1*dt/tau)
 
     fulres = FitResult(
         tau          = tau,
