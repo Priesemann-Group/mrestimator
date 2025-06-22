@@ -134,7 +134,7 @@ def fitpars_check(pars, fitfunc):
         return default_fitpars(fitfunc)
     else:
         try:
-            res = np.asfarray(pars)
+            res = np.asarray(pars, dtype=np.float64)
         except Exception as e:
             log.exception("Failed to cast parameters. Check dimension!")
             raise

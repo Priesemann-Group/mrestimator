@@ -1286,7 +1286,7 @@ def overview(src, rks, fits, **kwargs):
         axes[3].legend(fitcurves, fitlabels, **tempkwargs)
 
     # hide handles
-    for handle in axes[3].get_legend().legendHandles:
+    for handle in axes[3].get_legend().legend_handles:
         handle.set_visible(False)
 
     # center text

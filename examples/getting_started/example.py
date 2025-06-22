@@ -55,7 +55,8 @@ auto = mre.full_analysis(
     dt=4, dtunit='ms',
     tmin=0, tmax=8000,
     fitfuncs=['exp', 'exp_offs', 'complex'],
-    numboot='auto'
+    numboot='auto',
+    coefficientmethod='trialseparated'
     )
 
 plt.show()
@@ -97,13 +98,13 @@ plt.show()
 # ------------------------------------------------------------------ #
 
 # correlation coefficients with default settings, assumes 1ms time bins
-rkdefault = mre.coefficients(srcful)
+rkdefault = mre.coefficients(srcful, method='trialseparated')
 print(rkdefault)
 print('this guy has the following attributes: ', rkdefault._fields)
 
 # specify the range of time steps (from, to) for which coefficients are wanted
 # also, set the unit and the number of time steps per bin e.g. 4ms per k:
-rk = mre.coefficients(srcsub, steps=(1, 5000), dt=4, dtunit='ms', desc='mydat')
+rk = mre.coefficients(srcsub, steps=(1, 5000), dt=4, dtunit='ms', desc='mydat', method='trialseparated')
 
 # fit with defaults: exponential over the full range of rk
 m = mre.fit(rk)

@@ -36,7 +36,7 @@ setup(
     install_requires=[
         "numpy >= 1.11",
         "scipy >= 1.0.0",
-        "matplotlib >= 1.5.3",
+        "matplotlib >= 1.7.0",
     ],
     extras_require={
         # we want to make matplotlib optional, too
