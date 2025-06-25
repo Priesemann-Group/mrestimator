@@ -21,9 +21,6 @@ def check_similarity_abs(value1, value2, max_difference=1e-10):
     return np.all(np.fabs(value1 - value2) < max_difference)
 
 
-
-
-
 def calc_corr_arr_stationary(activity_mat, k_arr):
     average = np.mean(activity_mat)
     corr_arr = np.zeros_like(k_arr, dtype="float64")
@@ -84,8 +81,7 @@ class TestCorrCoeff(unittest.TestCase):
                 activity_mat, steps=k_arr, method="stationarymean", numboot=numboot
             )
             print(
-                f"stationarymean, time needed: "
-                f"{(time.time() - time_beg) * 1000:.2f} ms"
+                f"stationarymean, time needed: {(time.time() - time_beg) * 1000:.2f} ms"
             )
             print("mre: ", mre_res.coefficients[:5])
             print("true value: ", corr_arr[:5])
@@ -122,8 +118,7 @@ class TestCorrCoeff(unittest.TestCase):
             )
 
             print(
-                f"trialseparated, time needed: "
-                f"{(time.time() - time_beg) * 1000:.2f} ms"
+                f"trialseparated, time needed: {(time.time() - time_beg) * 1000:.2f} ms"
             )
             print("mre: ", mre_res.coefficients[:5])
             print("true value: ", corr_arr[:5])

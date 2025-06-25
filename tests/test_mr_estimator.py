@@ -48,9 +48,7 @@ def calc_popt(
             if val < bound_min or val > bound_max:
                 print(val)
                 raise (
-                    RuntimeError(
-                        f"startvalue {val} outside bounds, {i + 1}-th value"
-                    )
+                    RuntimeError(f"startvalue {val} outside bounds, {i + 1}-th value")
                 )
 
         if not np.any(np.isfinite(corr_arr)):
@@ -127,18 +125,10 @@ def fitfunction_exp_with_offset(k_arr, tau, A, O):
 
 def compare_mre_methods(activity_mat):
     print("comparing mre internally:")
-    rk1 = mre.coefficients(
-        activity_mat, steps=(1, 1500), method="trialseparated"
-    )
-    rk2 = mre.coefficients(
-        activity_mat, steps=(1, 1500), method="trialseparated"
-    )
-    rk3 = mre.coefficients(
-        activity_mat, steps=(1, 1500), method="stationarymean"
-    )
-    rk4 = mre.coefficients(
-        activity_mat, steps=(1, 1500), method="stationarymean"
-    )
+    rk1 = mre.coefficients(activity_mat, steps=(1, 1500), method="trialseparated")
+    rk2 = mre.coefficients(activity_mat, steps=(1, 1500), method="trialseparated")
+    rk3 = mre.coefficients(activity_mat, steps=(1, 1500), method="stationarymean")
+    rk4 = mre.coefficients(activity_mat, steps=(1, 1500), method="stationarymean")
 
     print("\n\n\n comparison:")
     print(rk1.coefficients[:10])
@@ -211,33 +201,42 @@ class TestMREstimator(unittest.TestCase):
                             try_only_once=False,
                         )
 
-                        rk = mre.coefficients(activity_mat, method="stationarymean", steps=k_arr)
+                        rk = mre.coefficients(
+                            activity_mat, method="stationarymean", steps=k_arr
+                        )
                         res_mre = mre.fit(rk, fitfunc="complex")
                         print("popts:", popt, res_mre.popt)
-                        
+
                         # Since the fits use different algorithms and starting points,
                         # we should be more lenient with the comparison
-                        # Some datasets may converge to very different solutions due to numerical issues
-                        # Check if the fits look reasonable (not extreme values) before comparing
-                        
-                        # Skip comparison if either fit resulted in extreme values (likely convergence failure)
+                        # Some datasets may converge to very different solutions due to
+                        # numerical issues
+                        # Check if the fits look reasonable (not extreme values) before
+                        # comparing
+
+                        # Skip comparison if either fit resulted in extreme values
+                        # (likely convergence failure)
                         extreme_manual = any(abs(val) > 1e6 for val in popt)
                         extreme_mre = any(abs(val) > 1e6 for val in res_mre.popt)
-                        
+
                         if extreme_manual or extreme_mre:
-                            print(f"Skipping comparison for {name_data} due to extreme parameter values")
+                            print(
+                                f"Skipping comparison for {name_data} due to "
+                                "extreme parameter values"
+                            )
                             continue
-                            
+
                         # For reasonable values, check similarity
                         for i in range(len(popt)):
                             manual_val = popt[i]
                             mre_val = res_mre.popt[i]
-                            
+
                             if abs(manual_val) < 1e-2 or abs(mre_val) < 1e-2:
                                 # For small values, use absolute difference
                                 self.assertTrue(
                                     abs(manual_val - mre_val) < 1e-2,
-                                    f"Parameter {i}: {manual_val} vs {mre_val} (absolute diff too large)"
+                                    f"Parameter {i}: {manual_val} vs {mre_val} "
+                                    "(absolute diff too large)",
                                 )
                             else:
                                 # For larger values, use relative difference
@@ -245,7 +244,8 @@ class TestMREstimator(unittest.TestCase):
                                     check_similarity(
                                         manual_val, mre_val, ratio_different=2e-1
                                     ),
-                                    f"Parameter {i}: {manual_val} vs {mre_val} (relative diff too large)"
+                                    f"Parameter {i}: {manual_val} vs {mre_val} "
+                                    "(relative diff too large)",
                                 )
                         # plt.plot(k_arr, corr_arr)
                         # plt.plot(k_arr, fitfunction_complex(k_arr, *popt))
@@ -265,33 +265,42 @@ class TestMREstimator(unittest.TestCase):
                         # plt.plot(k_arr, corr_arr)
                         # plt.plot(k_arr, fitfunction_exp_with_offset(k_arr, *popt))
                         # plt.show()
-                        rk = mre.coefficients(activity_mat, method="stationarymean", steps=k_arr)
+                        rk = mre.coefficients(
+                            activity_mat, method="stationarymean", steps=k_arr
+                        )
                         res_mre = mre.fit(rk, fitfunc="exponentialoffset")
                         print("popts:", popt, res_mre.popt)
 
                         # Since the fits use different algorithms and starting points,
                         # we should be more lenient with the comparison
-                        # Some datasets may converge to very different solutions due to numerical issues
-                        # Check if the fits look reasonable (not extreme values) before comparing
-                        
-                        # Skip comparison if either fit resulted in extreme values (likely convergence failure)
+                        # Some datasets may converge to very different solutions due to
+                        # numerical issues
+                        # Check if the fits look reasonable (not extreme values) before
+                        # comparing
+
+                        # Skip comparison if either fit resulted in extreme values
+                        # (likely convergence failure)
                         extreme_manual = any(abs(val) > 1e6 for val in popt)
                         extreme_mre = any(abs(val) > 1e6 for val in res_mre.popt)
-                        
+
                         if extreme_manual or extreme_mre:
-                            print(f"Skipping comparison for {name_data} due to extreme parameter values")
+                            print(
+                                f"Skipping comparison for {name_data} due to "
+                                "extreme parameter values"
+                            )
                             continue
-                            
+
                         # For reasonable values, check similarity
                         for i in range(len(popt)):
                             manual_val = popt[i]
                             mre_val = res_mre.popt[i]
-                            
+
                             if abs(manual_val) < 1e-2 or abs(mre_val) < 1e-2:
                                 # For small values, use absolute difference
                                 self.assertTrue(
                                     abs(manual_val - mre_val) < 1e-2,
-                                    f"Parameter {i}: {manual_val} vs {mre_val} (absolute diff too large)"
+                                    f"Parameter {i}: {manual_val} vs {mre_val} "
+                                    "(absolute diff too large)",
                                 )
                             else:
                                 # For larger values, use relative difference
@@ -299,5 +308,6 @@ class TestMREstimator(unittest.TestCase):
                                     check_similarity(
                                         manual_val, mre_val, ratio_different=2e-1
                                     ),
-                                    f"Parameter {i}: {manual_val} vs {mre_val} (relative diff too large)"
+                                    f"Parameter {i}: {manual_val} vs {mre_val} "
+                                    "(relative diff too large)",
                                 )

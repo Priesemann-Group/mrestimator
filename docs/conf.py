@@ -32,7 +32,9 @@ try:
     # for example take major/minor
     version = ".".join(release.split(".")[:2])
 except Exception:
-    print("Warning: Could not determine version from package, using development version")
+    print(
+        "Warning: Could not determine version from package, using development version"
+    )
     release = "0.0.0.dev"
     version = "0.0"
 
@@ -61,7 +63,14 @@ extensions = [
 # sphinx-mdinclude will handle markdown parsing
 
 # Mock imports
-autodoc_mock_imports = ["numpy", "matplotlib", "matplotlib.pyplot", "scipy", "neo", "numba"]
+autodoc_mock_imports = [
+    "numpy",
+    "matplotlib",
+    "matplotlib.pyplot",
+    "scipy",
+    "neo",
+    "numba",
+]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
@@ -217,5 +226,3 @@ intersphinx_mapping = {
 
 # If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = True
-
-
