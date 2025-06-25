@@ -1,6 +1,18 @@
 Changelog
 =========
 
+[v0.1.9]
+* removed the display-variable environment check. turned out to get in the way more often than helping.
+* removed large parts of the over-engineered logging (helps with dask)
+    - we now simply use `logging.getLogger("mrestimator")`
+    - to adjust the logging, call e.g. `logging.basicConfig(level="INFO")` before importing mrestimator
+    - use `mre.enable_progressbar()` and `mre.disable_progressbar()` to toggle tqdm, module-wide
+* no longer capturing numpy warnings into the logger. to manually readd this:
+    ```
+    logging.captureWarnings(True)
+    logging.getLogger("py.warnings")
+    ```
+
 [v0.1.8](https://pypi.org/project/mrestimator/0.1.7) (18.10.2021)
 -----------------------------------------------------------------
 * Since a recent update of numba, coefficients are computed incorrectly when parallelizing. This version disables the numba parallelization.
