@@ -27,6 +27,7 @@ def _c_rk_greater_zero(data: "CoefficientResult", plim=0.1):
     returns True if the test passed (and the null hypothesis was rejected)
     """
     from mrestimator.coefficients import CoefficientResult
+
     if not isinstance(data, CoefficientResult):
         log.exception("_c_rk_greater_zero needs a CoefficientResult")
         raise TypeError
@@ -47,6 +48,7 @@ def _c_rk_smaller_one(data: "CoefficientResult", plim=0.1):
     returns True if the test passed (and the null hypothesis was rejected)
     """
     from mrestimator.coefficients import CoefficientResult
+
     if not isinstance(data, CoefficientResult):
         log.exception("_c_rk_smaller_one needs a CoefficientResult")
         raise TypeError
