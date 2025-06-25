@@ -30,7 +30,7 @@ Changelog
 * __Changed__: Due to above, `method` is now the second positional argument (this might break scripts that gave `steps`, `dt`, or `dtunit` as positonal arguments). Call `mre.coefficients(data, 'ts')` or as before via keyword `mre.coefficients(data, method='ts')`
 * __Fixed__: Typo that caused `full_analysis()` to crash when calling the consistency check.
 * __Fixed__: Workaround to prevent a memory leak when calling `full_analysis()` repeatedly. Always set `showoverview=False` when using `full_analysis()` in for loops.
-We now temporarily set `matplotlib.rcParams['interactive'] = showoverview` to avoid opening a new figure every time. This should make the panel and `showoverview` argument feel more consistent. The same workaround can be used in your custom scripts when using the `OutputHandler` (that also opens figures): Nest the loop inside a `with matplotlib.rc_context(rc={'interactive': False}):` (or adjust your rc parameters) to avoid figures.
+  We now temporarily set `matplotlib.rcParams['interactive'] = showoverview` to avoid opening a new figure every time. This should make the panel and `showoverview` argument feel more consistent. The same workaround can be used in your custom scripts when using the `OutputHandler` (that also opens figures): Nest the loop inside a `with matplotlib.rc_context(rc={'interactive': False}):` (or adjust your rc parameters) to avoid figures.
 * __Fixed__: Various small bugs
 * __New__: `coefficients` has a new keyword argument `knownmean` to provide a known mean activity. If provdied, it will be used as the expectation value of the activity instead of calculating the mean as an approximation (both, in `stationarymean` and `trialseparated` method). This allows for custom estimates but, for instance, `m>1` will not be detectable as the covariance cannot diverge when the same (time independent) expectation value is used for `<a_{t}>` and `<a_{t+k}>`. As one example, `knownmean=0` restrains the fitted line (with slope `r_k`) to go through the origin `(0,0)`. See [Zierenberg et al., in press](https://arxiv.org/abs/1905.10402).
 
@@ -47,9 +47,9 @@ We now temporarily set `matplotlib.rcParams['interactive'] = showoverview` to av
 * __Changed__: `full_analysis()` argument `fitfunctions` renamed to `fitfuncs` to be consistent with `fit()` and `coefficients()`
 * __Changed__: `full_analysis()` was rewritten, now only has three required arguments: `data`, `dt` and `kmax`, where `kmax` can be substituted by `steps` or `tmax`.
 * __Changed__: concerning the `seed` argument for various functions:
-all functions take either `seed=None` (no reseeding), `seed='random'` (reseeding to a random value - causing irreproducible resaults) or to a fixed value `seed=int(yourseed)`.
-Per default, analysis functions - `full_analysis()`, `fit()` and `coefficients()` - produce same results by seeding to a fixed value each call. (only confidence intervals are affected by seeding)
-Per default, `simulate_branching()` and `simulate_subsampling()` seed to `random`.
+  all functions take either `seed=None` (no reseeding), `seed='random'` (reseeding to a random value - causing irreproducible resaults) or to a fixed value `seed=int(yourseed)`.
+  Per default, analysis functions - `full_analysis()`, `fit()` and `coefficients()` - produce same results by seeding to a fixed value each call. (only confidence intervals are affected by seeding)
+  Per default, `simulate_branching()` and `simulate_subsampling()` seed to `random`.
 * __Fixed__: when calling branching process with `subp` and providing a seed, the subsampling no longer reseeds the rng device. (hence every call produces the same outcome, as expected)
 * __Fixed__: `simulate_subsampling()` now returns np arrays of correct dimensions
 * __New__: `full_analysis()` now shows a warning in the overview panel if consistency checks fail (so far only one).

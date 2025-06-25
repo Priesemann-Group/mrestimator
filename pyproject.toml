@@ -38,10 +38,22 @@ full = [
 numba = [
     "numba>=0.44",
 ]
+docs = [
+    "sphinx>=8.0.0",
+    "sphinx-rtd-theme",  # Read the Docs theme
+    "myst-parser",  # Better Markdown support
+    "nbsphinx",  # For Jupyter notebook documentation
+    "sphinx-autodoc-typehints",  # Better type hints in docs
+    "sphinx-mdinclude",  # Better Markdown inclusion
+    "pandoc",  # Required by nbsphinx
+]
 dev = [
     "mrestimator[full]",
+    "mrestimator[docs]",  # Include docs dependencies
     "pre-commit >= 3.3.2",
     "ruff >= 0.0.272",
+    "pytest >= 7.4.0",  # testing framework
+    "pytest-xdist >= 3.5.0",  # parallel test execution
 ]
 
 [project.urls]
@@ -84,7 +96,9 @@ packages = ["mrestimator"]
 [tool.setuptools_scm]
 write_to = "mrestimator/_version.py"
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
 
-
-
-
+[tool.ruff]
+line-length = 88
+target-version = "py38"

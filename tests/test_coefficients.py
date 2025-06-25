@@ -8,7 +8,7 @@ import mrestimator as mre
 from mrestimator.utility import log
 
 
-def test_similarity(value1, value2, ratio_different=1e-10):
+def check_similarity(value1, value2, ratio_different=1e-10):
     print(
         f"ratio difference: "
         f"{np.max(np.fabs(value1 - value2) / ((value1 + value2) / 2)):.3e}"
@@ -16,9 +16,12 @@ def test_similarity(value1, value2, ratio_different=1e-10):
     return np.all(np.fabs(value1 - value2) / ((value1 + value2) / 2) < ratio_different)
 
 
-def test_similarity_abs(value1, value2, max_difference=1e-10):
+def check_similarity_abs(value1, value2, max_difference=1e-10):
     print(f"max difference: {np.max(np.fabs(value1 - value2)):.3e}")
     return np.all(np.fabs(value1 - value2) < max_difference)
+
+
+
 
 
 def calc_corr_arr_stationary(activity_mat, k_arr):
@@ -88,7 +91,7 @@ class TestCorrCoeff(unittest.TestCase):
             print("true value: ", corr_arr[:5])
 
             self.assertTrue(
-                test_similarity(mre_res.coefficients, corr_arr, ratio_different=1e-8)
+                check_similarity(mre_res.coefficients, corr_arr, ratio_different=1e-8)
             )
             bootstrap_mat = np.array(
                 [boot.coefficients for boot in mre_res.bootstrapcrs]
@@ -96,7 +99,7 @@ class TestCorrCoeff(unittest.TestCase):
             mean_bootstrap = np.mean(bootstrap_mat, axis=0)
             print("boot mean: ", mean_bootstrap[:5])
             self.assertTrue(
-                test_similarity_abs(
+                check_similarity_abs(
                     mre_res.coefficients,
                     np.mean(bootstrap_mat, axis=0),
                     max_difference=0.04 / np.sqrt(numboot),
@@ -126,7 +129,7 @@ class TestCorrCoeff(unittest.TestCase):
             print("true value: ", corr_arr[:5])
 
             self.assertTrue(
-                test_similarity(mre_res.coefficients, corr_arr, ratio_different=1e-10)
+                check_similarity(mre_res.coefficients, corr_arr, ratio_different=1e-10)
             )
             bootstrap_mat = np.array(
                 [boot.coefficients for boot in mre_res.bootstrapcrs]
@@ -134,7 +137,7 @@ class TestCorrCoeff(unittest.TestCase):
             mean_bootstrap = np.mean(bootstrap_mat, axis=0)
             print("boot mean: ", mean_bootstrap[:5])
             self.assertTrue(
-                test_similarity_abs(
+                check_similarity_abs(
                     mre_res.coefficients,
                     np.mean(bootstrap_mat, axis=0),
                     max_difference=0.04 / np.sqrt(numboot),
@@ -162,7 +165,7 @@ class TestCCKnownMean(unittest.TestCase):
         sm_prepped = mx, my, x_y, x_x
         rk = sm_method(sm_prepped, steps)
         rk2 = coefficients(data, steps=steps, method="sm", knownmean=5.0).coefficients
-        assert test_similarity(rk, rk2, ratio_different=1e-8)
+        assert check_similarity(rk, rk2, ratio_different=1e-8)
 
         mx2, my2, x_y2, x_x2 = sm_precompute(data, steps, None)
         assert mx2.shape == mx.shape
@@ -174,7 +177,7 @@ class TestCCKnownMean(unittest.TestCase):
         rk = sm_method(sm_prepped, steps)
         # check that this matches the default.
         rk2 = coefficients(data, steps=steps, method="sm").coefficients
-        assert test_similarity(rk, rk2, ratio_different=1e-8)
+        assert check_similarity(rk, rk2, ratio_different=1e-8)
 
     def test_ts(self):
         print("Testing knownmean argument to ts_method")
@@ -188,7 +191,7 @@ class TestCCKnownMean(unittest.TestCase):
         ts_prepped = ts_precompute(data, steps, None)
         rk = ts_method(ts_prepped, steps)
         rk2 = coefficients(data, steps=steps, method="ts").coefficients
-        assert test_similarity(rk, rk2, ratio_different=1e-8)
+        assert check_similarity(rk, rk2, ratio_different=1e-8)
 
 
 if __name__ == "__main__":

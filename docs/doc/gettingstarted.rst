@@ -1,3 +1,5 @@
+:noindex:
+
 Getting Started
 ===============
 
