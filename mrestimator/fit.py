@@ -195,7 +195,7 @@ def fitpars_check(pars, fitfunc):
         return default_fitpars(fitfunc)
     else:
         try:
-            res = np.asfarray(pars)
+            res = np.asarray(pars, dtype=np.float64)
         except Exception as e:
             log.exception("Failed to cast parameters. Check dimension!")
             raise
@@ -227,7 +227,7 @@ def fitfunc_check(f):
         'exponential_offset','offset', 'exp_off', 'exp_offset', 'exp_offs', 'eo']:
             return f_exponential_offset
     elif f is f_two_timescales or \
-        str(f).lower() in ['two_ts', 'two_timescales', 'f_two_ts', 'double_exp']:
+        str(f).lower() in ['f_two_timescales', 'two_ts', 'two_timescales', 'f_two_ts', 'double_exp']:
             return f_two_timescales
     elif f is f_complex or \
         str(f).lower() in ['f_complex', 'complex', 'cplx', 'c']:
