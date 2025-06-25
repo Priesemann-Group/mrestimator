@@ -253,7 +253,9 @@ def full_analysis(
             # open new handler and add it to logging module
             loghandler = logging.handlers.RotatingFileHandler(
                 targetdir
-                + "/{}.log".format("full_analysis" if title is None else title, ),
+                + "/{}.log".format(
+                    "full_analysis" if title is None else title,
+                ),
                 maxBytes=5 * 1024 * 1024,
                 backupCount=1,
             )

@@ -1,5 +1,5 @@
-from collections import namedtuple
 import logging
+from collections import namedtuple
 
 import numpy as np
 
@@ -9,8 +9,10 @@ log = logging.getLogger(__name__)
 try:
     from tqdm import tqdm
 except ImportError:
+
     def tqdm(*args, **kwargs):
         return args[0] if args else iter([])
+
 
 # set precision of temporary results for numpy and numba
 # ftype = np.longdouble # very slow, maybe float64 is enough
@@ -419,7 +421,7 @@ class CoefficientResult(
             bootstrapcrs = np.array([])
         if trialcrs is None:
             trialcrs = np.array([])
-            
+
         # given attr check
         coefficients = np.asarray(coefficients)
         steps = np.asarray(steps)
@@ -687,9 +689,7 @@ def coefficients(
                 + "Steps greater than half the time series length cause problems. "
                 + "Proceeding nonetheless..."
             )
-        log.debug(
-            f"Using provided custom steps between {steps[0]} and {steps[-1]}"
-        )
+        log.debug(f"Using provided custom steps between {steps[0]} and {steps[-1]}")
 
     # ------------------------------------------------------------------ #
     # Continue with trusted arguments
@@ -704,9 +704,7 @@ def coefficients(
             method,
             numtrials,
             numels,
-            f" 'knownmean' provided: {knownmean}"
-            if knownmean is not None
-            else "",
+            f" 'knownmean' provided: {knownmean}" if knownmean is not None else "",
         )
     )
 

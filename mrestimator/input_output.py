@@ -7,9 +7,8 @@ from mrestimator import utility as ut
 
 log = ut.log
 import matplotlib
-import numpy as np
-
 import matplotlib.pyplot as plt
+import numpy as np
 
 
 def input_handler(items, **kwargs):
@@ -95,9 +94,7 @@ def input_handler(items, **kwargs):
             for item in items.astype("U"):
                 temp.update(glob.glob(os.path.expanduser(item)))
             if len(items) != len(temp):
-                log.debug(
-                    f"{len(items) - len(temp)} duplicate files were excluded"
-                )
+                log.debug(f"{len(items) - len(temp)} duplicate files were excluded")
             items = temp
         else:
             log.exception("Numpy.ndarray is neither data nor file path.%s", invstr)
@@ -116,9 +113,7 @@ def input_handler(items, **kwargs):
             for item in items:
                 temp.update(glob.glob(os.path.expanduser(item)))
             if len(items) != len(temp):
-                log.debug(
-                    f"{len(items) - len(temp)} duplicate files were excluded"
-                )
+                log.debug(f"{len(items) - len(temp)} duplicate files were excluded")
             items = temp
         elif all(isinstance(item, np.ndarray) for item in items):
             log.info("input_handler() detected list of ndarrays")
@@ -541,9 +536,7 @@ class OutputHandler:
                     if self.dt == 1:
                         newlabel = str(f"[{self.dtunit}]")
                     else:
-                        newlabel = str(
-                            f"[{ut._printeger(self.dt)} {self.dtunit}]"
-                        )
+                        newlabel = str(f"[{ut._printeger(self.dt)} {self.dtunit}]")
                     self.ax.set_xlabel(re.sub(regex, newlabel, oldlabel))
                     self.xlabel = re.sub(regex, newlabel, self.xlabel)
                 except TypeError:
@@ -660,9 +653,7 @@ class OutputHandler:
                 self.ax.set_xlabel(f"k [{data.dtunit}]")
             else:
                 self.xlabel = f"steps[{ut._printeger(data.dt, 5)} {data.dtunit}]"
-                self.ax.set_xlabel(
-                    f"k [{ut._printeger(data.dt, 5)} {data.dtunit}]"
-                )
+                self.ax.set_xlabel(f"k [{ut._printeger(data.dt, 5)} {data.dtunit}]")
             self.ax.set_ylabel("$r_{k}$")
             self.ax.set_title("Correlation", fontweight="bold")
 

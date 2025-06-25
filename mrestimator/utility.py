@@ -1,10 +1,5 @@
-import os
 import logging
 import logging.handlers
-import stat
-import tempfile
-import platform
-import getpass
 import math
 
 import numpy as np
@@ -67,14 +62,12 @@ def _c_fits_consistent(fit1, fit2, quantile=0.125):
     """
     # [.125, .25, .4, .5, .6, .75, .875]
     try:
-        log.debug("Checking fits against each others {} quantiles".format(quantile))
+        log.debug(f"Checking fits against each others {quantile} quantiles")
 
         qmin = list(fit1.quantiles).index(quantile)
         qmax = list(fit1.quantiles).index(1 - quantile)
         log.debug(
-            "{} < {} < {} ?".format(
-                fit2.tauquantiles[qmin], fit1.tau, fit2.tauquantiles[qmax]
-            )
+            f"{fit2.tauquantiles[qmin]} < {fit1.tau} < {fit2.tauquantiles[qmax]} ?"
         )
         if fit1.tau > fit2.tauquantiles[qmax] or fit1.tau < fit2.tauquantiles[qmin]:
             return False
@@ -82,15 +75,13 @@ def _c_fits_consistent(fit1, fit2, quantile=0.125):
         qmin = list(fit2.quantiles).index(quantile)
         qmax = list(fit2.quantiles).index(1 - quantile)
         log.debug(
-            "{} < {} < {} ?".format(
-                fit1.tauquantiles[qmin], fit2.tau, fit1.tauquantiles[qmax]
-            )
+            f"{fit1.tauquantiles[qmin]} < {fit2.tau} < {fit1.tauquantiles[qmax]} ?"
         )
         if fit2.tau > fit1.tauquantiles[qmax] or fit2.tau < fit1.tauquantiles[qmin]:
             return False
 
         return True
-    except Exception as e:
+    except Exception:
         log.debug("Quantile not found in fit", exc_info=True)
 
         return False
@@ -125,7 +116,7 @@ def _at_index(data, indices, keepdim=None, padding=np.nan):
     indices.size or data.size
     """
     if not (keepdim is None or keepdim in ["data", "index"]):
-        raise TypeError("unexpected argument keepdim={}".format(keepdim))
+        raise TypeError(f"unexpected argument keepdim={keepdim}")
 
     data = np.asarray(data)
     indices = np.asarray(indices)
@@ -167,10 +158,12 @@ def _prerror(f, ferr, errprec=2, maxprec=5):
     if ferr < 1:
         prec = math.ceil(-math.log10(math.fabs(ferr) - math.fabs(math.floor(ferr)))) - 1
         return str(
-            "{:.{p}f}({:.0f})".format(f, ferr * 10 ** (prec + errprec), p=prec + errprec)
+            "{:.{p}f}({:.0f})".format(
+                f, ferr * 10 ** (prec + errprec), p=prec + errprec
+            )
         )
     else:
-        return str("{}({})".format(_printeger(f, errprec), _printeger(ferr, errprec)))
+        return str(f"{_printeger(f, errprec)}({_printeger(ferr, errprec)})")
 
 
 def math_from_doc(fitfunc, maxlen=np.inf):
@@ -195,7 +188,7 @@ def math_from_doc(fitfunc, maxlen=np.inf):
             else:
                 res = fitfunc.__name__
 
-    except Exception as e:
+    except Exception:
         log.debug("Exception passed when casting function description", exc_info=True)
         res = fitfunc.__name__
 
@@ -226,6 +219,7 @@ def enable_progressbar(leave=False):
     """
     global tqdm
     from functools import partialmethod
+
     try:
         tqdm.__init__ = partialmethod(tqdm.__init__, disable=False, leave=leave)
     except AttributeError:
@@ -239,6 +233,7 @@ def disable_progressbar():
     """
     global tqdm
     from functools import partialmethod
+
     try:
         tqdm.__init__ = partialmethod(tqdm.__init__, disable=True, leave=False)
     except AttributeError:

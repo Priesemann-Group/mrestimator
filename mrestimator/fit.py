@@ -34,6 +34,7 @@ def f_two_timescales(k, tau1, A1, tau2, A2):
     # keep in mind to pick the tau with the bigger amplitude. see `tau_from_popt()`
     return np.abs(A1) * np.exp(-k / tau1) + np.abs(A2) * np.exp(-k / tau2)
 
+
 def f_complex(k, tau, A, O, tauosc, B, gamma, nu, taugs, C):
     (
         """:math:`|A| e^{-k/\\tau} + B e^{-(k/\\tau_{osc})^\\gamma} """
@@ -50,18 +51,18 @@ def f_complex(k, tau, A, O, tauosc, B, gamma, nu, taugs, C):
 
 def tau_from_popt(fitfunc, popt):
     """
-        Get the 'selected' tau from the fit parameters. This is necessary in particular
-        for the two-timescale fit, where the chosen tau is not always the
-        first element in popt.
+    Get the 'selected' tau from the fit parameters. This is necessary in particular
+    for the two-timescale fit, where the chosen tau is not always the
+    first element in popt.
 
-        Parameters
-        ----------
-        fitfunc : callable, The fit function
-        popt : ~numpy.ndarray, The fit parameters
+    Parameters
+    ----------
+    fitfunc : callable, The fit function
+    popt : ~numpy.ndarray, The fit parameters
 
-        Returns
-        -------
-        tau : float
+    Returns
+    -------
+    tau : float
     """
 
     if fitfunc == f_linear:
@@ -118,16 +119,19 @@ def default_fitpars(fitfunc):
     elif fitfunc == f_exponential_offset:
         return np.array([(20, 1, 0), (200, 1, 0), (-20, 1, 0), (-50, 1, 0), (-1, 1, 0)])
     elif fitfunc == f_two_timescales:
-        res = np.array([
-            # tau1  A1  tau2 A2
-            (0.1, 0.01, 10, 0.01 ),
-            (0.1, 0.1 , 10, 0.01 ),
-            (0.5, 0.01, 10, 0.001),
-            (0.5, 0.1 , 10, 0.01 ),
-            (0.1, 0.01, 10, 0    ),
-            (0.1, 0.1 , 10, 0    ),
-            (0.5, 0.01, 10, 0    ),
-            (0.5, 0.1 , 10, 0    )])
+        res = np.array(
+            [
+                # tau1  A1  tau2 A2
+                (0.1, 0.01, 10, 0.01),
+                (0.1, 0.1, 10, 0.01),
+                (0.5, 0.01, 10, 0.001),
+                (0.5, 0.1, 10, 0.01),
+                (0.1, 0.01, 10, 0),
+                (0.1, 0.1, 10, 0),
+                (0.5, 0.01, 10, 0),
+                (0.5, 0.1, 10, 0),
+            ]
+        )
         return res
     elif fitfunc == f_complex:
         res = np.array(
@@ -233,23 +237,37 @@ def fitpars_check(pars, fitfunc):
 
 
 def fitfunc_check(f):
-    if f is f_linear or \
-        str(f).lower() in ['f_linear', 'linear', 'lin', 'l']:
-            return f_linear
-    elif f is f_exponential or \
-        str(f).lower() in ['f_exponential', 'exponential', 'exp', 'e']:
-            return f_exponential
-    elif f is f_exponential_offset or \
-        str(f).lower() in ['f_exponential_offset', 'exponentialoffset',
-        'exponential_offset','offset', 'exp_off', 'exp_offset', 'exp_offs', 'eo']:
-            return f_exponential_offset
-    elif f is f_two_timescales or \
-        str(f).lower() in ['f_two_timescales', 'two_ts', 'two_timescales', 'f_two_ts', 'double_exp']:
-            return f_two_timescales
-    elif f is f_complex or \
-        str(f).lower() in ['f_complex', 'complex', 'cplx', 'c']:
-            return f_complex
-    elif callable(f) or hasattr(f, '__call__') :
+    if f is f_linear or str(f).lower() in ["f_linear", "linear", "lin", "l"]:
+        return f_linear
+    elif f is f_exponential or str(f).lower() in [
+        "f_exponential",
+        "exponential",
+        "exp",
+        "e",
+    ]:
+        return f_exponential
+    elif f is f_exponential_offset or str(f).lower() in [
+        "f_exponential_offset",
+        "exponentialoffset",
+        "exponential_offset",
+        "offset",
+        "exp_off",
+        "exp_offset",
+        "exp_offs",
+        "eo",
+    ]:
+        return f_exponential_offset
+    elif f is f_two_timescales or str(f).lower() in [
+        "f_two_timescales",
+        "two_ts",
+        "two_timescales",
+        "f_two_ts",
+        "double_exp",
+    ]:
+        return f_two_timescales
+    elif f is f_complex or str(f).lower() in ["f_complex", "complex", "cplx", "c"]:
+        return f_complex
+    elif callable(f) or callable(f):
         return f
     else:
         log.exception(f"{f} of type {type(f).__name__} is not a valid fit function.")
@@ -682,8 +700,7 @@ def fit(
             ic = (
                 f"{a:<6} = {b:8.3f} in ({c:9.4f}, {d:9.4f})"
                 for a, b, c, d in zip(
-                    ic, fitpars[0], fitbnds[0, :], fitbnds[1, :],
-                    strict=False
+                    ic, fitpars[0], fitbnds[0, :], fitbnds[1, :], strict=False
                 )
             )
             log.debug("First parameters:\n" + "\n".join(ic))
@@ -691,9 +708,7 @@ def fit(
         log.debug("Exception when logging fitpars", exc_info=True)
 
     if fitpars.shape[0] > 1:
-        log.debug(
-            f"Repeating fit with {fitpars.shape[0]} sets of initial parameters:"
-        )
+        log.debug(f"Repeating fit with {fitpars.shape[0]} sets of initial parameters:")
 
     # ------------------------------------------------------------------ #
     # Fit via scipy.curve_fit
@@ -752,8 +767,7 @@ def fit(
             pass
         else:
             log.warning(
-                f"No fit converged after {maxfev} "
-                + "iterations. Increasing to 10000"
+                f"No fit converged after {maxfev} " + "iterations. Increasing to 10000"
             )
             maxfev = 10000
             fulpopt, fulpcov, ssresmin = fitloop(
@@ -823,9 +837,7 @@ def fit(
         if numboot == 0:
             log.debug("'numboot=0' skipping bootstrapping")
         else:
-            log.info(
-                f"Bootstrapping {numboot} replicas ({len(fitpars)} fits each)"
-            )
+            log.info(f"Bootstrapping {numboot} replicas ({len(fitpars)} fits each)")
 
             log.debug(f"fit() seeding to {seed}")
             if seed is None:
@@ -869,7 +881,7 @@ def fit(
             mrequantiles = np.nanpercentile(bsmre, quantiles * 100.0)
 
     tau = tau_from_popt(fitfunc, fulpopt)
-    mre = None if tau is None else np.exp(-1*dt/tau)
+    mre = None if tau is None else np.exp(-1 * dt / tau)
 
     fulres = FitResult(
         tau=tau,
