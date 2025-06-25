@@ -209,16 +209,20 @@ class TestMREstimator(unittest.TestCase):
 
                         # Since the fits use different algorithms and starting points,
                         # we should be more lenient with the comparison
-                        # Some datasets may converge to very different solutions due to numerical issues
-                        # Check if the fits look reasonable (not extreme values) before comparing
+                        # Some datasets may converge to very different solutions due to
+                        # numerical issues
+                        # Check if the fits look reasonable (not extreme values) before
+                        # comparing
 
-                        # Skip comparison if either fit resulted in extreme values (likely convergence failure)
+                        # Skip comparison if either fit resulted in extreme values
+                        # (likely convergence failure)
                         extreme_manual = any(abs(val) > 1e6 for val in popt)
                         extreme_mre = any(abs(val) > 1e6 for val in res_mre.popt)
 
                         if extreme_manual or extreme_mre:
                             print(
-                                f"Skipping comparison for {name_data} due to extreme parameter values"
+                                f"Skipping comparison for {name_data} due to "
+                                "extreme parameter values"
                             )
                             continue
 
@@ -231,7 +235,8 @@ class TestMREstimator(unittest.TestCase):
                                 # For small values, use absolute difference
                                 self.assertTrue(
                                     abs(manual_val - mre_val) < 1e-2,
-                                    f"Parameter {i}: {manual_val} vs {mre_val} (absolute diff too large)",
+                                    f"Parameter {i}: {manual_val} vs {mre_val} "
+                                    "(absolute diff too large)",
                                 )
                             else:
                                 # For larger values, use relative difference
@@ -239,7 +244,8 @@ class TestMREstimator(unittest.TestCase):
                                     check_similarity(
                                         manual_val, mre_val, ratio_different=2e-1
                                     ),
-                                    f"Parameter {i}: {manual_val} vs {mre_val} (relative diff too large)",
+                                    f"Parameter {i}: {manual_val} vs {mre_val} "
+                                    "(relative diff too large)",
                                 )
                         # plt.plot(k_arr, corr_arr)
                         # plt.plot(k_arr, fitfunction_complex(k_arr, *popt))
@@ -267,16 +273,20 @@ class TestMREstimator(unittest.TestCase):
 
                         # Since the fits use different algorithms and starting points,
                         # we should be more lenient with the comparison
-                        # Some datasets may converge to very different solutions due to numerical issues
-                        # Check if the fits look reasonable (not extreme values) before comparing
+                        # Some datasets may converge to very different solutions due to
+                        # numerical issues
+                        # Check if the fits look reasonable (not extreme values) before
+                        # comparing
 
-                        # Skip comparison if either fit resulted in extreme values (likely convergence failure)
+                        # Skip comparison if either fit resulted in extreme values
+                        # (likely convergence failure)
                         extreme_manual = any(abs(val) > 1e6 for val in popt)
                         extreme_mre = any(abs(val) > 1e6 for val in res_mre.popt)
 
                         if extreme_manual or extreme_mre:
                             print(
-                                f"Skipping comparison for {name_data} due to extreme parameter values"
+                                f"Skipping comparison for {name_data} due to "
+                                "extreme parameter values"
                             )
                             continue
 
@@ -289,7 +299,8 @@ class TestMREstimator(unittest.TestCase):
                                 # For small values, use absolute difference
                                 self.assertTrue(
                                     abs(manual_val - mre_val) < 1e-2,
-                                    f"Parameter {i}: {manual_val} vs {mre_val} (absolute diff too large)",
+                                    f"Parameter {i}: {manual_val} vs {mre_val} "
+                                    "(absolute diff too large)",
                                 )
                             else:
                                 # For larger values, use relative difference
@@ -297,5 +308,6 @@ class TestMREstimator(unittest.TestCase):
                                     check_similarity(
                                         manual_val, mre_val, ratio_different=2e-1
                                     ),
-                                    f"Parameter {i}: {manual_val} vs {mre_val} (relative diff too large)",
+                                    f"Parameter {i}: {manual_val} vs {mre_val} "
+                                    "(relative diff too large)",
                                 )

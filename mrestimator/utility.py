@@ -1,13 +1,16 @@
 import logging
 import logging.handlers
 import math
+from typing import TYPE_CHECKING
 
 import numpy as np
 import scipy
 import scipy.stats
 
-__version__ = "unknown"
 from ._version import __version__
+
+if TYPE_CHECKING:
+    from mrestimator.coefficients import CoefficientResult
 
 log = logging.getLogger("mrestimator")
 _log_locals = False
@@ -17,12 +20,13 @@ _log_locals = False
 # ------------------------------------------------------------------ #
 
 
-def _c_rk_greater_zero(data, plim=0.1):
+def _c_rk_greater_zero(data: "CoefficientResult", plim=0.1):
     """
     check rk are signigicantly larger than 0
 
     returns True if the test passed (and the null hypothesis was rejected)
     """
+    from mrestimator.coefficients import CoefficientResult
     if not isinstance(data, CoefficientResult):
         log.exception("_c_rk_greater_zero needs a CoefficientResult")
         raise TypeError
@@ -36,12 +40,13 @@ def _c_rk_greater_zero(data, plim=0.1):
     return passed, t, p
 
 
-def _c_rk_smaller_one(data, plim=0.1):
+def _c_rk_smaller_one(data: "CoefficientResult", plim=0.1):
     """
     check rk are signigicantly smaller than 1, this should fail if m>1
 
     returns True if the test passed (and the null hypothesis was rejected)
     """
+    from mrestimator.coefficients import CoefficientResult
     if not isinstance(data, CoefficientResult):
         log.exception("_c_rk_smaller_one needs a CoefficientResult")
         raise TypeError

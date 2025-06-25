@@ -4,6 +4,9 @@ import os
 import re
 
 from mrestimator import utility as ut
+from mrestimator._version import __version__
+from mrestimator.coefficients import CoefficientResult
+from mrestimator.fit import FitResult
 
 log = ut.log
 import matplotlib
