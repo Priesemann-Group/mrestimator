@@ -1,0 +1,20 @@
+name: Publish to PyPI.org
+on:
+  release:
+    types: [published]
+jobs:
+  pypi:
+    name: upload release to PyPI
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      # IMPORTANT: this permission is mandatory for Trusted Publishing
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: python3 -m pip install --upgrade build && python3 -m build
+      - name: Publish package to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

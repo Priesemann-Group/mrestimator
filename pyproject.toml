@@ -1,0 +1,90 @@
+[build-system]
+requires = ["setuptools>=45", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+
+[project]
+name = "mrestimator"
+authors = [
+    { name = "The Priesemann Group"},
+    { name = "Paul Spitzner", email = "paul.spitzner@ds.mpg.de" },
+    { name = "Jonas Dehning", email = "jonas.dehning@ds.mpg.de" },
+]
+description = "Toolbox for the Multistep Regression Estimator."
+readme = "README.md"
+classifiers = [
+  "License :: OSI Approved :: BSD License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+]
+dynamic = ["version"]
+requires-python = '>=3.10.0'
+dependencies = [
+    "numpy >= 1.11",
+    "scipy >= 1.0.0",
+    "matplotlib >= 1.7.0",
+]
+
+[project.optional-dependencies]
+full = [
+    "numba>=0.44",
+    "tqdm",
+]
+numba = [
+    "numba>=0.44",
+]
+dev = [
+    "mrestimator[full]",
+    "pre-commit >= 3.3.2",
+    "ruff >= 0.0.272",
+]
+
+[project.urls]
+Homepage = "https://github.com/Priesemann-Group/mrestimator"
+"Bug Tracker" = "https://github.com/Priesemann-Group/mrestimator/issues"
+
+
+[tool.ruff.lint]
+ignore = [
+    "E721", # ignore type comparisons
+    "E731", # ignore lambdas rewrites
+    "E741", # ignore ambiguous variable names, because of the example of the S,I,R model
+    "UP007", # don't reformat Optional[...] to ... | None as it isn't supported by
+             # autodoc
+    "F405",
+    "F403",
+    "F402",
+    "E722", # bare excepts
+    "E402", # module level import not at top of file
+]
+select = [
+    "E", # pycodestyle
+    "F", # Pyflakes
+    "UP", # pyupgrade
+    "B", # flake8-bugbear
+    "I", # isort
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Ignore `F401` (unused imports) in all `__init__.py` files.
+"__init__.py" = ["F401"]
+
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.setuptools]
+packages = ["mrestimator"]
+
+[tool.setuptools_scm]
+write_to = "mrestimator/_version.py"
+
+
+
+
+

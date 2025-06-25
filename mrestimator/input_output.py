@@ -1,80 +1,75 @@
-import re
-import os
 import glob
 import inspect
-import logging
+import os
+import re
 
 from mrestimator import utility as ut
 
 log = ut.log
-from mrestimator import CoefficientResult
-from mrestimator import FitResult
-from mrestimator import __version__
-
-import numpy as np
 import matplotlib
+import numpy as np
 
 import matplotlib.pyplot as plt
 
 
 def input_handler(items, **kwargs):
     """
-        Helper function that attempts to detect provided input and convert it
-        to the format used by the toolbox. Ideally, you provide the native
-        format, a :class:`numpy.ndarray` of ``shape(numtrials, datalength)``.
+    Helper function that attempts to detect provided input and convert it
+    to the format used by the toolbox. Ideally, you provide the native
+    format, a :class:`numpy.ndarray` of ``shape(numtrials, datalength)``.
 
-        *Not implemented yet*:
-        All trials should have the same data length, otherwise they will be
-        padded.
+    *Not implemented yet*:
+    All trials should have the same data length, otherwise they will be
+    padded.
 
-        The toolbox uses two dimensional `ndarrays` for
-        providing the data to/from functions. This allows to
-        consistently access trials and data via the first and second index,
-        respectively.
+    The toolbox uses two dimensional `ndarrays` for
+    providing the data to/from functions. This allows to
+    consistently access trials and data via the first and second index,
+    respectively.
 
-        Parameters
-        ----------
-        items : str, list or ~numpy.ndarray
-            A `string` is assumed to be the path to
-            file that is then imported as pickle or plain text.
-            Wildcards should work.
-            Alternatively, you can provide a `list` or `ndarray` containing
-            strings or already imported data. In the latter case,
-            `input_handler` attempts to convert it to the right format.
+    Parameters
+    ----------
+    items : str, list or ~numpy.ndarray
+        A `string` is assumed to be the path to
+        file that is then imported as pickle or plain text.
+        Wildcards should work.
+        Alternatively, you can provide a `list` or `ndarray` containing
+        strings or already imported data. In the latter case,
+        `input_handler` attempts to convert it to the right format.
 
-        kwargs
-            Keyword arguments passed to :func:`numpy.loadtxt` when filenames
-            are detected (see numpy documentation for a full list).
-            For instance, you can provide ``usecols=(1,2)``
-            if your files have multiple columns and only the column 1 and 2
-            contain trial data you want to use.
-            The input handler adds each column in each file to the list of
-            trials.
+    kwargs
+        Keyword arguments passed to :func:`numpy.loadtxt` when filenames
+        are detected (see numpy documentation for a full list).
+        For instance, you can provide ``usecols=(1,2)``
+        if your files have multiple columns and only the column 1 and 2
+        contain trial data you want to use.
+        The input handler adds each column in each file to the list of
+        trials.
 
-        Returns
-        -------
-        : :class:`~numpy.ndarray`
-            containing your data (hopefully)
-            formatted correctly. Access via ``[trial, datapoint]``
+    Returns
+    -------
+    : :class:`~numpy.ndarray`
+        containing your data (hopefully)
+        formatted correctly. Access via ``[trial, datapoint]``
 
-        Example
-        -------
-        .. code-block:: python
+    Example
+    -------
+    .. code-block:: python
 
-            # import a single file
-            prepared = mre.input_handler('/path/to/yourfiles/trial_1.csv')
-            print(prepared.shape)
+        # import a single file
+        prepared = mre.input_handler('/path/to/yourfiles/trial_1.csv')
+        print(prepared.shape)
 
-            # or from a list of files
-            myfiles = ['~/data/file_0.csv', '~/data/file_1.csv']
-            prepared = mre.input_handler(myfiles)
+        # or from a list of files
+        myfiles = ['~/data/file_0.csv', '~/data/file_1.csv']
+        prepared = mre.input_handler(myfiles)
 
-            # all files matching the wildcard, but only columns 3 and 4
-            prepared = mre.input_handler('~/data/file_*.csv', usecols=(3, 4))
+        # all files matching the wildcard, but only columns 3 and 4
+        prepared = mre.input_handler('~/data/file_*.csv', usecols=(3, 4))
 
-            # access your data, e.g. measurement 10 of trial 3
-            pt = prepared[3, 10]
-        ..
+        # access your data, e.g. measurement 10 of trial 3
+        pt = prepared[3, 10]
+    ..
     """
     invstr = (
         "\nInvalid input, please provide one of the following:\n"
@@ -101,7 +96,7 @@ def input_handler(items, **kwargs):
                 temp.update(glob.glob(os.path.expanduser(item)))
             if len(items) != len(temp):
                 log.debug(
-                    "{} duplicate files were excluded".format(len(items) - len(temp))
+                    f"{len(items) - len(temp)} duplicate files were excluded"
                 )
             items = temp
         else:
@@ -114,7 +109,7 @@ def input_handler(items, **kwargs):
                 log.debug("Parsing to numpy ndarray as float")
                 items = np.asarray(items, dtype=float)
                 situation = 0
-            except Exception as e:
+            except Exception:
                 log.debug("Exception caught, parsing as file path", exc_info=True)
             situation = 1
             temp = set()
@@ -122,7 +117,7 @@ def input_handler(items, **kwargs):
                 temp.update(glob.glob(os.path.expanduser(item)))
             if len(items) != len(temp):
                 log.debug(
-                    "{} duplicate files were excluded".format(len(items) - len(temp))
+                    f"{len(items) - len(temp)} duplicate files were excluded"
                 )
             items = temp
         elif all(isinstance(item, np.ndarray) for item in items):
@@ -136,11 +131,11 @@ def input_handler(items, **kwargs):
                 )
                 situation = 0
                 items = np.asarray(items, dtype=float)
-            except Exception as e:
+            except Exception:
                 log.exception("%s", invstr)
                 raise
     elif isinstance(items, str):
-        log.info("input_handler() detected filepath '{}'".format(items))
+        log.info(f"input_handler() detected filepath '{items}'")
         items = glob.glob(os.path.expanduser(items))
         situation = 1
     else:
@@ -156,16 +151,16 @@ def input_handler(items, **kwargs):
             # glob of earlyier analysis returns nothing if file not found
             log.exception(
                 "Specifying absolute file path is recommended, "
-                + "input_handler() was looking in {}\n".format(os.getcwd())
+                + f"input_handler() was looking in {os.getcwd()}\n"
                 + "\tUse 'os.chdir(os.path.dirname(__file__))' to set the "
                 + "working directory to the location of your script file"
             )
             raise FileNotFoundError
 
         data = []
-        for idx, item in enumerate(items):
+        for _idx, item in enumerate(items):
             try:
-                log.debug("Loading with np.loadtxt: {}".format(item))
+                log.debug(f"Loading with np.loadtxt: {item}")
                 if "unpack" in kwargs and not kwargs.get("unpack"):
                     log.warning(
                         "Argument 'unpack=False' is not recommended,"
@@ -183,9 +178,9 @@ def input_handler(items, **kwargs):
                     kwargs = dict(kwargs, usecols=[kwargs.get("usecols")])
                 result = np.loadtxt(item, **kwargs)
                 data.append(result)
-            except Exception as e:
+            except Exception:
                 log.debug(
-                    "Exception caught, Loading with np.load " + "{}".format(item),
+                    "Exception caught, Loading with np.load " + f"{item}",
                     exc_info=True,
                 )
                 result = np.load(item)
@@ -198,8 +193,8 @@ def input_handler(items, **kwargs):
             minleny = min(l.shape[1] for l in data)
 
             log.debug(
-                "Files have different length, resizing to shortest "
-                "one ({}, {})".format(minlenx, minleny),
+                f"Files have different length, resizing to shortest one "
+                f"({minlenx}, {minleny})",
                 exc_info=True,
             )
             for d, dat in enumerate(data):
@@ -221,111 +216,111 @@ def input_handler(items, **kwargs):
     else:
         log.warning(
             "input_handler() guessed data type incorrectly to shape "
-            + "{}, please try something else".format(retdata.shape)
+            + f"{retdata.shape}, please try something else"
         )
         return retdata
 
 
 class OutputHandler:
     """
-        The OutputHandler can be used to export results and to
-        create charts with
-        timeseries, correlation-coefficients or fits.
+    The OutputHandler can be used to export results and to
+    create charts with
+    timeseries, correlation-coefficients or fits.
 
-        The main concept is to have one handler per plot. It contains
-        functions to add content into an existing matplotlib axis (subplot),
-        or, if not provided, creates a new figure.
-        Most importantly, it also exports plaintext of the respective source
-        material so figures are reproducible.
+    The main concept is to have one handler per plot. It contains
+    functions to add content into an existing matplotlib axis (subplot),
+    or, if not provided, creates a new figure.
+    Most importantly, it also exports plaintext of the respective source
+    material so figures are reproducible.
 
-        Note: If you want to have a live preview of the figures that are
-        automatically generated with matplotlib, you HAVE to assign the result
-        of `mre.OutputHandler()` to a variable. Otherwise, the created figures
-        are not retained and vanish instantly.
+    Note: If you want to have a live preview of the figures that are
+    automatically generated with matplotlib, you HAVE to assign the result
+    of `mre.OutputHandler()` to a variable. Otherwise, the created figures
+    are not retained and vanish instantly.
 
-        Attributes
-        ----------
-        rks: list
-            List of the :obj:`CoefficientResult`. Added with `add_coefficients()`
+    Attributes
+    ----------
+    rks: list
+        List of the :obj:`CoefficientResult`. Added with `add_coefficients()`
 
-        fits: list
-            List of the :obj:`FitResult`. Added with `add_fit()`
+    fits: list
+        List of the :obj:`FitResult`. Added with `add_fit()`
 
-        Example
-        -------
-        .. code-block:: python
+    Example
+    -------
+    .. code-block:: python
 
-            import numpy as np
-            import matplotlib.pyplot as plt
-            import mrestimator as mre
+        import numpy as np
+        import matplotlib.pyplot as plt
+        import mrestimator as mre
 
-            bp  = mre.simulate_branching(numtrials=15)
-            rk1 = mre.coefficients(bp, method='trialseparated',
-                desc='T')
-            rk2 = mre.coefficients(bp, method='stationarymean',
-                desc='S')
+        bp  = mre.simulate_branching(numtrials=15)
+        rk1 = mre.coefficients(bp, method='trialseparated',
+            desc='T')
+        rk2 = mre.coefficients(bp, method='stationarymean',
+            desc='S')
 
-            m1 = mre.fit(rk1)
-            m2 = mre.fit(rk2)
+        m1 = mre.fit(rk1)
+        m2 = mre.fit(rk2)
 
-            # create a new handler by passing with list of elements
-            out = mre.OutputHandler([rk1, m1])
+        # create a new handler by passing with list of elements
+        out = mre.OutputHandler([rk1, m1])
 
-            # manually add elements
-            out.add_coefficients(rk2)
-            out.add_fit(m2)
+        # manually add elements
+        out.add_coefficients(rk2)
+        out.add_fit(m2)
 
-            # save the plot and meta to disk
-            out.save('~/test')
-        ..
+        # save the plot and meta to disk
+        out.save('~/test')
+    ..
 
-        Working with existing figures:
+    Working with existing figures:
 
-        .. code-block:: python
+    .. code-block:: python
 
-            # create figure with subplots
-            fig = plt.figure()
-            ax1 = fig.add_subplot(221)
-            ax2 = fig.add_subplot(222)
-            ax3 = fig.add_subplot(223)
-            ax4 = fig.add_subplot(224)
+        # create figure with subplots
+        fig = plt.figure()
+        ax1 = fig.add_subplot(221)
+        ax2 = fig.add_subplot(222)
+        ax3 = fig.add_subplot(223)
+        ax4 = fig.add_subplot(224)
 
-            # show each chart in its own subplot
-            mre.OutputHandler(rk1, ax1)
-            mre.OutputHandler(rk2, ax2)
-            mre.OutputHandler(m1, ax3)
-            mre.OutputHandler(m2, ax4)
+        # show each chart in its own subplot
+        mre.OutputHandler(rk1, ax1)
+        mre.OutputHandler(rk2, ax2)
+        mre.OutputHandler(m1, ax3)
+        mre.OutputHandler(m2, ax4)
 
-            # matplotlib customisations
-            myaxes = [ax1, ax2, ax3, ax4]
-            for ax in myaxes:
-                ax.spines['top'].set_visible(False)
-                ax.spines['right'].set_visible(False)
+        # matplotlib customisations
+        myaxes = [ax1, ax2, ax3, ax4]
+        for ax in myaxes:
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
 
-            plt.show(block=False)
+        plt.show(block=False)
 
-            # hide a legend
-            ax1.legend().set_visible(False)
-            plt.draw()
-        ..
+        # hide a legend
+        ax1.legend().set_visible(False)
+        plt.draw()
+    ..
     """
 
     def __init__(self, data=None, ax=None):
         """
-            Construct a new OutputHandler, optionally you can provide
-            the a list of elements to plot.
+        Construct a new OutputHandler, optionally you can provide
+        the a list of elements to plot.
 
-            ToDo: Make the OutputHandler talk to each other so that
-            when one is written (possibly linked to others via one figure)
-            all subfigure meta data is exported, too.
+        ToDo: Make the OutputHandler talk to each other so that
+        when one is written (possibly linked to others via one figure)
+        all subfigure meta data is exported, too.
 
-            Parameters
-            ----------
-            data : list, CoefficientResult or FitResult, optional
-                List of the elements to plot/export. Can be added later.
+        Parameters
+        ----------
+        data : list, CoefficientResult or FitResult, optional
+            List of the elements to plot/export. Can be added later.
 
-            ax : ~matplotlib.axes.Axes, optional
-                The an instance of a matplotlib axes (a subplot) to plot into.
+        ax : ~matplotlib.axes.Axes, optional
+            The an instance of a matplotlib axes (a subplot) to plot into.
         """
         if isinstance(ax, matplotlib.axes.Axes):
             self.ax = ax
@@ -386,77 +381,77 @@ class OutputHandler:
 
     def __del__(self):
         """
-            close opened figures when outputhandler is no longer used
+        close opened figures when outputhandler is no longer used
         """
         if not self.axshared:
             try:
                 plt.close(self.ax.figure)
                 # pass
-            except Exception as e:
+            except Exception:
                 log.debug("Exception passed", exc_info=True)
 
     def set_xdata(self, data=None, dt=1, dtunit=None):
         """
-            Adjust xdata of the plot, matching the input value.
-            Returns an array of indices matching the incoming indices to
-            already present ones. Automatically called when adding content.
+        Adjust xdata of the plot, matching the input value.
+        Returns an array of indices matching the incoming indices to
+        already present ones. Automatically called when adding content.
 
-            If you want to customize the plot range, add all the content
-            and use matplotlibs
-            :obj:`~matplotlib.axes.Axes.set_xlim` function once at the end.
-            (`set_xdata()` also manages meta data and can only *increase* the
-            plot range)
+        If you want to customize the plot range, add all the content
+        and use matplotlibs
+        :obj:`~matplotlib.axes.Axes.set_xlim` function once at the end.
+        (`set_xdata()` also manages meta data and can only *increase* the
+        plot range)
 
-            Parameters
-            ----------
-            data : ~numpy.array
-                x-values to plot the fits for. `data` does not need to be
-                spaced equally but is assumed to be sorted.
+        Parameters
+        ----------
+        data : ~numpy.array
+            x-values to plot the fits for. `data` does not need to be
+            spaced equally but is assumed to be sorted.
 
-            dt : float
-                check if existing data can be mapped to the new, provided `dt`
-                or the other way around. `set_xdata()` pads
-                undefined areas with `nan`.
+        dt : float
+            check if existing data can be mapped to the new, provided `dt`
+            or the other way around. `set_xdata()` pads
+            undefined areas with `nan`.
 
-            dtunit : str
-                check if the new `dtunit` matches the one set previously. Any
-                padding to match `dt` is only done if `dtunits` are the same,
-                otherwise the plot falls back to using generic integer steps.
+        dtunit : str
+            check if the new `dtunit` matches the one set previously. Any
+            padding to match `dt` is only done if `dtunits` are the same,
+            otherwise the plot falls back to using generic integer steps.
 
-            Returns
-            -------
-            : :class:`~numpy.array`
-                containing the indices where the `data` given to this function
-                coincides with (possibly) already existing data that was
-                added/plotted before.
+        Returns
+        -------
+        : :class:`~numpy.array`
+            containing the indices where the `data` given to this function
+            coincides with (possibly) already existing data that was
+            added/plotted before.
 
-            Example
-            -------
-            .. code-block:: python
+        Example
+        -------
+        .. code-block:: python
 
-                out = mre.OutputHandler()
+            out = mre.OutputHandler()
 
-                # 100 intervals of 2ms
-                out.set_xdata(np.arange(0,100), dt=2, dtunit='ms')
+            # 100 intervals of 2ms
+            out.set_xdata(np.arange(0,100), dt=2, dtunit='ms')
 
-                # increase resolution to 1ms for the first 50ms
-                # this changes the existing structure in the meta data. also
-                # the axis of `out` is not equally spaced anymore
-                fiftyms = np.arange(0,50)
-                out.set_xdata(fiftyms, dt=1, dtunit='ms')
+            # increase resolution to 1ms for the first 50ms
+            # this changes the existing structure in the meta data. also
+            # the axis of `out` is not equally spaced anymore
+            fiftyms = np.arange(0,50)
+            out.set_xdata(fiftyms, dt=1, dtunit='ms')
 
-                # data with larger intervals is less dense, the returned list
-                # tells you which index in `out` belongs to every index
-                # in `xdat`
-                xdat = np.arange(0,50)
-                ydat = np.random_sample(50)
-                inds = out.set_xdata(xdat, dt=4, dtunit='ms')
+            # data with larger intervals is less dense, the returned list
+            # tells you which index in `out` belongs to every index
+            # in `xdat`
+            xdat = np.arange(0,50)
+            ydat = np.random_sample(50)
+            inds = out.set_xdata(xdat, dt=4, dtunit='ms')
 
-                # to pad `ydat` to match the axis of `out`:
-                temp = np.full(out.xdata.size, np.nan)
-                temp[inds] = ydat
+            # to pad `ydat` to match the axis of `out`:
+            temp = np.full(out.xdata.size, np.nan)
+            temp[inds] = ydat
 
-            ..
+        ..
         """
         log.debug("OutputHandler.set_xdata()")
         # make sure data is not altered
@@ -509,16 +504,16 @@ class OutputHandler:
             scd = dt / self.dt
             if float(scd).is_integer():
                 log.debug(
-                    "Changing axis values of new data (dt={})".format(dt)
+                    f"Changing axis values of new data (dt={dt})"
                     + "to match higher resolution of "
-                    + "old xaxis (dt={})".format(self.dt)
+                    + f"old xaxis (dt={self.dt})"
                 )
                 scd = dt / self.dt
                 xdata *= scd
             else:
                 log.warning(
-                    "New 'dt={}' is not an integer multiple of ".format(dt)
-                    + "the previous 'dt={}\n".format(self.dt)
+                    f"New 'dt={dt}' is not an integer multiple of "
+                    + f"the previous 'dt={self.dt}\n"
                     + "Plotting with '[different units]'\n"
                     + "As a workaround, try adding the data with the "
                     + "smallest 'dt' first"
@@ -535,8 +530,8 @@ class OutputHandler:
             scd = self.dt / dt
             if float(scd).is_integer():
                 log.debug(
-                    "Changing 'dt' to new value 'dt={}'\n".format(dt)
-                    + "\tAdjusting existing axis values (dt={})".format(self.dt)
+                    f"Changing 'dt' to new value 'dt={dt}'\n"
+                    + f"\tAdjusting existing axis values (dt={self.dt})"
                 )
                 self.xdata *= scd
                 self.dt = dt
@@ -544,10 +539,10 @@ class OutputHandler:
                     regex = r"\[.*?\]"
                     oldlabel = self.ax.get_xlabel()
                     if self.dt == 1:
-                        newlabel = str("[{}]".format(self.dtunit))
+                        newlabel = str(f"[{self.dtunit}]")
                     else:
                         newlabel = str(
-                            "[{} {}]".format(ut._printeger(self.dt), self.dtunit)
+                            f"[{ut._printeger(self.dt)} {self.dtunit}]"
                         )
                     self.ax.set_xlabel(re.sub(regex, newlabel, oldlabel))
                     self.xlabel = re.sub(regex, newlabel, self.xlabel)
@@ -555,8 +550,8 @@ class OutputHandler:
                     pass
             else:
                 log.warning(
-                    "old 'dt={}' is not an integer multiple ".format(self.dt)
-                    + "of the new value 'dt={}'\n".format(self.dt)
+                    f"old 'dt={self.dt}' is not an integer multiple "
+                    + f"of the new value 'dt={self.dt}'\n"
                     + "\tPlotting with '[different units]'\n"
                 )
                 try:
@@ -587,32 +582,32 @@ class OutputHandler:
 
     def add_coefficients(self, data, **kwargs):
         """
-            Add an individual CoefficientResult. Note that it is not possible
-            to add the same data twice, instead it will be redrawn with
-            the new arguments/style options provided.
+        Add an individual CoefficientResult. Note that it is not possible
+        to add the same data twice, instead it will be redrawn with
+        the new arguments/style options provided.
 
-            Parameters
-            ----------
-            data : CoefficientResult
-                Added to the list of plotted elements.
+        Parameters
+        ----------
+        data : CoefficientResult
+            Added to the list of plotted elements.
 
-            kwargs
-                Keyword arguments passed to
-                :obj:`matplotlib.axes.Axes.plot`. Use to customise the
-                plots. If a `label` is set via `kwargs`, it will be used to
-                overwrite the description of `data` in the meta file.
-                If an alpha value is or linestyle is set, the shaded error
-                region will be omitted.
+        kwargs
+            Keyword arguments passed to
+            :obj:`matplotlib.axes.Axes.plot`. Use to customise the
+            plots. If a `label` is set via `kwargs`, it will be used to
+            overwrite the description of `data` in the meta file.
+            If an alpha value is or linestyle is set, the shaded error
+            region will be omitted.
 
-            Example
-            -------
-            .. code-block:: python
+        Example
+        -------
+        .. code-block:: python
 
-                rk = mre.coefficients(mre.simulate_branching())
+            rk = mre.coefficients(mre.simulate_branching())
 
-                mout = mre.OutputHandler()
-                mout.add_coefficients(rk, color='C1', label='test')
-            ..
+            mout = mre.OutputHandler()
+            mout.add_coefficients(rk, color='C1', label='test')
+        ..
         """
         if not isinstance(data, CoefficientResult):
             log.exception("'data' needs to be of type CoefficientResult")
@@ -661,14 +656,12 @@ class OutputHandler:
             self.dt = data.dt
             self.dtunit = data.dtunit
             if self.dt == 1:
-                self.xlabel = "steps[{}]".format(data.dtunit)
-                self.ax.set_xlabel("k [{}]".format(data.dtunit))
+                self.xlabel = f"steps[{data.dtunit}]"
+                self.ax.set_xlabel(f"k [{data.dtunit}]")
             else:
-                self.xlabel = "steps[{} {}]".format(
-                    ut._printeger(data.dt, 5), data.dtunit
-                )
+                self.xlabel = f"steps[{ut._printeger(data.dt, 5)} {data.dtunit}]"
                 self.ax.set_xlabel(
-                    "k [{} {}]".format(ut._printeger(data.dt, 5), data.dtunit)
+                    f"k [{ut._printeger(data.dt, 5)} {data.dtunit}]"
                 )
             self.ax.set_ylabel("$r_{k}$")
             self.ax.set_title("Correlation", fontweight="bold")
@@ -678,7 +671,7 @@ class OutputHandler:
         if data in self.rks:
             indrk = self.rks.index(data)
             log.warning(
-                "Coefficients ({}/{}) ".format(self.rklabels[indrk][0], label)
+                f"Coefficients ({self.rklabels[indrk][0]}/{label}) "
                 + "have already been added\n\tOverwriting with new style"
             )
             del self.rks[indrk]
@@ -773,24 +766,24 @@ class OutputHandler:
 
     def add_fit(self, data, **kwargs):
         """
-            Add an individual FitResult. By default, the part of the fit that
-            contributed to the fitting is drawn solid, the remaining range
-            is dashed. Note that it is not possible
-            to add the same data twice, instead it will be redrawn with
-            the new arguments/style options provided.
+        Add an individual FitResult. By default, the part of the fit that
+        contributed to the fitting is drawn solid, the remaining range
+        is dashed. Note that it is not possible
+        to add the same data twice, instead it will be redrawn with
+        the new arguments/style options provided.
 
-            Parameters
-            ----------
-            data : FitResult
-                Added to the list of plotted elements.
+        Parameters
+        ----------
+        data : FitResult
+            Added to the list of plotted elements.
 
-            kwargs
-                Keyword arguments passed to
-                :obj:`matplotlib.axes.Axes.plot`. Use to customise the
-                plots. If a `label` is set via `kwargs`, it will be added
-                as a note in the meta data. If `linestyle` is set, the
-                dashed plot of the region not contributing to the fit is
-                omitted.
+        kwargs
+            Keyword arguments passed to
+            :obj:`matplotlib.axes.Axes.plot`. Use to customise the
+            plots. If a `label` is set via `kwargs`, it will be added
+            as a note in the meta data. If `linestyle` is set, the
+            dashed plot of the region not contributing to the fit is
+            omitted.
         """
         if not isinstance(data, FitResult):
             log.exception("'data' needs to be of type FitResult")
@@ -807,10 +800,10 @@ class OutputHandler:
         if self.xdata is None:
             self.dt = data.dt
             self.dtunit = data.dtunit
-            self.ax.set_xlabel("k [{} {}]".format(data.dt, data.dtunit))
+            self.ax.set_xlabel(f"k [{data.dt} {data.dtunit}]")
             self.ax.set_ylabel("$r_{k}$")
             self.ax.set_title("Correlation", fontweight="bold")
-        inds = self.set_xdata(data.steps, dt=data.dt, dtunit=data.dtunit)
+        self.set_xdata(data.steps, dt=data.dt, dtunit=data.dtunit)
 
         # description for fallback
         desc = str(data.desc)
@@ -834,7 +827,7 @@ class OutputHandler:
         if data in self.fits:
             indfit = self.fits.index(data)
             log.warning(
-                "Fit was already added ({})\n".format(self.fitlabels[indfit])
+                f"Fit was already added ({self.fitlabels[indfit]})\n"
                 + "\tOverwriting with new style"
             )
             del self.fits[indfit]
@@ -928,35 +921,35 @@ class OutputHandler:
 
     def add_ts(self, data, **kwargs):
         """
-            Add timeseries (possibly with trial structure).
-            Not compatible with OutputHandlers that have data added via
-            `add_fit()` or `add_coefficients()`.
+        Add timeseries (possibly with trial structure).
+        Not compatible with OutputHandlers that have data added via
+        `add_fit()` or `add_coefficients()`.
 
-            Parameters
-            ----------
-            data : ~numpy.ndarray
-                The timeseries to plot. If the `ndarray` is two dimensional,
-                a trial structure is assumed and all trials are plotted using
-                the same style (default or defined via `kwargs`).
-                *Not implemented yet*: Providing a ts with its own custom axis
+        Parameters
+        ----------
+        data : ~numpy.ndarray
+            The timeseries to plot. If the `ndarray` is two dimensional,
+            a trial structure is assumed and all trials are plotted using
+            the same style (default or defined via `kwargs`).
+            *Not implemented yet*: Providing a ts with its own custom axis
 
-            kwargs
-                Keyword arguments passed to
-                :obj:`matplotlib.axes.Axes.plot`. Use to customise the
-                plots.
+        kwargs
+            Keyword arguments passed to
+            :obj:`matplotlib.axes.Axes.plot`. Use to customise the
+            plots.
 
-            Example
-            -------
-            .. code-block:: python
+        Example
+        -------
+        .. code-block:: python
 
-                bp = mre.simulate_branching(numtrials=10)
+            bp = mre.simulate_branching(numtrials=10)
 
-                tsout = mre.OutputHandler()
-                tsout.add_ts(bp, alpha=0.1, label='Trials')
-                tsout.add_ts(np.mean(bp, axis=0), label='Mean')
+            tsout = mre.OutputHandler()
+            tsout.add_ts(bp, alpha=0.1, label='Trials')
+            tsout.add_ts(np.mean(bp, axis=0), label='Mean')
 
-                plt.show()
-            ..
+            plt.show()
+        ..
         """
         if not (self.type is None or self.type == "timeseries"):
             log.exception(
@@ -976,10 +969,10 @@ class OutputHandler:
             raise NotImplementedError
 
         desc = kwargs.get("label") if "label" in kwargs else "ts"
-        color = kwargs.get("color") if "color" in kwargs else None
+        kwargs.get("color") if "color" in kwargs else None
         alpha = kwargs.get("alpha") if "alpha" in kwargs else None
         # per default, if more than one series provided reduce alpha
-        if data.shape[0] > 1 and not "alpha" in kwargs:
+        if data.shape[0] > 1 and "alpha" not in kwargs:
             alpha = 0.1
         kwargs = dict(kwargs, alpha=alpha)
 
@@ -1003,7 +996,7 @@ class OutputHandler:
             #     self.ydata = np.vstack((self.ydata, dat))
             self.ydata.append(dat)
 
-            self.ylabels.append(desc + "[{}]".format(idx) if len(data) > 1 else desc)
+            self.ylabels.append(desc + f"[{idx}]" if len(data) > 1 else desc)
             (p,) = self.ax.plot(self.xdata, dat, **kwargs)
 
             # dont plot an empty legend
@@ -1017,28 +1010,28 @@ class OutputHandler:
 
     def save(self, fname="", ftype="pdf", dpi=300):
         """
-            Saves plots (ax element of this handler) and source that it was
-            created from to the specified location.
+        Saves plots (ax element of this handler) and source that it was
+        created from to the specified location.
 
-            Parameters
-            ----------
-            fname : str, optional
-                Path where to save, without file extension. Defaults to "./mre"
+        Parameters
+        ----------
+        fname : str, optional
+            Path where to save, without file extension. Defaults to "./mre"
         """
         self.save_plot(fname, ftype=ftype, dpi=dpi)
         self.save_meta(fname)
 
     def save_plot(self, fname="", ftype="pdf", dpi=300):
         """
-            Only saves plots (ignoring the source) to the specified location.
+        Only saves plots (ignoring the source) to the specified location.
 
-            Parameters
-            ----------
-            fname : str, optional
-                Path where to save, without file extension. Defaults to "./mre"
+        Parameters
+        ----------
+        fname : str, optional
+            Path where to save, without file extension. Defaults to "./mre"
 
-            ftype: str, optional
-                So far, only 'pdf' and 'png' are implemented.
+        ftype: str, optional
+            So far, only 'pdf' and 'png' are implemented.
         """
         if not isinstance(fname, str):
             fname = str(fname)
@@ -1054,25 +1047,25 @@ class OutputHandler:
         if isinstance(ftype, str):
             ftype = [ftype]
         for t in list(ftype):
-            log.info("Saving plot to {}.{}".format(fname, t.lower()))
+            log.info(f"Saving plot to {fname}.{t.lower()}")
             if t.lower() == "pdf":
                 self.ax.figure.savefig(fname + ".pdf", dpi=dpi)
             elif t.lower() == "png":
                 self.ax.figure.savefig(fname + ".png", dpi=dpi)
             else:
-                log.exception("Unsupported file format '{}'".format(t))
+                log.exception(f"Unsupported file format '{t}'")
                 raise ValueError
 
     def save_meta(self, fname=""):
         """
-            Saves only the details/source used to create the plot. It is
-            recommended to call this manually, if you decide to save
-            the plots yourself or when you want only the fit results.
+        Saves only the details/source used to create the plot. It is
+        recommended to call this manually, if you decide to save
+        the plots yourself or when you want only the fit results.
 
-            Parameters
-            ----------
-            fname : str, optional
-                Path where to save, without file extension. Defaults to "./mre"
+        Parameters
+        ----------
+        fname : str, optional
+            Path where to save, without file extension. Defaults to "./mre"
         """
         if not isinstance(fname, str):
             fname = str(fname)
@@ -1085,9 +1078,9 @@ class OutputHandler:
 
         fname = os.path.expanduser(fname)
 
-        log.info("Saving meta to {}.tsv".format(fname))
+        log.info(f"Saving meta to {fname}.tsv")
         # fits
-        hdr = "Mr. Estimator v{}\n".format(__version__)
+        hdr = f"Mr. Estimator v{__version__}\n"
         try:
             for fdx, fit in enumerate(self.fits):
                 hdr += "{}\n".format("-" * 72)
@@ -1095,17 +1088,16 @@ class OutputHandler:
                 hdr += "{}\n".format("-" * 72)
                 if fit.desc != "":
                     hdr += "description: " + str(fit.desc) + "\n"
-                hdr += "m = {}\ntau = {} [{}]\n".format(fit.mre, fit.tau, fit.dtunit)
+                hdr += f"m = {fit.mre}\ntau = {fit.tau} [{fit.dtunit}]\n"
                 if fit.quantiles is not None:
-                    hdr += "quantiles | tau [{}] | m:\n".format(fit.dtunit)
-                    for i, q in enumerate(fit.quantiles):
-                        hdr += "{:6.3f} | ".format(fit.quantiles[i])
-                        hdr += "{:8.3f} | ".format(fit.tauquantiles[i])
-                        hdr += "{:8.8f}\n".format(fit.mrequantiles[i])
+                    hdr += f"quantiles | tau [{fit.dtunit}] | m:\n"
+                    for i, _q in enumerate(fit.quantiles):
+                        hdr += f"{fit.quantiles[i]:6.3f} | "
+                        hdr += f"{fit.tauquantiles[i]:8.3f} | "
+                        hdr += f"{fit.mrequantiles[i]:8.8f}\n"
                     hdr += "\n"
-                hdr += "fitrange: {} <= k <= {} [{} {}]\n".format(
-                    fit.steps[0], fit.steps[-1], ut._printeger(fit.dt), fit.dtunit
-                )
+                hdr += f"fitrange: {fit.steps[0]} <= k <= {fit.steps[-1]} "
+                hdr += f"[{ut._printenger(fit.dt)} {fit.dtunit}]\n"
                 hdr += "function: " + ut.math_from_doc(fit.fitfunc) + "\n"
                 # hdr += '\twith parameters:\n'
                 parname = list(inspect.signature(fit.fitfunc).parameters)[1:]
@@ -1113,15 +1105,15 @@ class OutputHandler:
                 for pdx, par in enumerate(self.fits[fdx].popt):
                     unit = ""
                     if parname[pdx] == "nu":
-                        unit += "[1/{}]".format(fit.dtunit)
+                        unit += f"[1/{fit.dtunit}]"
                     elif parname[pdx].find("tau") != -1:
-                        unit += "[{}]".format(fit.dtunit)
+                        unit += f"[{fit.dtunit}]"
                     hdr += "\t{: <{width}}".format(
                         parname[pdx] + " " + unit, width=parlen + 5 + len(fit.dtunit)
                     )
-                    hdr += " = {}\n".format(par)
+                    hdr += f" = {par}\n"
                 hdr += "\n"
-        except Exception as e:
+        except Exception:
             log.debug("Exception passed", exc_info=True)
 
         # rks / ts
@@ -1143,8 +1135,8 @@ class OutputHandler:
 
 def overview(src, rks, fits, **kwargs):
     """
-        creates an A4 overview panel and returns the matplotlib figure element.
-        No Argument checks are done
+    creates an A4 overview panel and returns the matplotlib figure element.
+    No Argument checks are done
     """
 
     ratios = np.ones(5)
@@ -1198,14 +1190,14 @@ def overview(src, rks, fits, **kwargs):
             taout.ax.fill_between(
                 np.arange(1, rks[0].numtrials + 1), err1, err2, color=prevclr, alpha=0.2
             )
-        except Exception as e:
+        except Exception:
             log.debug("Exception adding std deviation to plot", exc_info=True)
         taout.ax.set_title("Mean Trial Activity and Std. Deviation", fontweight="bold")
         taout.ax.set_xlabel("Trial i")
         taout.ax.set_ylabel("$\\bar{A}_i$")
     else:
         # running average over the one trial to see if stays stationary
-        numsegs = kwargs.get(numsegs) if "numsegs" in kwargs else 50
+        numsegs = kwargs.get("numsegs") if "numsegs" in kwargs else 50
         ravg = np.zeros(numsegs)
         err1 = np.zeros(numsegs)
         err2 = np.zeros(numsegs)
@@ -1223,10 +1215,10 @@ def overview(src, rks, fits, **kwargs):
             taout.ax.fill_between(
                 np.arange(1, numsegs + 1), err1, err2, color=prevclr, alpha=0.2
             )
-        except Exception as e:
+        except Exception:
             log.debug("Exception adding std deviation to plot", exc_info=True)
         taout.ax.set_title(
-            "Average Activity and Stddev for {} Intervals".format(numsegs),
+            f"Average Activity and Stddev for {numsegs} Intervals",
             fontweight="bold",
         )
         taout.ax.set_xlabel("Interval i")
@@ -1243,16 +1235,14 @@ def overview(src, rks, fits, **kwargs):
     for i, f in enumerate(cout.fits):
         fitcurves.append(cout.fitcurves[i][0])
         label = ut.math_from_doc(f.fitfunc, 5)
-        label += "\n\n$\\tau={:.2f}${}\n".format(f.tau, f.dtunit)
+        label += f"\n\n$\\tau={f.tau:.2f}${f.dtunit}\n"
         if f.tauquantiles is not None:
-            label += "$[{:.2f}:{:.2f}]$\n\n".format(
-                f.tauquantiles[0], f.tauquantiles[-1]
-            )
+            label += f"$[{f.tauquantiles[0]:.2f}:{f.tauquantiles[-1]:.2f}]$\n\n"
         else:
             label += "\n\n"
-        label += "$m={:.5f}$\n".format(f.mre)
+        label += f"$m={f.mre:.5f}$\n"
         if f.mrequantiles is not None:
-            label += "$[{:.5f}:{:.5f}]$".format(f.mrequantiles[0], f.mrequantiles[-1])
+            label += f"$[{f.mrequantiles[0]:.5f}:{f.mrequantiles[-1]:.5f}]$"
         else:
             label += "\n"
         fitlabels.append(label)
@@ -1291,7 +1281,9 @@ def overview(src, rks, fits, **kwargs):
     axes[3].get_legend().get_frame().set_linewidth(0.5)
     axes[3].axis("off")
     axes[3].set_title(
-        "Fitresults", fontweight="bold", loc="center",
+        "Fitresults",
+        fontweight="bold",
+        loc="center",
     )
     axes[3].set_title(
         " (with CI: [$12.5\\%:87.5\\%$])",
@@ -1317,13 +1309,13 @@ def overview(src, rks, fits, **kwargs):
         plt.subplots_adjust(top=0.91)
 
     if "warning" in kwargs and kwargs.get("warning") is not None:
-        s = "\u26A0 {}".format(kwargs.get("warning"))
+        s = "\u26a0 {}".format(kwargs.get("warning"))
         fig.text(0.5, 0.01, s, fontsize=13, horizontalalignment="center", color="red")
 
     fig.text(
         0.995,
         0.005,
-        "v{}".format(__version__),
+        f"v{__version__}",
         fontsize="small",
         horizontalalignment="right",
         color="#646464",
