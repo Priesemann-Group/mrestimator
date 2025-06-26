@@ -5,6 +5,14 @@ import unittest
 import numpy as np
 
 import mrestimator as mre
+from mrestimator.coefficients import (
+    coefficients,
+    sm_method,
+    sm_precompute,
+    ts_method,
+    ts_precompute,
+)
+from mrestimator.simulate import simulate_branching
 from mrestimator.utility import log
 
 
@@ -138,10 +146,6 @@ class TestCorrCoeff(unittest.TestCase):
                     max_difference=0.04 / np.sqrt(numboot),
                 )
             )
-
-
-from mrestimator.coefficients import *
-from mrestimator.simulate import simulate_branching
 
 
 class TestCCKnownMean(unittest.TestCase):

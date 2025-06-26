@@ -1,16 +1,15 @@
 from importlib import metadata as importlib_metadata
 
 from . import utility as ut
-
-ut.initialize()
-log = ut.log
-
 from .coefficients import CoefficientResult, coefficients
 from .fit import *
 from .input_output import *
 from .simulate import *
 from .utility import disable_progressbar, enable_progressbar
 from .wrapper import *
+
+ut.initialize()
+log = ut.log
 
 
 def _get_version():

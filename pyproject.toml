@@ -68,11 +68,7 @@ ignore = [
     "E741", # ignore ambiguous variable names, because of the example of the S,I,R model
     "UP007", # don't reformat Optional[...] to ... | None as it isn't supported by
              # autodoc
-    "F405",
-    "F403",
-    "F402",
     "E722", # bare excepts
-    "E402", # module level import not at top of file
 ]
 select = [
     "E", # pycodestyle
@@ -84,7 +80,8 @@ select = [
 
 [tool.ruff.lint.per-file-ignores]
 # Ignore `F401` (unused imports) in all `__init__.py` files.
-"__init__.py" = ["F401"]
+"__init__.py" = ["F401", "F403", "F405"]
+"tests/__init__.py" = ["F401", "F403", "F405", "E402"]
 
 
 [tool.ruff.lint.pydocstyle]

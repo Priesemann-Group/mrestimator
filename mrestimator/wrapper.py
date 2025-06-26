@@ -1,15 +1,27 @@
 import logging
 import os
 
+import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import rc_context
+from matplotlib.axes import Axes
 
 from mrestimator import utility as ut
+from mrestimator.coefficients import coefficients
+from mrestimator.fit import (
+    f_complex,
+    f_exponential,
+    f_exponential_offset,
+    fit,
+    fitfunc_check,
+)
+from mrestimator.input_output import (
+    OutputHandler,
+    input_handler,
+    overview,
+)
 
 log = ut.log
-from mrestimator.coefficients import coefficients
-from mrestimator.fit import *
-from mrestimator.input_output import *
 
 
 def full_analysis(
@@ -342,7 +354,7 @@ def full_analysis(
         )
         raise TypeError
 
-    if targetplot is not None and not isinstance(targetplot, matplotlib.axes.Axes):
+    if targetplot is not None and not isinstance(targetplot, Axes):
         log.exception(
             "Optional argument 'targetplot' needs "
             + "to be an instance of 'matplotlib.axes.Axes'"

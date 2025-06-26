@@ -6,11 +6,11 @@ import scipy
 import scipy.optimize
 import scipy.stats
 
+from mrestimator import CoefficientResult
 from mrestimator import utility as ut
 
 log = ut.log
 tqdm = ut.tqdm
-from mrestimator import CoefficientResult
 
 
 def f_linear(k, A, O):

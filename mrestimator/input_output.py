@@ -3,15 +3,16 @@ import inspect
 import os
 import re
 
+import matplotlib
+import matplotlib.pyplot as plt
+import numpy as np
+
 from mrestimator import utility as ut
 from mrestimator._version import __version__
 from mrestimator.coefficients import CoefficientResult
 from mrestimator.fit import FitResult
 
 log = ut.log
-import matplotlib
-import matplotlib.pyplot as plt
-import numpy as np
 
 
 def input_handler(items, **kwargs):

@@ -1,7 +1,7 @@
 import os
+import sys
 
 os.chdir(os.path.dirname(__file__))
-import sys
 
 sys.path.append("../../")
 

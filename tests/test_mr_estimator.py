@@ -4,9 +4,6 @@ import unittest
 import numpy as np
 import scipy.optimize
 
-print(__name__)
-
-
 # import mrestimator as mre
 import mrestimator as mre
 from tests.test_coefficients import (
@@ -14,7 +11,8 @@ from tests.test_coefficients import (
     check_similarity,
 )
 
-# Currently not working...
+print(__name__)
+
 
 ######################
 
