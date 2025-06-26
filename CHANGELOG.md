@@ -1,7 +1,13 @@
 Changelog
 =========
 
-[v0.1.9]
+v0.2.0 (28.06.2025)
+--------------------
+
+* Moved to more modern development practices: automatic tests, linter, formatter, upload to PyPI
+
+v0.1.9
+--------
 * removed the display-variable environment check. turned out to get in the way more often than helping.
 * removed large parts of the over-engineered logging (helps with dask)
     - we now simply use `logging.getLogger("mrestimator")`
